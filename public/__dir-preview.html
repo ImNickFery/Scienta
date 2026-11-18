@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>پیش‌نمایش جهت پس‌زمینه</title>
+<style>
+  :root{
+    --color-bg-deep:#05050a; --color-bg-secondary:#0d0d15;
+    --color-accent-purple:#7b3ffb; --color-accent-orange:#ff7a00; --color-accent-red:#ff3c5a;
+    --color-text-primary:#f5f5fa; --color-text-secondary:#a8a8bd; --color-text-tertiary:#6c6c82;
+    --color-border-subtle:rgba(255,255,255,.08);
+    --font-mono:ui-monospace,"JetBrains Mono","SF Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--color-bg-deep);color:var(--color-text-primary);
+       font-family:Tahoma,system-ui,sans-serif;padding:20px}
+  h1{font-size:18px;margin:0 0 4px}
+  .sub{color:var(--color-text-secondary);font-size:13px;margin:0 0 18px;line-height:1.9}
+  .controls{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:22px;
+            font-size:13px;color:var(--color-text-secondary)}
+  label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .wrap{max-width:1120px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 18px}
+  @media (max-width:720px){.grid{grid-template-columns:minmax(0,1fr)}}
+  .colhead{font-size:13px;color:var(--color-text-secondary);padding-bottom:2px;
+           border-bottom:1px solid var(--color-border-subtle);margin-bottom:2px}
+  .rowlab{grid-column:1/-1;font-size:13px;color:var(--color-text-secondary);
+          margin-top:14px;display:flex;align-items:center;gap:8px}
+  .rowlab::after{content:"";flex:1;height:1px;background:var(--color-border-subtle)}
+  .cell{border:1px solid var(--color-border-subtle);border-radius:12px;overflow:hidden;
+        background:var(--color-bg-secondary)}
+  .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;
+       padding:9px 12px;font-size:12px;border-bottom:1px solid var(--color-border-subtle)}
+  .tag{font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:99px}
+  .bad{background:rgba(255,60,90,.15);color:#ff8fa3}
+  .good{background:rgba(80,220,140,.13);color:#6ee7a8}
+  .dirtag{background:rgba(255,255,255,.07);color:var(--color-text-secondary)}
+  .frame{position:relative;overflow:hidden;background:var(--color-bg-deep)}
+  .stage{position:absolute;top:0;left:0;width:900px;height:500px;overflow:hidden;
+         transform-origin:top left}
+
+  /* ---- aurora ---- */
+  .aurora,.formulas{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+  .blob{position:absolute;border-radius:9999px;filter:blur(90px)}
+  .b1{top:-8rem;width:27rem;height:27rem;background:rgba(123,63,251,.30);
+      animation:aurora-shift 18s ease-in-out infinite alternate}
+  .b2{top:0;width:24rem;height:24rem;background:rgba(255,122,0,.20);
+      animation:aurora-shift 22s ease-in-out infinite alternate-reverse}
+  .b3{bottom:-20%;width:22.5rem;height:22.5rem;background:rgba(255,60,90,.20);
+      animation:aurora-shift 26s ease-in-out infinite alternate}
+  .mesh{position:absolute;inset:0;background-image:
+    radial-gradient(45% 55% at 15% 10%,rgba(123,63,251,.35),transparent 60%),
+    radial-gradient(40% 50% at 85% 15%,rgba(255,122,0,.22),transparent 60%),
+    radial-gradient(50% 60% at 50% 100%,rgba(255,60,90,.18),transparent 60%)}
+
+  /* OLD: logical -> mirrors with dir */
+  .old .b1{inset-inline-start:-10%}
+  .old .b2{inset-inline-end:-15%}
+  .old .b3{inset-inline-start:33.333%}
+  /* NEW: physical -> pinned */
+  .new .b1{left:-10%}
+  .new .b2{right:-15%}
+  .new .b3{left:33.333%}
+
+  /* ---- formulas ---- */
+  .f{position:absolute;font-family:var(--font-mono);color:rgba(108,108,130,.30);
+     animation:float-slow 9s ease-in-out infinite;white-space:nowrap;user-select:none}
+  body.hl .f{color:#ffd479;text-shadow:0 0 12px rgba(255,212,121,.45)}
+  .new .formulas{direction:ltr}          /* dir="ltr" on the wrapper */
+  .old .f{inset-inline-start:var(--x)}   /* logical + inherits rtl  */
+  .new .f{left:var(--x)}                 /* physical + ltr text     */
+
+  @keyframes aurora-shift{
+    0%{opacity:.7}
+    50%{transform:translate3d(-2%,2%,0) scale(1.08);opacity:1}
+    100%{transform:translate3d(2%,-2%,0) scale(1.02);opacity:.85}
+  }
+  @keyframes float-slow{
+    0%,100%{transform:translateY(0) rotate(0deg)}
+    50%{transform:translateY(-14px) rotate(2deg)}
+  }
+  body.still *{animation:none !important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>پس‌زمینه‌ی هیرو — LTR در برابر RTL</h1>
+<p class="sub">
+  ردیف بالا کد <b>قبل</b> از تغییر است (<code>inset-inline-start/end</code> بدون قفلِ جهت متن)،
+  ردیف پایین کد <b>بعد</b> از تغییر. ستون راست همان صفحه در حالت فارسی است.
+  اگر درست کار کرده باشد، دو کارت ردیفِ پایین باید کاملاً یکسان باشند.
+</p>
+<div class="controls">
+  <label><input type="checkbox" id="hl" checked> برجسته‌سازی فرمول‌ها</label>
+  <label><input type="checkbox" id="still"> توقف انیمیشن</label>
+</div>
+<div class="grid" id="grid"></div>
+
+<script>
+const F = [
+  { t:"E = mc²",         top:"12%", x:"6%",  d:"0s",   s:"24px" },
+  { t:"∇ · E = ρ/ε₀",    top:"68%", x:"10%", d:"1.4s", s:"18px" },
+  { t:"iħ∂ψ/∂t = Ĥψ",    top:"22%", x:"82%", d:"0.6s", s:"20px" },
+  { t:"∫e^{-x²}dx = √π", top:"78%", x:"78%", d:"2.1s", s:"18px" },
+  { t:"a² + b² = c²",    top:"45%", x:"4%",  d:"3s",   s:"16px" },
+  { t:"F = G(m₁m₂)/r²",  top:"8%",  x:"62%", d:"1s",   s:"16px" },
+];
+
+function stage(mode, dir){
+  const spans = F.map(f =>
+    `<span class="f" style="top:${f.top};--x:${f.x};animation-delay:${f.d};font-size:${f.s}">${f.t}</span>`
+  ).join("");
+  return `<div class="cell">
+    <div class="cap">
+      <span class="tag ${mode==='old'?'bad':'good'}">${mode==='old'?'قبل':'بعد'}</span>
+      <span class="tag dirtag">dir="${dir}"</span>
+    </div>
+    <div class="frame">
+      <div class="stage ${mode}" dir="${dir}">
+        <div class="aurora">
+          <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+          <div class="mesh"></div>
+        </div>
+        <div class="formulas">${spans}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+document.getElementById("grid").innerHTML =
+    `<div class="colhead">انگلیسی — <code>dir="ltr"</code></div>`
+  + `<div class="colhead">فارسی — <code>dir="rtl"</code></div>`
+  + `<div class="rowlab">قبل از تغییر</div>`
+  + stage("old","ltr") + stage("old","rtl")
+  + `<div class="rowlab">بعد از تغییر</div>`
+  + stage("new","ltr") + stage("new","rtl");
+
+function fit(){
+  document.querySelectorAll(".frame").forEach(fr => {
+    const s = fr.clientWidth / 900;
+    const st = fr.querySelector(".stage");
+    st.style.transform = "scale(" + s + ")";
+    fr.style.height = (500 * s) + "px";
+  });
+}
+addEventListener("resize", fit); fit();
+
+const sync = () => {
+  document.body.classList.toggle("hl",    document.getElementById("hl").checked);
+  document.body.classList.toggle("still", document.getElementById("still").checked);
+};
+document.getElementById("hl").onchange = sync;
+document.getElementById("still").onchange = sync;
+sync();
+</script>
+</div>
+</body>
+</html>
