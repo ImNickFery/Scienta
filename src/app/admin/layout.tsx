@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import "katex/dist/katex.min.css";
 import "../globals.css";
 import { AdminAuthProvider } from "@/components/admin/admin-auth-context";
 import { AdminShell } from "@/components/admin/admin-shell";

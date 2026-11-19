@@ -40,7 +40,7 @@ const BASE_SELECT = `
     a.status, a.featured, a.trending, a.views, a.published_at, a.updated_at,
     t.title, t.slug, t.excerpt, t.content,
     t.seo_title, t.seo_description, t.seo_keywords, t.canonical_url, t.twitter_card,
-    (SELECT GROUP_CONCAT(tg.name_fa, '::', tg.name_en SEPARATOR '||')
+    (SELECT GROUP_CONCAT(tg.slug, '::', tg.name_fa, '::', tg.name_en SEPARATOR '||')
        FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id
       WHERE atg.article_id = a.id) AS tags
   FROM articles a
@@ -53,12 +53,22 @@ const BASE_SELECT = `
 
 function rowToArticle(row: ArticleRow, locale: Locale): Article {
   const stats = readingTime(row.content);
-  const tags = row.tags
-    ? row.tags.split("||").map((pair) => {
-        const [fa, en] = pair.split("::");
-        return locale === "fa" ? fa : en;
-      })
+  const tagItems = row.tags
+    ? row.tags
+        .split("||")
+        .map((entry) => {
+          const parts = entry.split("::");
+          if (parts.length >= 3) {
+            const [slug, fa, en] = parts;
+            return { slug, name: locale === "fa" ? fa : en };
+          }
+          const [fa, en] = parts;
+          const label = locale === "fa" ? fa : en;
+          return { slug: encodeURIComponent(en || fa), name: label };
+        })
+        .filter((t) => Boolean(t.slug && t.name))
     : [];
+  const tags = tagItems.map((t) => t.name);
 
   const frontmatter: ArticleFrontmatter = {
     id: row.id,
@@ -70,6 +80,7 @@ function rowToArticle(row: ArticleRow, locale: Locale): Article {
     field: (row.field_slug ?? "physics") as FieldSlug,
     fieldColor: row.field_color ?? "#7B3FFB",
     tags,
+    tagItems,
     authorSlug: row.author_slug ?? "",
     authorName: (locale === "fa" ? row.author_name_fa : row.author_name_en) ?? "",
     publishedAt: row.published_at ?? row.updated_at,
@@ -236,9 +247,60 @@ export async function getArticlesByTag(locale: Locale, tag: string): Promise<Art
   const nameCol = locale === "fa" ? "tg.name_fa" : "tg.name_en";
   const rows = await query<ArticleRow>(
     `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
-       SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE ${nameCol} = ?
+       SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE ${nameCol} = ? OR tg.slug = ?
      ) ORDER BY a.published_at DESC`,
-    [locale, tag]
+    [locale, tag, tag]
+  );
+  return rows.map((r) => rowToArticle(r, locale));
+}
+
+export interface TagRecord {
+  slug: string;
+  name: { fa: string; en: string };
+  count: number;
+}
+
+export async function getAllTagRecords(): Promise<TagRecord[]> {
+  const rows = await query<{ slug: string; name_fa: string; name_en: string; count: number }>(
+    `SELECT tg.slug, tg.name_fa, tg.name_en, COUNT(a.id) AS count
+     FROM tags tg
+     LEFT JOIN article_tags atg ON atg.tag_id = tg.id
+     LEFT JOIN articles a ON a.id = atg.article_id AND ${LIVE_STATUS_SQL} AND a.deleted_at IS NULL
+     GROUP BY tg.id, tg.slug, tg.name_fa, tg.name_en
+     ORDER BY count DESC, tg.name_en ASC`
+  );
+  return rows.map((r) => ({
+    slug: r.slug,
+    name: { fa: r.name_fa, en: r.name_en },
+    count: Number(r.count ?? 0),
+  }));
+}
+
+export async function getTagBySlug(slug: string): Promise<TagRecord | null> {
+  const row = await queryOne<{ slug: string; name_fa: string; name_en: string; count: number }>(
+    `SELECT tg.slug, tg.name_fa, tg.name_en, COUNT(a.id) AS count
+     FROM tags tg
+     LEFT JOIN article_tags atg ON atg.tag_id = tg.id
+     LEFT JOIN articles a ON a.id = atg.article_id AND ${LIVE_STATUS_SQL} AND a.deleted_at IS NULL
+     WHERE tg.slug = ?
+     GROUP BY tg.id, tg.slug, tg.name_fa, tg.name_en
+     LIMIT 1`,
+    [slug]
+  );
+  if (!row) return null;
+  return {
+    slug: row.slug,
+    name: { fa: row.name_fa, en: row.name_en },
+    count: Number(row.count ?? 0),
+  };
+}
+
+export async function getArticlesByTagSlug(locale: Locale, slug: string): Promise<Article[]> {
+  const rows = await query<ArticleRow>(
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
+       SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE tg.slug = ?
+     ) ORDER BY a.published_at DESC`,
+    [locale, slug]
   );
   return rows.map((r) => rowToArticle(r, locale));
 }

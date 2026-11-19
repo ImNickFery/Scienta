@@ -68,7 +68,7 @@ export const mdxComponents = {
     );
   },
   table: (props: React.TableHTMLAttributes<HTMLTableElement>) => (
-    <div className="my-8 overflow-x-auto rounded-xl border border-(--color-border-subtle)">
+    <div className="my-8 w-full max-w-full overflow-x-auto rounded-xl border border-(--color-border-subtle)">
       <table className="w-full border-collapse text-sm" {...props} />
     </div>
   ),

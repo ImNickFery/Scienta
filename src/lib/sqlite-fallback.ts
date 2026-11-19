@@ -228,9 +228,14 @@ CREATE TABLE IF NOT EXISTS comments (
   id TEXT NOT NULL PRIMARY KEY,
   article_id TEXT NOT NULL,
   parent_id TEXT NULL,
+  locale TEXT NOT NULL DEFAULT 'fa',
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   content TEXT NOT NULL,
+  is_question INTEGER NOT NULL DEFAULT 0,
+  admin_reply TEXT NULL,
+  replied_at TEXT NULL,
+  ip_address TEXT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
@@ -404,7 +409,7 @@ function seedIfEmpty(db: SqliteDatabase) {
     const permissionKeys = [
       "articles.manage", "categories.manage", "categories.view", "fields.manage", "fields.view",
       "tags.manage", "authors.manage", "authors.view", "media.manage", "settings.manage",
-      "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "logs.view",
+      "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "comments.manage", "logs.view",
       "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage",
     ];
     const insertPerm = db.prepare(`INSERT OR IGNORE INTO permissions (id, "key") VALUES (?, ?)`);
@@ -419,7 +424,7 @@ function seedIfEmpty(db: SqliteDatabase) {
     const rolePermMap: Record<keyof typeof roleIds, string[]> = {
       super_admin: permissionKeys,
       admin: permissionKeys.filter((k) => k !== "users.manage"),
-      editor: ["articles.manage", "categories.view", "fields.view", "tags.manage", "authors.view", "media.manage", "dashboard.view", "search.use"],
+      editor: ["articles.manage", "categories.view", "fields.view", "tags.manage", "authors.view", "media.manage", "comments.manage", "dashboard.view", "search.use"],
     };
     for (const [roleName, perms] of Object.entries(rolePermMap)) {
       const rId = roleIds[roleName as keyof typeof roleIds];
@@ -534,6 +539,92 @@ function seedIfEmpty(db: SqliteDatabase) {
   }
 }
 
+function ensureCommentsSchemaAndSeed(db: SqliteDatabase) {
+  const cols = db.prepare(`PRAGMA table_info(comments)`).all() as Array<{ name?: string }>;
+  const existingCols = new Set(cols.map((c) => c.name));
+
+  const migrations: Array<[string, string]> = [
+    ["locale", `ALTER TABLE comments ADD COLUMN locale TEXT NOT NULL DEFAULT 'fa'`],
+    ["is_question", `ALTER TABLE comments ADD COLUMN is_question INTEGER NOT NULL DEFAULT 0`],
+    ["admin_reply", `ALTER TABLE comments ADD COLUMN admin_reply TEXT NULL`],
+    ["replied_at", `ALTER TABLE comments ADD COLUMN replied_at TEXT NULL`],
+    ["ip_address", `ALTER TABLE comments ADD COLUMN ip_address TEXT NULL`],
+  ];
+  for (const [col, ddl] of migrations) {
+    if (!existingCols.has(col)) {
+      db.exec(ddl);
+    }
+  }
+
+  // Ensure comments.manage permission exists even on pre-seeded DBs
+  const existingPerm = db.prepare(`SELECT id FROM permissions WHERE "key" = 'comments.manage'`).get() as
+    | { id?: string }
+    | undefined;
+  if (!existingPerm?.id) {
+    const permId = uuid();
+    db.prepare(`INSERT OR IGNORE INTO permissions (id, "key") VALUES (?, 'comments.manage')`).run(permId);
+    const roles = db.prepare(`SELECT id FROM roles`).all() as Array<{ id?: string }>;
+    const link = db.prepare(`INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`);
+    for (const r of roles) {
+      if (r.id) link.run(r.id, permId);
+    }
+  }
+
+  const countRow = db.prepare(`SELECT COUNT(*) AS count FROM comments`).get() as { count?: number } | undefined;
+  if (countRow && Number(countRow.count) > 0) return;
+
+  const bhRow = db
+    .prepare(
+      `SELECT article_id FROM article_translations WHERE slug = 'geometry-of-black-holes' LIMIT 1`
+    )
+    .get() as { article_id?: string } | undefined;
+  if (!bhRow?.article_id) return;
+
+  const insertComment = db.prepare(
+    `INSERT OR IGNORE INTO comments (id, article_id, locale, name, email, content, is_question, admin_reply, replied_at, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  );
+
+  insertComment.run(
+    uuid(),
+    bhRow.article_id,
+    "fa",
+    "دکتر سهراب مرادی",
+    "sohrab.moradi@example.edu",
+    "آیا در متریک کر، اگر تکانه زاویه‌ای $a = J/(Mc)$ به حد بحرانی $a \\to GM/c^2$ برسد، شعاع افق بیرونی $r_+ = \\frac{GM}{c^2} + \\sqrt{\\left(\\frac{GM}{c^2}\\right)^2 - a^2}$ به نصف شعاع شوارتزشیلد میل می‌کند؟",
+    1,
+    "دقیقاً! در سیاه‌چاله کر حدی (Extremal Kerr) با $a = r_s / 2$ عبارت زیر رادیکال صفر می‌شود و افق رویداد روی $r_+ = \\frac{GM}{c^2} = \\frac{1}{2} r_s$ قرار می‌گیرد.",
+    new Date().toISOString().slice(0, 19).replace("T", " "),
+    "approved"
+  );
+
+  insertComment.run(
+    uuid(),
+    bhRow.article_id,
+    "en",
+    "Dr. Elena Vance",
+    "elena.vance@example.edu",
+    "Great exposition of the transition from Schwarzschild to Kerr geometry. It is also illuminating to note how the Hawking temperature scales inversely with mass: $$T_H = \\frac{\\hbar c^3}{8\\pi G M k_B}$$",
+    0,
+    null,
+    null,
+    "approved"
+  );
+
+  insertComment.run(
+    uuid(),
+    bhRow.article_id,
+    "fa",
+    "نیما شریفی",
+    "nima.sharifi@example.org",
+    "برای محاسبه انحراف نور در مجاورت افق، آیا تقریب $\\Delta \\phi \\approx \\frac{4GM}{c^2 b}$ نزدیک کره فوتونی $r_{ph} = 1.5\\,r_s$ هنوز معتبر است؟",
+    1,
+    null,
+    null,
+    "pending"
+  );
+}
+
 export class SqliteFallbackDb {
   private db: SqliteDatabase;
 
@@ -549,6 +640,7 @@ export class SqliteFallbackDb {
     }
     this.db.exec(SCHEMA_SQL);
     seedIfEmpty(this.db);
+    ensureCommentsSchemaAndSeed(this.db);
   }
 
   query<T = unknown>(sql: string, params: unknown[] = []): T[] {

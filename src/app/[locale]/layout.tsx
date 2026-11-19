@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
-import "../globals.css";
 import "katex/dist/katex.min.css";
+import "../globals.css";
 import { locales, isValidLocale, dir, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getFields } from "@/lib/taxonomy";
@@ -77,7 +77,7 @@ export default async function LocaleLayout({
         </a>
         <NumeralsProvider initial={numerals}>
           <Navbar locale={locale} dict={dict} fields={fields} />
-          <main id="main-content">{children}</main>
+          <main id="main-content" className="overflow-x-clip">{children}</main>
           <Footer locale={locale} dict={dict} fields={fields} numerals={numerals} />
         </NumeralsProvider>
       </body>

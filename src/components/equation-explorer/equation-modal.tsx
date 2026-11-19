@@ -18,6 +18,7 @@ interface EquationModalProps {
   equationId: string;
   index: number;
   articleSlug: string;
+  articleTitle?: string;
   locale: Locale;
   onClose: () => void;
 }
@@ -100,7 +101,7 @@ function VariableRow({ symbol, locale }: { symbol: SymbolDefinition; locale: Loc
   );
 }
 
-export function EquationModal({ latex, equationId, index, articleSlug, locale, onClose }: EquationModalProps) {
+export function EquationModal({ latex, equationId, index, articleSlug, articleTitle, locale, onClose }: EquationModalProps) {
   const t = STRINGS[locale];
   const containerRef = useRef<HTMLDivElement>(null);
   const katexHostRef = useRef<HTMLDivElement>(null);
@@ -181,7 +182,15 @@ export function EquationModal({ latex, equationId, index, articleSlug, locale, o
   }
 
   function handleToggleBookmark() {
-    setBookmarked(toggleEquationBookmark(bookmarkKey));
+    setBookmarked(
+      toggleEquationBookmark(bookmarkKey, {
+        articleSlug,
+        articleTitle,
+        equationId,
+        index,
+        latex,
+      })
+    );
   }
 
   async function toggleFullscreen() {

@@ -1,4 +1,5 @@
 const STORAGE_KEY = "scienta_bookmarked_articles";
+export const BOOKMARKS_CHANGED_EVENT = "scienta:bookmarks-changed";
 
 /** Pure toggle helper for deterministic unit testing and state updates. */
 export function toggleBookmarkList(list: readonly string[], slug: string): { next: string[]; saved: boolean } {
@@ -23,6 +24,7 @@ export function getBookmarkedArticles(): string[] {
 function writeBookmarks(slugs: string[]) {
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(slugs));
+    window.dispatchEvent(new Event(BOOKMARKS_CHANGED_EVENT));
   } catch {
     // Ignore private-browsing/quota errors gracefully.
   }

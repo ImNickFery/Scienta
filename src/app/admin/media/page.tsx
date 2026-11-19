@@ -24,6 +24,7 @@ export default function MediaLibraryPage() {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,8 +63,8 @@ export default function MediaLibraryPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this media file? It will be moved to a recoverable state.")) return;
     await adminFetch(`/api/admin/media/${id}`, { method: "DELETE" });
+    setConfirmingId(null);
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
@@ -139,16 +140,35 @@ export default function MediaLibraryPage() {
                   <ImageOff className="h-6 w-6" />
                 </div>
               )}
-              <div className="absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className={`absolute inset-0 flex flex-col justify-end gap-1 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-2 transition-opacity ${confirmingId === item.id ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
                 <p className="truncate text-[10px] text-white/80">{item.original_name}</p>
-                <div className="flex gap-1">
-                  <button onClick={() => copyUrl(item)} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-white/10 text-[10px] text-white hover:bg-white/20">
-                    {copiedId === item.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-(--color-accent-red)/60">
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
+                {confirmingId === item.id ? (
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.id)}
+                      className="flex h-7 flex-1 items-center justify-center rounded-lg bg-(--color-accent-red) text-[10px] font-medium text-white"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingId(null)}
+                      className="flex h-7 flex-1 items-center justify-center rounded-lg bg-white/15 text-[10px] text-white"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => copyUrl(item)} className="flex h-7 flex-1 items-center justify-center gap-1 rounded-lg bg-white/10 text-[10px] text-white hover:bg-white/20">
+                      {copiedId === item.id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    </button>
+                    <button type="button" onClick={() => setConfirmingId(item.id)} className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-(--color-accent-red)/60">
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

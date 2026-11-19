@@ -19,6 +19,11 @@ export interface Author {
   social?: { twitter?: string; website?: string; orcid?: string };
 }
 
+export interface TagItem {
+  slug: string;
+  name: string;
+}
+
 export interface ArticleFrontmatter {
   id: string;
   slug: string;
@@ -29,6 +34,7 @@ export interface ArticleFrontmatter {
   field: FieldSlug;
   fieldColor: string;
   tags: string[];
+  tagItems?: TagItem[];
   authorSlug: string;
   authorName: string;
   publishedAt: string;
@@ -52,4 +58,16 @@ export interface TocItem {
   id: string;
   text: string;
   depth: number;
+}
+
+export interface PublicComment {
+  id: string;
+  articleId: string;
+  locale: "fa" | "en";
+  name: string;
+  content: string;
+  isQuestion: boolean;
+  adminReply: string | null;
+  repliedAt: string | null;
+  createdAt: string;
 }

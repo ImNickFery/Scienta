@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Mail, Search, Trash2, UserCheck, UserX } from "lucide-react";
+import { Download, Mail, Search, Trash2, UserCheck, UserX } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
 
 interface SubscriberRow {
@@ -68,13 +68,31 @@ export default function SubscribersAdminPage() {
     }
   }
 
+  const exportHref = (() => {
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (search.trim()) params.set("search", search.trim());
+    const qs = params.toString();
+    return qs ? `/api/admin/subscribers/export?${qs}` : "/api/admin/subscribers/export";
+  })();
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold text-(--color-text-primary)">
-          Subscribers
-        </h1>
-        <p className="text-sm text-(--color-text-tertiary)">{total} newsletter subscribers</p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold text-(--color-text-primary)">
+            Subscribers
+          </h1>
+          <p className="text-sm text-(--color-text-tertiary)">{total} newsletter subscribers</p>
+        </div>
+        <a
+          href={exportHref}
+          download
+          className="flex h-10 items-center gap-2 rounded-full border border-(--color-border-strong) bg-white/[0.04] px-4 text-xs font-medium text-(--color-text-primary) transition-colors hover:border-(--color-accent-purple) hover:bg-(--color-accent-purple)/15"
+        >
+          <Download className="h-3.5 w-3.5 text-(--color-accent-purple)" />
+          Export CSV
+        </a>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -1,18 +1,20 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Globe } from "lucide-react";
+import { Check, ChevronDown, Globe } from "lucide-react";
 import { locales, localeLabels, type Locale } from "@/lib/i18n/config";
 import { resolveLocaleSwitchPath } from "@/lib/i18n/switch-path";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import type { Numerals } from "@/lib/i18n/numerals";
+import { cn } from "@/lib/utils";
 
 const numeralOptions: { value: Numerals; label: string; sample: string }[] = [
   { value: "fa", label: "ارقام فارسی", sample: "۱۲۳" },
   { value: "latn", label: "ارقام انگلیسی", sample: "123" },
 ];
 
-export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
+function useLocaleAndNumerals(currentLocale: Locale) {
   const pathname = usePathname();
   const router = useRouter();
   const { numerals, setNumerals } = useNumerals();
@@ -27,67 +29,192 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
   function chooseNumerals(next: Numerals) {
     if (next === numerals) return;
     setNumerals(next);
-    // The <html> attribute retypes what is already painted; this re-runs the
-    // Server Components so Intl emits the matching digits and separator.
     router.refresh();
   }
 
-  return (
-    <div className="group relative">
-      <button
-        className="flex h-10 items-center gap-1.5 rounded-full border border-(--color-border-subtle) px-3 text-sm text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
-        aria-haspopup="listbox"
-        aria-label="Change language"
-      >
-        <Globe className="h-4 w-4" />
-        {localeLabels[currentLocale]}
-      </button>
-      <div className="invisible absolute end-0 top-full z-50 mt-2 min-w-[11rem] rounded-xl border border-(--color-border-subtle) bg-(--color-bg-elevated) p-1.5 opacity-0 shadow-2xl transition-all duration-200 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-        {locales.map((locale) => (
-          <button
-            key={locale}
-            onClick={() => switchTo(locale)}
-            className={`w-full rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/5 ${
-              locale === currentLocale ? "text-(--color-accent-orange)" : "text-(--color-text-secondary)"
-            }`}
-          >
-            {localeLabels[locale]}
-          </button>
-        ))}
+  return { numerals, switchTo, chooseNumerals };
+}
 
-        {/* English has no second numeral system in common use, so the choice
-            only appears where it means something. */}
-        {currentLocale === "fa" && (
-          <div className="mt-1.5 border-t border-(--color-border-subtle) pt-1.5">
-            <p className="px-3 pb-1 text-[11px] text-(--color-text-tertiary)">شکل اعداد</p>
-            {numeralOptions.map((option) => (
+export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { numerals, switchTo, chooseNumerals } = useLocaleAndNumerals(currentLocale);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={currentLocale === "fa" ? "تغییر زبان و شکل اعداد" : "Change language"}
+        className={cn(
+          "flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-colors",
+          open
+            ? "border-(--color-accent-purple)/60 bg-(--color-accent-purple)/10 text-(--color-text-primary)"
+            : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
+        )}
+      >
+        <Globe className="h-4 w-4 shrink-0" />
+        <span>{localeLabels[currentLocale]}</span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200", open && "rotate-180")}
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute end-0 top-full z-50 mt-2 min-w-[12.5rem] rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated)/95 p-1.5 shadow-2xl backdrop-blur-xl"
+        >
+          {locales.map((locale) => {
+            const active = locale === currentLocale;
+            return (
+              <button
+                key={locale}
+                type="button"
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => {
+                  setOpen(false);
+                  switchTo(locale);
+                }}
+                className={cn(
+                  "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/[0.06]",
+                  active ? "font-medium text-(--color-accent-orange)" : "text-(--color-text-secondary)"
+                )}
+              >
+                <span>{localeLabels[locale]}</span>
+                {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+              </button>
+            );
+          })}
+
+          {currentLocale === "fa" && (
+            <div className="mt-1.5 border-t border-(--color-border-subtle) pt-1.5">
+              <p className="px-3 pb-1 text-[11px] text-(--color-text-tertiary)">شکل اعداد</p>
+              {numeralOptions.map((option) => {
+                const active = option.value === numerals;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    onClick={() => {
+                      chooseNumerals(option.value);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/[0.06]",
+                      active ? "font-medium text-(--color-accent-orange)" : "text-(--color-text-secondary)"
+                    )}
+                  >
+                    <span>{option.label}</span>
+                    <span
+                      className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)"
+                      dir="ltr"
+                    >
+                      {option.sample}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Touch-friendly inline language & numeral selector for the mobile slide-over drawer.
+ * Avoids floating popovers that can clip inside scrollable drawers.
+ */
+export function MobileLanguageControls({
+  currentLocale,
+  onSelect,
+}: {
+  currentLocale: Locale;
+  onSelect?: () => void;
+}) {
+  const { numerals, switchTo, chooseNumerals } = useLocaleAndNumerals(currentLocale);
+
+  return (
+    <div className="space-y-2">
+      <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-(--color-border-subtle) bg-black/30 p-1">
+        {locales.map((locale) => {
+          const active = locale === currentLocale;
+          return (
+            <button
+              key={locale}
+              type="button"
+              aria-pressed={active}
+              onClick={() => {
+                onSelect?.();
+                switchTo(locale);
+              }}
+              className={cn(
+                "flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors",
+                active
+                  ? "bg-(--color-accent-purple) text-white"
+                  : "text-(--color-text-secondary) hover:bg-white/[0.06] hover:text-(--color-text-primary)"
+              )}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span>{localeLabels[locale]}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {currentLocale === "fa" && (
+        <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-(--color-border-subtle) bg-black/30 p-1">
+          {numeralOptions.map((option) => {
+            const active = option.value === numerals;
+            return (
               <button
                 key={option.value}
-                onClick={() => chooseNumerals(option.value)}
-                aria-pressed={option.value === numerals}
-                className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/5 ${
-                  option.value === numerals
-                    ? "text-(--color-accent-orange)"
-                    : "text-(--color-text-secondary)"
-                }`}
+                type="button"
+                aria-pressed={active}
+                onClick={() => {
+                  chooseNumerals(option.value);
+                }}
+                className={cn(
+                  "flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-2 text-xs font-medium transition-colors",
+                  active
+                    ? "bg-(--color-accent-orange)/20 text-(--color-accent-orange) ring-1 ring-(--color-accent-orange)/40"
+                    : "text-(--color-text-secondary) hover:bg-white/[0.06] hover:text-(--color-text-primary)"
+                )}
               >
                 <span>{option.label}</span>
-                {/* Both samples have to show their own numerals no matter what
-                    is selected. The mono stack is what guarantees it: JetBrains
-                    has no ss01, so "123" stays Latin even while ss01 is on, and
-                    it has no Persian digits either, so "۱۲۳" falls through to
-                    Vazirmatn and renders Persian. */}
-                <span
-                  className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)"
-                  dir="ltr"
-                >
+                <span className="font-[family-name:var(--font-mono)] opacity-75" dir="ltr">
                   {option.sample}
                 </span>
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,13 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Save, Eye, EyeOff, Loader2, Trash2, History, Star, TrendingUp,
-  ChevronDown, X,
+  ChevronDown, X, RotateCcw,
 } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
+import {
+  mapApiTranslationToEditorState,
+  summarizeRevisionDiff,
+  type ApiTranslationRow,
+} from "@/lib/admin-users";
+import {
+  insertRawBlockAtSelection,
+  insertSnippetAtSelection,
+  type MdxSnippetId,
+} from "@/lib/mdx-snippets";
 import { MdxPreview } from "./mdx-preview";
+import { MdxToolbar } from "./mdx-toolbar";
+import { MediaPickerModal } from "./media-picker-modal";
 
 interface TranslationState {
   title: string;
@@ -72,6 +84,10 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
   const [success, setSuccess] = useState<string | null>(null);
   const [showRevisions, setShowRevisions] = useState(false);
   const [revisions, setRevisions] = useState<Revision[]>([]);
+  const [revisionNote, setRevisionNote] = useState("");
+  const [confirmTrash, setConfirmTrash] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -93,7 +109,7 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
       field_id: string | null; category_id: string | null; author_id: string | null;
       status: "draft" | "published" | "scheduled"; featured: number; trending: number;
       scheduled_at: string | null; tagIds: string[];
-      translations: Record<string, TranslationState>;
+      translations: Record<string, ApiTranslationRow>;
     }>(`/api/admin/articles/${articleId}`)
       .then((data) => {
         setFieldId(data.field_id ?? "");
@@ -104,8 +120,8 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
         setTrending(!!data.trending);
         setScheduledAt(data.scheduled_at ?? "");
         setTagIds(data.tagIds ?? []);
-        if (data.translations.fa) setFa({ ...emptyTranslation, ...data.translations.fa });
-        if (data.translations.en) setEn({ ...emptyTranslation, ...data.translations.en });
+        if (data.translations.fa) setFa(mapApiTranslationToEditorState(data.translations.fa));
+        if (data.translations.en) setEn(mapApiTranslationToEditorState(data.translations.en));
         setSlugTouched({ fa: true, en: true });
       })
       .catch((err) => setError(err.message))
@@ -140,6 +156,40 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
     setTagIds((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
   };
 
+  const applyInsertion = useCallback(
+    (compute: (current: string, start: number, end: number) => { nextText: string; selectionStart: number; selectionEnd: number }) => {
+      const el = textareaRef.current;
+      const start = el ? el.selectionStart : state.content.length;
+      const end = el ? el.selectionEnd : state.content.length;
+      const result = compute(state.content, start, end);
+      setState((prev) => ({ ...prev, content: result.nextText }));
+      requestAnimationFrame(() => {
+        if (!textareaRef.current) return;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(result.selectionStart, result.selectionEnd);
+      });
+    },
+    [state.content, setState]
+  );
+
+  const handleInsertSnippet = useCallback(
+    (snippetId: MdxSnippetId) => {
+      applyInsertion((current, start, end) =>
+        insertSnippetAtSelection(current, start, end, snippetId, activeLocale)
+      );
+    },
+    [applyInsertion, activeLocale]
+  );
+
+  const handleInsertFigure = useCallback(
+    (figureMdx: string) => {
+      applyInsertion((current, start, end) =>
+        insertRawBlockAtSelection(current, start, end, figureMdx)
+      );
+    },
+    [applyInsertion]
+  );
+
   async function handleSave(publishNow?: boolean) {
     setSaving(true);
     setError(null);
@@ -155,10 +205,12 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
         scheduledAt: status === "scheduled" && scheduledAt ? new Date(scheduledAt).toISOString() : null,
         tagIds,
         translations: { fa, en },
+        revisionNote: revisionNote.trim() || undefined,
       };
 
       if (isEdit) {
         await adminFetch(`/api/admin/articles/${articleId}`, { method: "PUT", body: JSON.stringify(payload) });
+        setRevisionNote("");
         setSuccess("Saved successfully");
       } else {
         const res = await adminFetch<{ id: string }>("/api/admin/articles", { method: "POST", body: JSON.stringify(payload) });
@@ -172,9 +224,19 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
   }
 
   async function handleTrash() {
-    if (!articleId || !confirm("Move this article to the recycle bin?")) return;
+    if (!articleId) return;
     await adminFetch(`/api/admin/articles/${articleId}`, { method: "DELETE" });
     router.push("/admin/articles");
+  }
+
+  function handleRestoreRevision(rev: Revision) {
+    setState((prev) => ({
+      ...prev,
+      title: rev.title,
+      content: rev.content,
+    }));
+    setShowRevisions(false);
+    setSuccess(`Loaded revision from ${new Date(rev.created_at).toLocaleString()} — click Save to persist.`);
   }
 
   const tagLabel = (t: TagLookupItem) => (activeLocale === "fa" ? t.name_fa : t.name_en);
@@ -199,9 +261,32 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
             </button>
           )}
           {isEdit && (
-            <button onClick={handleTrash} className="flex h-10 items-center gap-1.5 rounded-full border border-(--color-border-subtle) px-4 text-xs text-(--color-accent-red) hover:border-(--color-accent-red)/50">
-              <Trash2 className="h-3.5 w-3.5" /> Trash
-            </button>
+            confirmTrash ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleTrash}
+                  className="flex h-10 items-center gap-1.5 rounded-full bg-(--color-accent-red) px-4 text-xs font-medium text-white"
+                >
+                  Confirm Trash
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmTrash(false)}
+                  className="flex h-10 items-center rounded-full border border-(--color-border-subtle) px-3 text-xs text-(--color-text-secondary)"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmTrash(true)}
+                className="flex h-10 items-center gap-1.5 rounded-full border border-(--color-border-subtle) px-4 text-xs text-(--color-accent-red) hover:border-(--color-accent-red)/50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Trash
+              </button>
+            )
           )}
           <button
             onClick={() => handleSave(false)}
@@ -276,18 +361,26 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
             />
           </div>
 
+          <MdxToolbar
+            onInsertSnippet={handleInsertSnippet}
+            onOpenMediaPicker={() => setShowMediaPicker(true)}
+            locale={activeLocale}
+          />
+
           <div className={`grid gap-4 ${showPreview ? "lg:grid-cols-2" : ""}`}>
             <textarea
+              ref={textareaRef}
               value={state.content}
               onChange={(e) => updateField("content", e.target.value)}
               placeholder={"Write MDX here…\n\n## Heading\n\n$$E = mc^2$$\n\n```mermaid\ngraph TD; A-->B;\n```"}
+              aria-label="MDX article content"
               dir={activeLocale === "fa" ? "rtl" : "ltr"}
-              className="card-elevated min-h-[480px] rounded-2xl p-5 font-[family-name:var(--font-mono)] text-sm text-(--color-text-primary) outline-none focus:border-(--color-border-strong)"
+              className="card-elevated h-[560px] rounded-2xl p-5 font-[family-name:var(--font-mono)] text-sm text-(--color-text-primary) outline-none focus:border-(--color-border-strong)"
               style={{ resize: "vertical" }}
             />
             {showPreview && (
-              <div className="card-elevated min-h-[480px] overflow-y-auto rounded-2xl p-5">
-                <MdxPreview content={state.content} />
+              <div className="card-elevated h-[560px] overflow-y-auto rounded-2xl p-5">
+                <MdxPreview content={state.content} dir={activeLocale === "fa" ? "rtl" : "ltr"} />
               </div>
             )}
           </div>
@@ -353,6 +446,17 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
               <span className="flex items-center gap-1.5 text-sm text-(--color-text-secondary)"><TrendingUp className="h-3.5 w-3.5" /> Trending</span>
               <Toggle checked={trending} onChange={setTrending} />
             </div>
+            {isEdit && (
+              <div>
+                <label className="mb-1.5 block text-xs text-(--color-text-tertiary)">Revision Note (optional)</label>
+                <input
+                  value={revisionNote}
+                  onChange={(e) => setRevisionNote(e.target.value)}
+                  placeholder="e.g. Fixed Schwarzschild derivation"
+                  className="admin-input h-9 text-xs"
+                />
+              </div>
+            )}
           </div>
 
           <div className="card-elevated space-y-4 rounded-2xl p-5">
@@ -392,18 +496,52 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
             </div>
             {revisions.length === 0 && <p className="text-sm text-(--color-text-tertiary)">No revisions saved yet — they&apos;re created automatically each time you save.</p>}
             <div className="space-y-3">
-              {revisions.map((rev) => (
-                <details key={rev.id} className="rounded-xl border border-(--color-border-subtle) p-3">
-                  <summary className="cursor-pointer text-sm text-(--color-text-secondary)">
-                    {rev.title} — <span className="text-(--color-text-tertiary)">{new Date(rev.created_at).toLocaleString()}</span>
-                    {rev.editor_name && <span className="text-(--color-text-tertiary)"> by {rev.editor_name}</span>}
-                  </summary>
-                  <pre className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 text-xs text-(--color-text-tertiary)">{rev.content}</pre>
-                </details>
-              ))}
+              {revisions.map((rev) => {
+                const diff = summarizeRevisionDiff(state.content, rev.content);
+                return (
+                  <details key={rev.id} className="rounded-xl border border-(--color-border-subtle) p-3.5">
+                    <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 text-sm text-(--color-text-secondary)">
+                      <span className="min-w-0">
+                        <strong className="font-medium text-(--color-text-primary)">{rev.title}</strong>
+                        <span className="ms-2 text-xs text-(--color-text-tertiary)">
+                          {new Date(rev.created_at).toLocaleString()}
+                          {rev.editor_name ? ` • ${rev.editor_name}` : ""}
+                        </span>
+                        {rev.note && (
+                          <span className="ms-2 rounded-full bg-(--color-accent-purple)/15 px-2 py-0.5 text-[10px] text-(--color-accent-purple)">
+                            {rev.note}
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-[family-name:var(--font-mono)] text-[11px] text-(--color-text-tertiary)">
+                        {diff.wordDelta >= 0 ? `+${diff.wordDelta}` : diff.wordDelta} words • {diff.changedLines} lines diff
+                      </span>
+                    </summary>
+                    <pre className="mt-3 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 text-xs text-(--color-text-tertiary)">
+                      {rev.content}
+                    </pre>
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleRestoreRevision(rev)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-(--color-accent-purple) px-3.5 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" /> Restore into Editor
+                      </button>
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           </div>
         </div>
+      )}
+
+      {showMediaPicker && (
+        <MediaPickerModal
+          onClose={() => setShowMediaPicker(false)}
+          onInsert={handleInsertFigure}
+        />
       )}
     </div>
   );

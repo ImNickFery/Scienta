@@ -23,6 +23,14 @@ export function buildBaseMetadata(locale: Locale, pathname = ""): Metadata {
         fa: `${SITE_URL}/fa${pathname}`,
         en: `${SITE_URL}/en${pathname}`,
       },
+      types: {
+        "application/rss+xml": [
+          {
+            url: `${SITE_URL}/${locale}/rss.xml`,
+            title: locale === "fa" ? `${SITE_NAME} RSS (فارسی)` : `${SITE_NAME} RSS (English)`,
+          },
+        ],
+      },
     },
     openGraph: {
       type: "website",
@@ -69,6 +77,14 @@ export function buildArticleMetadata(
     alternates: {
       canonical,
       languages,
+      types: {
+        "application/rss+xml": [
+          {
+            url: `${SITE_URL}/${locale}/rss.xml`,
+            title: locale === "fa" ? `${SITE_NAME} RSS (فارسی)` : `${SITE_NAME} RSS (English)`,
+          },
+        ],
+      },
     },
     openGraph: {
       type: "article",

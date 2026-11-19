@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Rss } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { formatCount } from "@/lib/utils";
 import type { FieldRecord } from "@/lib/taxonomy";
@@ -58,6 +58,7 @@ export function Footer({
             <ul className="space-y-2.5 text-sm text-(--color-text-tertiary)">
               <li><Link href={`/${locale}/about`} className="transition-colors hover:text-(--color-text-primary)">{dict.nav.about}</Link></li>
               <li><Link href={`/${locale}/authors`} className="transition-colors hover:text-(--color-text-primary)">{locale === "fa" ? "نویسندگان" : "Authors"}</Link></li>
+              <li><Link href={`/${locale}/saved`} className="transition-colors hover:text-(--color-text-primary)">{locale === "fa" ? "کتابخانه ذخیره‌شده" : "Saved Library"}</Link></li>
               <li><Link href={`/${locale}/contact`} className="transition-colors hover:text-(--color-text-primary)">{dict.nav.contact}</Link></li>
               <li><Link href={`/${locale}/privacy`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.privacy}</Link></li>
               <li><Link href={`/${locale}/terms`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.terms}</Link></li>
@@ -78,7 +79,14 @@ export function Footer({
           <p>
             © {year} Scienta — {dict.footer.rights}
           </p>
-          <div className="flex gap-6">
+          <div className="flex items-center gap-6">
+            <a
+              href={`/${locale}/rss.xml`}
+              className="inline-flex items-center gap-1.5 transition-colors hover:text-(--color-accent-orange)"
+            >
+              <Rss className="h-3.5 w-3.5" />
+              RSS
+            </a>
             <Link href={`/${locale}/privacy`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.privacy}</Link>
             <Link href={`/${locale}/terms`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.terms}</Link>
           </div>

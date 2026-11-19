@@ -56,7 +56,7 @@ export function Mermaid({ chart }: { chart: string }) {
   }
 
   return (
-    <div className="glass-panel my-8 flex justify-center overflow-x-auto rounded-2xl p-6" ref={ref}>
+    <div className="glass-panel my-8 flex w-full max-w-full justify-center overflow-x-auto rounded-2xl p-4 sm:p-6 [&_svg]:h-auto [&_svg]:max-w-full" ref={ref}>
       <div className="h-8 w-8 animate-pulse rounded-full bg-(--color-accent-purple)/30" />
     </div>
   );

@@ -18,6 +18,7 @@ export default function AuthorsAdminPage() {
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,8 +49,8 @@ export default function AuthorsAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this author?")) return;
     await adminFetch(`/api/admin/authors/${id}`, { method: "DELETE" });
+    setConfirmingId(null);
     load();
   }
 
@@ -103,17 +104,37 @@ export default function AuthorsAdminPage() {
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{a.title_en}</td>
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{a.article_count}</td>
                 <td className="px-5 py-3 text-end">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingId(a.id);
-                        setForm({ nameFa: a.name_fa, nameEn: a.name_en, titleFa: a.title_fa ?? "", titleEn: a.title_en ?? "", bioFa: "", bioEn: "" });
-                        setShowForm(true);
-                      }}
-                      className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"
-                    ><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(a.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
-                  </div>
+                  {confirmingId === a.id ? (
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(a.id)}
+                        className="rounded-full bg-(--color-accent-red) px-3 py-1 text-xs font-medium text-white"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="rounded-full border border-(--color-border-subtle) px-3 py-1 text-xs text-(--color-text-secondary)"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(a.id);
+                          setForm({ nameFa: a.name_fa, nameEn: a.name_en, titleFa: a.title_fa ?? "", titleEn: a.title_en ?? "", bioFa: "", bioEn: "" });
+                          setShowForm(true);
+                        }}
+                        className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"
+                      ><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => setConfirmingId(a.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

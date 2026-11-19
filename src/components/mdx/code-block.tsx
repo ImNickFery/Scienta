@@ -17,7 +17,7 @@ export function CodeBlock(props: React.HTMLAttributes<HTMLPreElement>) {
   }
 
   return (
-    <div className="group relative my-8 overflow-hidden rounded-xl border border-(--color-border-subtle) bg-[#0a0a12]">
+    <div className="group relative my-8 w-full max-w-full overflow-hidden rounded-xl border border-(--color-border-subtle) bg-[#0a0a12]">
       {language && (
         <div className="flex items-center justify-between border-b border-(--color-border-subtle) px-4 py-2">
           <span className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)">
@@ -34,7 +34,7 @@ export function CodeBlock(props: React.HTMLAttributes<HTMLPreElement>) {
       )}
       <pre
         ref={preRef}
-        className="overflow-x-auto p-4 text-sm leading-relaxed [&_code]:font-[family-name:var(--font-mono)]"
+        className="max-w-full overflow-x-auto p-4 text-sm leading-relaxed [&_code]:font-[family-name:var(--font-mono)]"
         {...props}
       />
     </div>

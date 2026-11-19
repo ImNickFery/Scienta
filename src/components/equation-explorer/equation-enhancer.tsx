@@ -7,6 +7,7 @@ import type { Locale } from "@/lib/i18n/config";
 interface EquationEnhancerProps {
   children: React.ReactNode;
   articleSlug: string;
+  articleTitle?: string;
   locale: Locale;
 }
 
@@ -27,7 +28,7 @@ function extractLatexSource(katexDisplayEl: Element): string | null {
   return annotation?.textContent?.trim() || null;
 }
 
-export function EquationEnhancer({ children, articleSlug, locale }: EquationEnhancerProps) {
+export function EquationEnhancer({ children, articleSlug, articleTitle, locale }: EquationEnhancerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [openEquation, setOpenEquation] = useState<OpenEquation | null>(null);
   const enhancedRef = useRef(false);
@@ -101,7 +102,7 @@ export function EquationEnhancer({ children, articleSlug, locale }: EquationEnha
 
   return (
     <>
-      <div ref={containerRef} onClick={handleContainerClick} onKeyDown={handleContainerKeyDown}>
+      <div ref={containerRef} className="min-w-0 w-full max-w-full" onClick={handleContainerClick} onKeyDown={handleContainerKeyDown}>
         {children}
       </div>
       {openEquation && (
@@ -110,6 +111,7 @@ export function EquationEnhancer({ children, articleSlug, locale }: EquationEnha
           equationId={openEquation.equationId}
           index={openEquation.index}
           articleSlug={articleSlug}
+          articleTitle={articleTitle}
           locale={locale}
           onClose={() => setOpenEquation(null)}
         />

@@ -17,6 +17,7 @@ export default function FieldsAdminPage() {
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,8 +60,8 @@ export default function FieldsAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this field? Articles using it will keep their data but lose the field link.")) return;
     await adminFetch(`/api/admin/fields/${id}`, { method: "DELETE" });
+    setConfirmingId(null);
     load();
   }
 
@@ -118,10 +119,29 @@ export default function FieldsAdminPage() {
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{f.slug}</td>
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{f.article_count}</td>
                 <td className="px-5 py-3 text-end">
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => startEdit(f)} className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(f.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
-                  </div>
+                  {confirmingId === f.id ? (
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(f.id)}
+                        className="rounded-full bg-(--color-accent-red) px-3 py-1 text-xs font-medium text-white"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="rounded-full border border-(--color-border-subtle) px-3 py-1 text-xs text-(--color-text-secondary)"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => startEdit(f)} className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => setConfirmingId(f.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

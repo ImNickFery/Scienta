@@ -18,6 +18,7 @@ export default function CategoriesAdminPage() {
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,8 +49,8 @@ export default function CategoriesAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this category?")) return;
     await adminFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+    setConfirmingId(null);
     load();
   }
 
@@ -106,17 +107,37 @@ export default function CategoriesAdminPage() {
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{c.slug}</td>
                 <td className="px-5 py-3 text-(--color-text-tertiary)">{c.article_count}</td>
                 <td className="px-5 py-3 text-end">
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingId(c.id);
-                        setForm({ nameFa: c.name_fa, nameEn: c.name_en, descriptionFa: c.description_fa ?? "", descriptionEn: c.description_en ?? "" });
-                        setShowForm(true);
-                      }}
-                      className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"
-                    ><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => handleDelete(c.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
-                  </div>
+                  {confirmingId === c.id ? (
+                    <div className="flex justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(c.id)}
+                        className="rounded-full bg-(--color-accent-red) px-3 py-1 text-xs font-medium text-white"
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingId(null)}
+                        className="rounded-full border border-(--color-border-subtle) px-3 py-1 text-xs text-(--color-text-secondary)"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(c.id);
+                          setForm({ nameFa: c.name_fa, nameEn: c.name_en, descriptionFa: c.description_fa ?? "", descriptionEn: c.description_en ?? "" });
+                          setShowForm(true);
+                        }}
+                        className="text-(--color-text-tertiary) hover:text-(--color-text-primary)"
+                      ><Pencil className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => setConfirmingId(c.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

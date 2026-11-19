@@ -18,14 +18,17 @@ import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ReadingProgress } from "@/components/article/reading-progress";
 import { TableOfContents } from "@/components/article/table-of-contents";
+import { MobileTocDrawer } from "@/components/article/mobile-toc-drawer";
 import { AuthorBox } from "@/components/article/author-box";
 import { ShareBar } from "@/components/article/share-bar";
 import { ReadingControls } from "@/components/article/reading-controls";
+import { ArticleComments } from "@/components/article/article-comments";
 import { EquationEnhancer } from "@/components/equation-explorer/equation-enhancer";
 import { ArticleSection } from "@/components/home/article-section";
+import { getApprovedCommentsForArticle } from "@/lib/comments-server";
 import { formatCount, formatDate, formatNumber } from "@/lib/utils";
 import { getNumerals } from "@/lib/i18n/numerals-server";
-import { Clock, Eye, ArrowLeft, ArrowRight } from "lucide-react";
+import { Clock, Eye, ArrowLeft, ArrowRight, Hash } from "lucide-react";
 import Link from "next/link";
 import { SciIllustration } from "@/components/mdx/sci-illustration";
 import type { FieldSlug } from "@/types";
@@ -73,6 +76,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const toc = extractToc(article.content);
   const related = await getRelatedArticles(locale, article);
   const rendered = await renderMdx(article.content, numerals);
+  const initialComments = await getApprovedCommentsForArticle(article.id, locale);
 
   // Fire-and-forget view increment — doesn't block the response.
   incrementArticleViews(article.id).catch(() => {});
@@ -99,7 +103,7 @@ export default async function ArticlePage({ params }: PageProps) {
       <ReadingProgress />
 
       {/* Hero */}
-      <section className="relative overflow-hidden border-b border-(--color-border-subtle)">
+      <section className="article-hero relative overflow-hidden border-b border-(--color-border-subtle) transition-opacity duration-300">
         <div className="absolute inset-0">
           <SciIllustration variant={HERO_ILLUSTRATION[article.field] ?? "orbit"} palette="aurora" className="h-full w-full opacity-70" />
         </div>
@@ -145,19 +149,37 @@ export default async function ArticlePage({ params }: PageProps) {
 
       {/* Body */}
       <Container className="py-16">
-        <div className="grid gap-12 lg:grid-cols-[220px_1fr]">
-          <aside className="hidden lg:block">
+        <div className="article-body-grid grid min-w-0 gap-12 lg:grid-cols-[220px_1fr]">
+          <aside className="article-toc-aside hidden min-w-0 transition-opacity duration-300 lg:block">
             <TableOfContents items={toc} dict={dict} />
           </aside>
 
-          <div>
-            <ReadingControls dict={dict}>
-              <EquationEnhancer articleSlug={article.slug} locale={locale}>
+          <div className="min-w-0 w-full">
+            <ReadingControls dict={dict} locale={locale}>
+              <EquationEnhancer articleSlug={article.slug} articleTitle={article.title} locale={locale}>
                 {rendered}
               </EquationEnhancer>
             </ReadingControls>
 
-            <div className="mx-auto mt-12 max-w-3xl space-y-10">
+            <div className="article-post-chrome mx-auto mt-12 w-full max-w-3xl min-w-0 space-y-10 transition-opacity duration-300">
+              {article.tagItems && article.tagItems.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 border-t border-(--color-border-subtle) pt-6">
+                  <span className="text-xs font-medium text-(--color-text-tertiary)">
+                    {locale === "fa" ? "برچسب‌ها:" : "Tags:"}
+                  </span>
+                  {article.tagItems.map((tag) => (
+                    <Link
+                      key={tag.slug}
+                      href={`/${locale}/tags/${tag.slug}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-3 py-1 text-xs text-(--color-text-secondary) transition-colors hover:border-(--color-accent-purple)/50 hover:bg-(--color-accent-purple)/10 hover:text-(--color-text-primary)"
+                    >
+                      <Hash className="h-3 w-3 text-(--color-accent-purple)" />
+                      {tag.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
               <ShareBar
                 article={article}
                 url={url}
@@ -168,11 +190,11 @@ export default async function ArticlePage({ params }: PageProps) {
 
               {author && <AuthorBox author={author} locale={locale} dict={dict} />}
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-4 sm:grid-cols-2">
                 {prevArticle && (
                   <Link
                     href={`/${locale}/articles/${prevArticle.slug}`}
-                    className="card-elevated group flex items-center gap-3 rounded-2xl p-4"
+                    className="card-elevated group flex min-w-0 items-center gap-3 rounded-2xl p-4"
                   >
                     <PrevIcon className="h-4 w-4 shrink-0 text-(--color-text-tertiary)" />
                     <div className="min-w-0">
@@ -184,7 +206,7 @@ export default async function ArticlePage({ params }: PageProps) {
                 {nextArticle && (
                   <Link
                     href={`/${locale}/articles/${nextArticle.slug}`}
-                    className="card-elevated group flex items-center justify-end gap-3 rounded-2xl p-4 text-end sm:order-2"
+                    className="card-elevated group flex min-w-0 items-center justify-end gap-3 rounded-2xl p-4 text-end sm:order-2"
                   >
                     <div className="min-w-0">
                       <p className="text-xs text-(--color-text-tertiary)">{dict.article.nextArticle}</p>
@@ -194,19 +216,29 @@ export default async function ArticlePage({ params }: PageProps) {
                   </Link>
                 )}
               </div>
+
+              <ArticleComments
+                articleId={article.id}
+                locale={locale}
+                initialComments={initialComments}
+              />
             </div>
           </div>
         </div>
       </Container>
 
+      <MobileTocDrawer items={toc} locale={locale} dict={dict} />
+
       {related.length > 0 && (
-        <ArticleSection
-          articles={related}
-          locale={locale}
-          dict={dict}
-          title={dict.article.relatedArticles}
-          columns={3}
-        />
+        <div className="article-related-section transition-opacity duration-300">
+          <ArticleSection
+            articles={related}
+            locale={locale}
+            dict={dict}
+            title={dict.article.relatedArticles}
+            columns={3}
+          />
+        </div>
       )}
     </>
   );

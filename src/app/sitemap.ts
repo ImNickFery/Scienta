@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { locales } from "@/lib/i18n/config";
-import { getAllArticles, getAllTags } from "@/lib/content";
+import { getAllArticles, getAllTagRecords, getAllTags } from "@/lib/content";
 import { getFields, getAuthors } from "@/lib/taxonomy";
 import { SITE_URL } from "@/lib/seo";
 
@@ -10,11 +10,12 @@ import { SITE_URL } from "@/lib/seo";
 export const revalidate = 300;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ["", "/articles", "/categories", "/fields", "/search", "/about", "/contact", "/authors", "/privacy", "/terms"];
+  const staticPaths = ["", "/articles", "/categories", "/tags", "/fields", "/search", "/about", "/contact", "/authors", "/privacy", "/terms"];
 
   const entries: MetadataRoute.Sitemap = [];
   const fields = await getFields();
   const authors = await getAuthors();
+  const tagRecords = await getAllTagRecords();
 
   for (const locale of locales) {
     for (const p of staticPaths) {
@@ -37,6 +38,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     for (const field of fields) {
       entries.push({ url: `${SITE_URL}/${locale}/fields/${field.slug}`, priority: 0.6 });
+    }
+
+    for (const tag of tagRecords) {
+      entries.push({ url: `${SITE_URL}/${locale}/tags/${tag.slug}`, priority: 0.6 });
     }
 
     const tags = await getAllTags(locale);
