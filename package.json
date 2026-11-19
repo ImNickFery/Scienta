@@ -6,7 +6,10 @@
     "dev": "next dev -p 3000 -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean": "rm -rf .next deploy",
+    "deploy:package": "tsx scripts/package-deploy.ts",
+    "deploy:push": "NODE_ENV=production npm run build && npm run deploy:package && tsx scripts/push-build.ts"
   },
   "dependencies": {
     "@vercel/og": "^0.11.1",
@@ -55,6 +58,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

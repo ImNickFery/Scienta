@@ -1,0 +1,77 @@
+name: Build & Publish Slim Deploy Branch
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build slim Next.js standalone runtime & push single-commit `deploy` branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_ENV: production
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --include=dev --no-audit --no-fund || npm install --include=dev --no-package-lock --no-audit --no-fund
+            git checkout -- package-lock.json 2>/dev/null || true
+          else
+            npm install --include=dev --no-package-lock --no-audit --no-fund
+          fi
+          npm run deploy:push
+
+      - name: Auto-pull `deploy` branch on cPanel over SSH (if configured)
+        env:
+          SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          SSH_USER: ${{ secrets.CPANEL_SSH_USER || secrets.CPANEL_USERNAME }}
+          SSH_PORT: ${{ secrets.CPANEL_SSH_PORT || vars.CPANEL_SSH_PORT || '22' }}
+          SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          REPO_ROOT: ${{ secrets.CPANEL_REPO_ROOT || vars.CPANEL_REPO_ROOT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SSH_HOST" ] || [ -z "$SSH_KEY" ]; then
+            echo "CPANEL_SSH_HOST / CPANEL_SSH_KEY not set; skipping automatic SSH pull."
+            exit 0
+          fi
+          if [ -z "$REPO_ROOT" ]; then
+            echo "ERROR: CPANEL_REPO_ROOT is required (e.g. /home/username/scienta-app)." >&2
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/cpanel_key
+          chmod 600 ~/.ssh/cpanel_key
+          ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" -i ~/.ssh/cpanel_key "$SSH_USER@$SSH_HOST" \
+            "set -e; if [ ! -d \"$REPO_ROOT/.git\" ]; then mkdir -p \"\$(dirname \"$REPO_ROOT\")\" && git clone --depth 1 --branch deploy \"https://github.com/${{ github.repository }}.git\" \"$REPO_ROOT\"; fi; cd \"$REPO_ROOT\" && git fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh \"$REPO_ROOT\""
+
+      - name: Trigger cPanel UAPI pull (if API Token is set without SSH)
+        env:
+          SSH_HOST: ${{ secrets.CPANEL_SSH_HOST }}
+          SSH_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+          CPANEL_HOST: ${{ secrets.CPANEL_HOST || vars.CPANEL_HOST }}
+          CPANEL_USERNAME: ${{ secrets.CPANEL_USERNAME || vars.CPANEL_USERNAME }}
+          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+          CPANEL_REPO_ROOT: ${{ secrets.CPANEL_REPO_ROOT || vars.CPANEL_REPO_ROOT }}
+          CPANEL_BRANCH: deploy
+          CPANEL_ALLOW_SELF_SIGNED: ${{ vars.CPANEL_ALLOW_SELF_SIGNED || 'false' }}
+          SKIP_IF_UNCONFIGURED: "true"
+        run: |
+          if [ -n "$SSH_HOST" ] && [ -n "$SSH_KEY" ]; then
+            exit 0
+          fi
+          node scripts/trigger-cpanel-deploy.mjs
