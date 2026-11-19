@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
-import { SEED_ARTICLES, SEED_AUTHORS, SEED_FIELDS } from "./seed-data";
+import { SEED_ARTICLES, SEED_AUTHORS, SEED_FIELDS, SEED_MEDIA } from "./seed-data";
 
 type SqliteParam = null | number | bigint | string | Uint8Array;
 
@@ -311,6 +311,42 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NULL,
+  key_prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL UNIQUE,
+  scopes_json TEXT NOT NULL,
+  owner_user_id TEXT NOT NULL,
+  default_author_id TEXT NULL,
+  rate_limit_per_min INTEGER NOT NULL DEFAULT 60,
+  status TEXT NOT NULL DEFAULT 'active',
+  request_count INTEGER NOT NULL DEFAULT 0,
+  last_used_at TEXT NULL,
+  last_used_ip TEXT NULL,
+  expires_at TEXT NULL,
+  revoked_at TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (default_author_id) REFERENCES authors(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_idempotency_keys (
+  id TEXT NOT NULL PRIMARY KEY,
+  api_key_id TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
+  method TEXT NOT NULL,
+  path TEXT NOT NULL,
+  request_hash TEXT NOT NULL,
+  status_code INTEGER NOT NULL,
+  response_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  UNIQUE (api_key_id, idempotency_key),
+  FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
+);
 `;
 
 function loadSqliteModule(): { DatabaseSync: new (filename: string) => SqliteDatabase } {
@@ -395,11 +431,14 @@ function toPlainRows<T>(rows: Record<string, unknown>[]): T[] {
 }
 
 function seedIfEmpty(db: SqliteDatabase) {
-  const existing = db.prepare(`SELECT COUNT(*) AS count FROM roles`).get() as { count?: number } | undefined;
-  if (existing && Number(existing.count) > 0) return;
-
-  db.exec("BEGIN");
+  db.exec("BEGIN IMMEDIATE");
   try {
+    const existing = db.prepare(`SELECT COUNT(*) AS count FROM roles`).get() as { count?: number } | undefined;
+    if (existing && Number(existing.count) > 0) {
+      db.exec("COMMIT");
+      return;
+    }
+
     const roleIds = { super_admin: uuid(), admin: uuid(), editor: uuid() };
     const insertRole = db.prepare(`INSERT OR IGNORE INTO roles (id, name, label, description) VALUES (?, ?, ?, ?)`);
     insertRole.run(roleIds.super_admin, "super_admin", "Super Admin", "Full unrestricted access");
@@ -410,7 +449,7 @@ function seedIfEmpty(db: SqliteDatabase) {
       "articles.manage", "categories.manage", "categories.view", "fields.manage", "fields.view",
       "tags.manage", "authors.manage", "authors.view", "media.manage", "settings.manage",
       "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "comments.manage", "logs.view",
-      "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage",
+      "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage", "api_keys.manage",
     ];
     const insertPerm = db.prepare(`INSERT OR IGNORE INTO permissions (id, "key") VALUES (?, ?)`);
     const permIds: Record<string, string> = {};
@@ -469,9 +508,32 @@ function seedIfEmpty(db: SqliteDatabase) {
       insertAuthor.run(id, a.slug, a.name_fa, a.name_en, a.title_fa, a.title_en, a.bio_fa, a.bio_en);
     }
 
+    const mediaIdsByFilename: Record<string, string> = {};
+    const insertMedia = db.prepare(
+      `INSERT OR IGNORE INTO media (id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, alt_text, uploaded_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const m of SEED_MEDIA) {
+      const id = uuid();
+      mediaIdsByFilename[m.filename] = id;
+      insertMedia.run(
+        id,
+        m.filename,
+        m.originalName,
+        m.mimeType,
+        m.sizeBytes,
+        m.width,
+        m.height,
+        m.path,
+        m.thumbnailPath,
+        m.altText,
+        adminId
+      );
+    }
+
     const insertArticle = db.prepare(
-      `INSERT OR IGNORE INTO articles (id, field_id, category_id, author_id, status, featured, trending, views, published_at, created_by, updated_by)
-       VALUES (?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`
+      `INSERT OR IGNORE INTO articles (id, field_id, category_id, author_id, cover_media_id, status, featured, trending, views, published_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`
     );
     const insertTranslation = db.prepare(
       `INSERT OR IGNORE INTO article_translations (id, article_id, locale, title, slug, excerpt, content, seo_title, seo_description)
@@ -488,6 +550,7 @@ function seedIfEmpty(db: SqliteDatabase) {
         fieldIds[article.field] ?? null,
         categoryId,
         authorIds[article.authorSlug] ?? null,
+        mediaIdsByFilename[article.coverFilename] ?? null,
         article.featured ? 1 : 0,
         article.trending ? 1 : 0,
         article.views,
@@ -625,6 +688,162 @@ function ensureCommentsSchemaAndSeed(db: SqliteDatabase) {
   );
 }
 
+function ensureSeedArticleMedia(db: SqliteDatabase) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const findMedia = db.prepare(`SELECT id FROM media WHERE path = ? AND deleted_at IS NULL LIMIT 1`);
+    const insertMedia = db.prepare(
+      `INSERT OR IGNORE INTO media (id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, alt_text)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+
+    const mediaIdsByFilename: Record<string, string> = {};
+    for (const m of SEED_MEDIA) {
+      const existing = findMedia.get(m.path) as { id?: string } | undefined;
+      const id = existing?.id ?? uuid();
+      if (!existing?.id) {
+        insertMedia.run(
+          id,
+          m.filename,
+          m.originalName,
+          m.mimeType,
+          m.sizeBytes,
+          m.width,
+          m.height,
+          m.path,
+          m.thumbnailPath,
+          m.altText
+        );
+      }
+      mediaIdsByFilename[m.filename] = id;
+    }
+
+    const findAuthor = db.prepare(`SELECT id FROM authors WHERE slug = ? AND deleted_at IS NULL LIMIT 1`);
+    const insertAuthor = db.prepare(
+      `INSERT OR IGNORE INTO authors (id, slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const authorIdsBySlug: Record<string, string> = {};
+    for (const a of SEED_AUTHORS) {
+      const existing = findAuthor.get(a.slug) as { id?: string } | undefined;
+      const id = existing?.id ?? uuid();
+      if (!existing?.id) {
+        insertAuthor.run(id, a.slug, a.name_fa, a.name_en, a.title_fa, a.title_en, a.bio_fa, a.bio_en);
+      }
+      authorIdsBySlug[a.slug] = id;
+    }
+
+    const fieldRows = db.prepare(`SELECT id, slug FROM fields WHERE deleted_at IS NULL`).all() as Array<{
+      id?: string;
+      slug?: string;
+    }>;
+    const fieldIdsBySlug: Record<string, string> = {};
+    for (const f of fieldRows) {
+      if (f.slug && f.id) fieldIdsBySlug[f.slug] = f.id;
+    }
+
+    const categoryRow = db.prepare(`SELECT id FROM categories WHERE slug = 'deep-dive' LIMIT 1`).get() as
+      | { id?: string }
+      | undefined;
+    const adminRow = db.prepare(`SELECT id FROM users ORDER BY created_at ASC LIMIT 1`).get() as
+      | { id?: string }
+      | undefined;
+    const categoryId = categoryRow?.id ?? null;
+    const adminId = adminRow?.id ?? null;
+
+    const findArticleBySlug = db.prepare(
+      `SELECT a.id, a.cover_media_id
+         FROM articles a
+         JOIN article_translations t ON t.article_id = a.id
+        WHERE t.slug = ?
+        LIMIT 1`
+    );
+    const insertArticle = db.prepare(
+      `INSERT OR IGNORE INTO articles (id, field_id, category_id, author_id, cover_media_id, status, featured, trending, views, published_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`
+    );
+    const insertTranslation = db.prepare(
+      `INSERT OR IGNORE INTO article_translations (id, article_id, locale, title, slug, excerpt, content, seo_title, seo_description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const findTag = db.prepare(`SELECT id FROM tags WHERE slug = ?`);
+    const insertTag = db.prepare(`INSERT OR IGNORE INTO tags (id, slug, name_fa, name_en) VALUES (?, ?, ?, ?)`);
+    const insertArticleTag = db.prepare(`INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)`);
+
+    const attachCover = db.prepare(`UPDATE articles SET cover_media_id = ? WHERE id = ? AND cover_media_id IS NULL`);
+    const getTranslation = db.prepare(
+      `SELECT id, content FROM article_translations WHERE article_id = ? AND locale = ? LIMIT 1`
+    );
+    const updateTranslationContent = db.prepare(`UPDATE article_translations SET content = ? WHERE id = ?`);
+
+    for (const article of SEED_ARTICLES) {
+      const existing = findArticleBySlug.get(article.slug) as { id?: string; cover_media_id?: string | null } | undefined;
+      const mediaId = mediaIdsByFilename[article.coverFilename] ?? null;
+
+      if (!existing?.id) {
+        const articleId = uuid();
+        insertArticle.run(
+          articleId,
+          fieldIdsBySlug[article.field] ?? null,
+          categoryId,
+          authorIdsBySlug[article.authorSlug] ?? null,
+          mediaId,
+          article.featured ? 1 : 0,
+          article.trending ? 1 : 0,
+          article.views,
+          article.publishedAt,
+          adminId,
+          adminId
+        );
+        for (const locale of ["fa", "en"] as const) {
+          const t = article[locale];
+          insertTranslation.run(uuid(), articleId, locale, t.title, article.slug, t.excerpt, t.content, t.title, t.excerpt);
+        }
+        for (const tag of article.tags) {
+          const existingTag = findTag.get(tag.slug) as { id?: string } | undefined;
+          const tagId = existingTag?.id ?? uuid();
+          if (!existingTag?.id) {
+            insertTag.run(tagId, tag.slug, tag.name_fa, tag.name_en);
+          }
+          insertArticleTag.run(articleId, tagId);
+        }
+        continue;
+      }
+
+      if (mediaId && !existing.cover_media_id) {
+        attachCover.run(mediaId, existing.id);
+      }
+
+      for (const locale of ["fa", "en"] as const) {
+        const tr = getTranslation.get(existing.id, locale) as { id?: string; content?: string } | undefined;
+        if (tr?.id && typeof tr.content === "string" && !tr.content.includes("/images/articles/")) {
+          updateTranslationContent.run(article[locale].content, tr.id);
+        }
+      }
+    }
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+function ensureApiKeysSchema(db: SqliteDatabase) {
+  const existingPerm = db.prepare(`SELECT id FROM permissions WHERE "key" = 'api_keys.manage'`).get() as
+    | { id?: string }
+    | undefined;
+  if (!existingPerm?.id) {
+    const permId = uuid();
+    db.prepare(`INSERT OR IGNORE INTO permissions (id, "key") VALUES (?, 'api_keys.manage')`).run(permId);
+    const roles = db
+      .prepare(`SELECT id FROM roles WHERE name IN ('super_admin', 'admin')`)
+      .all() as Array<{ id?: string }>;
+    const link = db.prepare(`INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`);
+    for (const r of roles) {
+      if (r.id) link.run(r.id, permId);
+    }
+  }
+}
+
 export class SqliteFallbackDb {
   private db: SqliteDatabase;
 
@@ -641,6 +860,8 @@ export class SqliteFallbackDb {
     this.db.exec(SCHEMA_SQL);
     seedIfEmpty(this.db);
     ensureCommentsSchemaAndSeed(this.db);
+    ensureSeedArticleMedia(this.db);
+    ensureApiKeysSchema(this.db);
   }
 
   query<T = unknown>(sql: string, params: unknown[] = []): T[] {

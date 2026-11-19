@@ -11,6 +11,7 @@ import {
   CSRF_COOKIE,
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
+  buildAuthCookieOptions,
 } from "@/lib/auth";
 import { generateCsrfToken } from "@/lib/csrf";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -57,18 +58,14 @@ export async function POST(req: Request) {
     [hash]
   );
 
-  const isProd = process.env.NODE_ENV === "production";
-
   const clearAuthCookies = () => {
-    store.set(ACCESS_TOKEN_COOKIE, "", { httpOnly: true, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 });
-    store.set(REFRESH_TOKEN_COOKIE, "", {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: "lax",
-      path: "/api/admin/auth",
-      maxAge: 0,
-    });
-    store.set(CSRF_COOKIE, "", { httpOnly: false, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 });
+    store.set(ACCESS_TOKEN_COOKIE, "", buildAuthCookieOptions(req, { httpOnly: true, path: "/", maxAge: 0 }));
+    store.set(
+      REFRESH_TOKEN_COOKIE,
+      "",
+      buildAuthCookieOptions(req, { httpOnly: true, path: "/api/admin/auth", maxAge: 0 })
+    );
+    store.set(CSRF_COOKIE, "", buildAuthCookieOptions(req, { httpOnly: false, path: "/", maxAge: 0 }));
   };
 
   if (
@@ -135,27 +132,33 @@ export async function POST(req: Request) {
   });
   const csrfToken = generateCsrfToken();
 
-  store.set(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/",
-    maxAge: ACCESS_TOKEN_TTL_SECONDS,
-  });
-  store.set(REFRESH_TOKEN_COOKIE, newRefreshToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/api/admin/auth",
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
-  });
-  store.set(CSRF_COOKIE, csrfToken, {
-    httpOnly: false,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/",
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
-  });
+  store.set(
+    ACCESS_TOKEN_COOKIE,
+    accessToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: true,
+      path: "/",
+      maxAge: ACCESS_TOKEN_TTL_SECONDS,
+    })
+  );
+  store.set(
+    REFRESH_TOKEN_COOKIE,
+    newRefreshToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: true,
+      path: "/api/admin/auth",
+      maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    })
+  );
+  store.set(
+    CSRF_COOKIE,
+    csrfToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: false,
+      path: "/",
+      maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    })
+  );
 
   return NextResponse.json({ ok: true });
 }

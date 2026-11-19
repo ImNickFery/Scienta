@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Newspaper, FolderTree, Tags, Image as ImageIcon,
   ListTree, Mail, Inbox, MessageSquare, Activity, Trash2, Users,
-  Search, LogOut, Globe, Menu, X, Sparkles, UserCircle,
+  Search, LogOut, Globe, Menu, X, Sparkles, UserCircle, KeyRound,
 } from "lucide-react";
 import { useAdminAuth } from "./admin-auth-context";
 import { can } from "@/lib/rbac";
@@ -30,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/messages", label: "Contact Messages", icon: Inbox, permission: "messages.manage" },
   { href: "/admin/comments", label: "Comments", icon: MessageSquare, permission: "comments.manage" },
   { href: "/admin/users", label: "Users & Roles", icon: Users, permission: "users.view" },
+  { href: "/admin/api-keys", label: "AI & API Keys", icon: KeyRound, permission: "api_keys.manage" },
   { href: "/admin/logs", label: "Activity Logs", icon: Activity, permission: "logs.view" },
   { href: "/admin/trash", label: "Recycle Bin", icon: Trash2, permission: "articles.manage" },
 ];

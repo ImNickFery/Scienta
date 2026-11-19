@@ -20,18 +20,73 @@ const JWT_ISSUER = "scienta";
 const JWT_AUDIENCE = "scienta-admin";
 const VALID_ROLES = new Set(["super_admin", "admin", "editor"]);
 
+function isPreviewRuntime(): boolean {
+  return Boolean(process.env.CSP_HEADER_VALUE?.trim() || process.env.K_SERVICE?.trim());
+}
+
 function getSecret() {
   const secret = process.env.JWT_SECRET?.trim();
   const minLength = process.env.NODE_ENV === "production" ? 32 : 16;
   if (secret && secret.length >= minLength) {
     return new TextEncoder().encode(secret);
   }
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" || isPreviewRuntime()) {
     return new TextEncoder().encode(DEV_FALLBACK_JWT_SECRET);
   }
   throw new Error(
     "JWT_SECRET is missing or too short (minimum 32 characters required in production). Set a long random value in your .env file."
   );
+}
+
+/**
+ * Detects whether the incoming request arrived over HTTPS (either directly or
+ * behind a TLS-terminating reverse proxy / Cloud Run ingress).
+ */
+export function isHttpsRequest(req: Request): boolean {
+  const forwardedProto = req.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (forwardedProto === "https") return true;
+  if (forwardedProto === "http") return false;
+
+  const origin = req.headers.get("origin")?.trim().toLowerCase();
+  if (origin?.startsWith("https://")) return true;
+
+  const referer = req.headers.get("referer")?.trim().toLowerCase();
+  if (referer?.startsWith("https://")) return true;
+
+  try {
+    return new URL(req.url).protocol === "https:";
+  } catch {
+    return process.env.NODE_ENV === "production";
+  }
+}
+
+/**
+ * Builds cookie attributes that work both in standalone tabs and inside
+ * cross-site HTTPS preview iframes (`SameSite=None; Secure; Partitioned`),
+ * while falling back to `SameSite=Lax; Secure=false` on plain `http://localhost`.
+ */
+export function buildAuthCookieOptions(
+  req: Request,
+  options: { httpOnly: boolean; path: string; maxAge: number }
+) {
+  const https = isHttpsRequest(req);
+  if (https) {
+    return {
+      httpOnly: options.httpOnly,
+      secure: true,
+      sameSite: "none" as const,
+      partitioned: true,
+      path: options.path,
+      maxAge: options.maxAge,
+    };
+  }
+  return {
+    httpOnly: options.httpOnly,
+    secure: false,
+    sameSite: "lax" as const,
+    path: options.path,
+    maxAge: options.maxAge,
+  };
 }
 
 export async function signAccessToken(payload: AccessTokenPayload): Promise<string> {

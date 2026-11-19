@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { execute } from "@/lib/db";
-import { REFRESH_TOKEN_COOKIE, ACCESS_TOKEN_COOKIE, CSRF_COOKIE, hashToken } from "@/lib/auth";
+import {
+  REFRESH_TOKEN_COOKIE,
+  ACCESS_TOKEN_COOKIE,
+  CSRF_COOKIE,
+  hashToken,
+  buildAuthCookieOptions,
+} from "@/lib/auth";
 import { CSRF_HEADER, verifyCsrf } from "@/lib/csrf";
 import { getSession } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
@@ -31,16 +37,13 @@ export async function POST(req: Request) {
     await logActivity({ userId: session.sub, action: "auth.logout", ipAddress: getClientIp(req) });
   }
 
-  const isProd = process.env.NODE_ENV === "production";
-  store.set(ACCESS_TOKEN_COOKIE, "", { httpOnly: true, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 });
-  store.set(REFRESH_TOKEN_COOKIE, "", {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/api/admin/auth",
-    maxAge: 0,
-  });
-  store.set(CSRF_COOKIE, "", { httpOnly: false, secure: isProd, sameSite: "lax", path: "/", maxAge: 0 });
+  store.set(ACCESS_TOKEN_COOKIE, "", buildAuthCookieOptions(req, { httpOnly: true, path: "/", maxAge: 0 }));
+  store.set(
+    REFRESH_TOKEN_COOKIE,
+    "",
+    buildAuthCookieOptions(req, { httpOnly: true, path: "/api/admin/auth", maxAge: 0 })
+  );
+  store.set(CSRF_COOKIE, "", buildAuthCookieOptions(req, { httpOnly: false, path: "/", maxAge: 0 }));
 
   return NextResponse.json({ ok: true });
 }

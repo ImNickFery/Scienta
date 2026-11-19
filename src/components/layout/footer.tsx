@@ -60,6 +60,7 @@ export function Footer({
               <li><Link href={`/${locale}/authors`} className="transition-colors hover:text-(--color-text-primary)">{locale === "fa" ? "نویسندگان" : "Authors"}</Link></li>
               <li><Link href={`/${locale}/saved`} className="transition-colors hover:text-(--color-text-primary)">{locale === "fa" ? "کتابخانه ذخیره‌شده" : "Saved Library"}</Link></li>
               <li><Link href={`/${locale}/contact`} className="transition-colors hover:text-(--color-text-primary)">{dict.nav.contact}</Link></li>
+              <li><Link href="/admin/login" className="transition-colors hover:text-(--color-text-primary)">{locale === "fa" ? "پنل مدیریت" : "Admin Panel"}</Link></li>
               <li><Link href={`/${locale}/privacy`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.privacy}</Link></li>
               <li><Link href={`/${locale}/terms`} className="transition-colors hover:text-(--color-text-primary)">{dict.footer.terms}</Link></li>
             </ul>

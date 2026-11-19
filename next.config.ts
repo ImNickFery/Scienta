@@ -2,7 +2,9 @@ import type { NextConfig } from "next";
 import { buildSecurityHeaders } from "./src/lib/security";
 
 const isProd = process.env.NODE_ENV === "production";
-const securityHeaders = buildSecurityHeaders(isProd);
+const securityHeaders = buildSecurityHeaders(isProd, {
+  previewFrameAncestors: process.env.CSP_HEADER_VALUE,
+});
 
 const noStoreHeaders = [
   { key: "Cache-Control", value: "no-store, private, max-age=0" },

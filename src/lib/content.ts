@@ -1,6 +1,7 @@
 import GithubSlugger from "github-slugger";
 import readingTime from "reading-time";
 import { query, queryOne, execute } from "./db";
+import { sanitizeUrl } from "./security";
 import type { Article, ArticleFrontmatter, FieldSlug, TocItem } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -12,6 +13,7 @@ interface ArticleRow {
   author_slug: string | null;
   author_name_fa: string | null;
   author_name_en: string | null;
+  cover_path: string | null;
   status: "draft" | "published" | "scheduled";
   featured: number;
   trending: number;
@@ -37,6 +39,7 @@ const BASE_SELECT = `
   SELECT
     a.id, f.slug AS field_slug, f.color AS field_color, c.slug AS category_slug,
     au.slug AS author_slug, au.name_fa AS author_name_fa, au.name_en AS author_name_en,
+    m.path AS cover_path,
     a.status, a.featured, a.trending, a.views, a.published_at, a.updated_at,
     t.title, t.slug, t.excerpt, t.content,
     t.seo_title, t.seo_description, t.seo_keywords, t.canonical_url, t.twitter_card,
@@ -48,6 +51,7 @@ const BASE_SELECT = `
   LEFT JOIN fields f ON f.id = a.field_id
   LEFT JOIN categories c ON c.id = a.category_id
   LEFT JOIN authors au ON au.id = a.author_id
+  LEFT JOIN media m ON m.id = a.cover_media_id AND m.deleted_at IS NULL
   WHERE a.deleted_at IS NULL
 `;
 
@@ -76,7 +80,7 @@ function rowToArticle(row: ArticleRow, locale: Locale): Article {
     locale,
     title: row.title,
     excerpt: row.excerpt ?? "",
-    cover: "", // resolved separately when needed via media join; placeholder gradient used in UI
+    cover: sanitizeUrl(row.cover_path, { allowRelative: true, allowHash: false }) ?? "",
     field: (row.field_slug ?? "physics") as FieldSlug,
     fieldColor: row.field_color ?? "#7B3FFB",
     tags,

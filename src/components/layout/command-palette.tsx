@@ -19,8 +19,10 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Locale } from "@/lib/i18n/config";
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, type Locale } from "@/lib/i18n/config";
 import type { FieldRecord } from "@/lib/taxonomy";
+import { writeClientCookie } from "@/components/i18n/numerals-provider";
+import { resolveClientLocaleHref } from "@/components/layout/language-switcher";
 import {
   OPEN_COMMAND_PALETTE_EVENT,
   RECENT_SEARCHES_KEY,
@@ -237,9 +239,15 @@ export function CommandPalette({
         persistQuery(query);
       }
       closePalette();
+      if (item.id === "action-locale") {
+        const targetLocale: Locale = locale === "fa" ? "en" : "fa";
+        writeClientCookie(LOCALE_COOKIE, targetLocale, LOCALE_COOKIE_MAX_AGE);
+        window.location.assign(resolveClientLocaleHref(pathname, targetLocale));
+        return;
+      }
       router.push(item.href);
     },
-    [closePalette, persistQuery, query, router]
+    [closePalette, locale, pathname, persistQuery, query, router]
   );
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

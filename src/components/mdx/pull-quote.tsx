@@ -1,4 +1,13 @@
-export function PullQuote({ children, attribution }: { children: React.ReactNode; attribution?: string }) {
+export function PullQuote({
+  children,
+  attribution,
+  author,
+}: {
+  children: React.ReactNode;
+  attribution?: string;
+  author?: string;
+}) {
+  const credit = attribution ?? author;
   return (
     <blockquote className="pull-quote not-prose relative my-12 border-0 py-2 text-2xl sm:text-3xl">
       <span
@@ -14,7 +23,7 @@ export function PullQuote({ children, attribution }: { children: React.ReactNode
           and the whole article tree fails to hydrate. The child paragraph's
           margin is zeroed so the attribution keeps its original spacing. */}
       <div className="relative ps-8 text-gradient-purple-orange [&>p]:mb-0">{children}</div>
-      {attribution && <cite className="mt-4 block ps-8 text-sm not-italic text-(--color-text-tertiary)">— {attribution}</cite>}
+      {credit && <cite className="mt-4 block ps-8 text-sm not-italic text-(--color-text-tertiary)">— {credit}</cite>}
     </blockquote>
   );
 }

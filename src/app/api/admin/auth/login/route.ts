@@ -13,6 +13,7 @@ import {
   CSRF_COOKIE,
   ACCESS_TOKEN_TTL_SECONDS,
   REFRESH_TOKEN_TTL_SECONDS,
+  buildAuthCookieOptions,
 } from "@/lib/auth";
 import { generateCsrfToken } from "@/lib/csrf";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -103,29 +104,34 @@ export async function POST(req: Request) {
 
   const csrfToken = generateCsrfToken();
   const store = await cookies();
-  const isProd = process.env.NODE_ENV === "production";
 
-  store.set(ACCESS_TOKEN_COOKIE, accessToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/",
-    maxAge: ACCESS_TOKEN_TTL_SECONDS,
-  });
-  store.set(REFRESH_TOKEN_COOKIE, refreshToken, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: "lax",
-    path: "/api/admin/auth",
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
-  });
-  store.set(CSRF_COOKIE, csrfToken, {
-    httpOnly: false, // must be readable by client JS for the double-submit pattern
-    secure: isProd,
-    sameSite: "lax",
-    path: "/",
-    maxAge: REFRESH_TOKEN_TTL_SECONDS,
-  });
+  store.set(
+    ACCESS_TOKEN_COOKIE,
+    accessToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: true,
+      path: "/",
+      maxAge: ACCESS_TOKEN_TTL_SECONDS,
+    })
+  );
+  store.set(
+    REFRESH_TOKEN_COOKIE,
+    refreshToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: true,
+      path: "/api/admin/auth",
+      maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    })
+  );
+  store.set(
+    CSRF_COOKIE,
+    csrfToken,
+    buildAuthCookieOptions(req, {
+      httpOnly: false, // must be readable by client JS for the double-submit pattern
+      path: "/",
+      maxAge: REFRESH_TOKEN_TTL_SECONDS,
+    })
+  );
 
   return NextResponse.json({
     user: { id: user.id, name: user.name, email: user.email, role: user.role_name },

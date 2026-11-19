@@ -4,12 +4,14 @@ interface TimelineEvent {
   description?: string;
 }
 
-export function Timeline({ events }: { events: TimelineEvent[] }) {
+export function Timeline({ events, items }: { events?: TimelineEvent[]; items?: TimelineEvent[] }) {
+  const list = Array.isArray(events) ? events : Array.isArray(items) ? items : [];
+  if (list.length === 0) return null;
   return (
     <div className="not-prose my-10 space-y-0">
-      {events.map((event, i) => (
+      {list.map((event, i) => (
         <div key={i} className="relative flex gap-5 pb-8 last:pb-0">
-          {i < events.length - 1 && (
+          {i < list.length - 1 && (
             <span className="absolute top-8 bottom-0 start-[15px] w-px bg-gradient-to-b from-(--color-accent-purple)/50 to-transparent" />
           )}
           <div className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-(--color-accent-purple) to-(--color-accent-orange) text-xs font-bold text-white">

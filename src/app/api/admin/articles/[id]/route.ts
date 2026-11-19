@@ -25,6 +25,7 @@ const updateArticleSchema = z.object({
   fieldId: z.string().uuid().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
   authorId: z.string().uuid().nullable().optional(),
+  coverMediaId: z.string().uuid().nullable().optional(),
   status: z.enum(["draft", "published", "scheduled"]),
   featured: z.boolean().optional().default(false),
   trending: z.boolean().optional().default(false),
@@ -50,9 +51,16 @@ interface TranslationRow {
 async function getFullArticle(id: string) {
   const article = await queryOne<{
     id: string; field_id: string | null; category_id: string | null; author_id: string | null;
+    cover_media_id: string | null; cover_path: string | null;
     status: string; featured: number; trending: number; views: number;
     published_at: string | null; scheduled_at: string | null; deleted_at: string | null;
-  }>(`SELECT * FROM articles WHERE id = ?`, [id]);
+  }>(
+    `SELECT a.*, m.path AS cover_path
+     FROM articles a
+     LEFT JOIN media m ON m.id = a.cover_media_id AND m.deleted_at IS NULL
+     WHERE a.id = ?`,
+    [id]
+  );
   if (!article) return null;
 
   const translations = await query<TranslationRow>(
@@ -129,12 +137,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       const nowPublishing = data.status === "published";
 
       await conn.execute(
-        `UPDATE articles SET field_id=?, category_id=?, author_id=?, status=?, featured=?, trending=?, scheduled_at=?,
+        `UPDATE articles SET field_id=?, category_id=?, author_id=?, cover_media_id=?, status=?, featured=?, trending=?, scheduled_at=?,
            published_at = CASE WHEN ? AND NOT ? THEN NOW() ELSE published_at END,
            updated_by=?, updated_at=NOW()
          WHERE id = ?`,
         [
-          data.fieldId ?? null, data.categoryId ?? null, data.authorId ?? null, data.status,
+          data.fieldId ?? null, data.categoryId ?? null, data.authorId ?? null,
+          data.coverMediaId !== undefined ? data.coverMediaId : existing.cover_media_id,
+          data.status,
           data.featured ? 1 : 0, data.trending ? 1 : 0, data.scheduledAt ?? null,
           nowPublishing, wasPublished, session!.sub, id,
         ]

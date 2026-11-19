@@ -13,7 +13,12 @@ import {
   buildSecurityHeaders,
 } from "./security";
 import { detectImageFormat } from "./media-validation";
-import { signAccessToken, verifyAccessToken } from "./auth";
+import {
+  signAccessToken,
+  verifyAccessToken,
+  isHttpsRequest,
+  buildAuthCookieOptions,
+} from "./auth";
 import { can } from "./rbac";
 import { rateLimit, getClientIp } from "./rate-limit";
 import { SEED_ARTICLES } from "./seed-data";
@@ -260,6 +265,41 @@ test("buildSecurityHeaders enforces strict CSP and production framing/HSTS prote
   assert.equal(devHeaders["X-Frame-Options"], undefined);
   assert.equal(devHeaders["Strict-Transport-Security"], undefined);
   assert.ok(!devHeaders["Content-Security-Policy"]?.includes("frame-ancestors"));
+
+  const previewProdHeaders = Object.fromEntries(
+    buildSecurityHeaders(true, {
+      previewFrameAncestors: "frame-ancestors 'self' https://*.google.com;",
+    }).map((h) => [h.key, h.value])
+  );
+  assert.equal(previewProdHeaders["X-Frame-Options"], undefined);
+  assert.equal(previewProdHeaders["Cross-Origin-Opener-Policy"], undefined);
+  assert.ok(previewProdHeaders["Content-Security-Policy"]?.includes("frame-ancestors 'self' https://*.google.com"));
+});
+
+test("buildAuthCookieOptions adapts between plain HTTP localhost and HTTPS preview iframes", () => {
+  const localHttpReq = new Request("http://localhost:3000/api/admin/auth/login", { method: "POST" });
+  assert.equal(isHttpsRequest(localHttpReq), false);
+  assert.deepEqual(buildAuthCookieOptions(localHttpReq, { httpOnly: true, path: "/", maxAge: 900 }), {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 900,
+  });
+
+  const proxiedHttpsReq = new Request("http://127.0.0.1:3000/api/admin/auth/login", {
+    method: "POST",
+    headers: { "x-forwarded-proto": "https" },
+  });
+  assert.equal(isHttpsRequest(proxiedHttpsReq), true);
+  assert.deepEqual(buildAuthCookieOptions(proxiedHttpsReq, { httpOnly: true, path: "/", maxAge: 900 }), {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    partitioned: true,
+    path: "/",
+    maxAge: 900,
+  });
 });
 
 test("JWT access tokens pin HS256, issuer, audience, and payload validation", async () => {

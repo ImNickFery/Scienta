@@ -18,6 +18,8 @@ interface ActivityLogRow {
 
 const ACTION_FILTERS = [
   { value: "", label: "All Events" },
+  { value: "api.", label: "AI API Calls" },
+  { value: "api_key.", label: "API Keys" },
   { value: "auth.", label: "Authentication" },
   { value: "article.", label: "Articles" },
   { value: "media.", label: "Media" },

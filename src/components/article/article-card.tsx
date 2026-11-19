@@ -6,6 +6,7 @@ import { SpotlightCard } from "@/components/animations/spotlight-card";
 import { cn, formatCount, formatDate, formatNumber, readableOn } from "@/lib/utils";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import { isArticleBookmarked, toggleArticleBookmark } from "@/lib/article-bookmarks";
+import { sanitizeUrl } from "@/lib/security";
 import type { Article } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -23,6 +24,7 @@ export function ArticleCard({
 }) {
   const { numerals } = useNumerals();
   const [bookmarked, setBookmarked] = useState(false);
+  const coverSrc = sanitizeUrl(article.cover, { allowRelative: true, allowHash: false });
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate client-only localStorage bookmark state after mount
@@ -42,31 +44,50 @@ export function ArticleCard({
       <div
         className={cn(
           "relative overflow-hidden bg-(--color-bg-elevated)",
-          size === "large" ? "aspect-[16/9]" : size === "compact" ? "h-20 w-20 shrink-0 rounded-xl" : "aspect-[4/3]"
+          size === "large" ? "aspect-[16/9]" : size === "compact" ? "h-20 w-20 shrink-0 rounded-xl" : "aspect-[16/10]"
         )}
       >
-        <div
-          className="absolute inset-0 opacity-70 transition-transform duration-700 group-hover:scale-110"
-          style={{
-            background: `radial-gradient(circle at 30% 20%, ${article.fieldColor}55, transparent 60%), radial-gradient(circle at 80% 80%, ${article.fieldColor}33, transparent 55%)`,
-          }}
-        />
+        {coverSrc ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverSrc}
+              alt={article.title}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
+            />
+          </>
+        ) : (
+          <>
+            <div
+              className="absolute inset-0 opacity-70 transition-transform duration-700 group-hover:scale-110"
+              style={{
+                background: `radial-gradient(circle at 30% 20%, ${article.fieldColor}55, transparent 60%), radial-gradient(circle at 80% 80%, ${article.fieldColor}33, transparent 55%)`,
+              }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span
+                className="font-[family-name:var(--font-display)] text-4xl font-black opacity-20"
+                style={{ color: article.fieldColor }}
+              >
+                {dict.fields[article.field as keyof typeof dict.fields]?.[0]}
+              </span>
+            </div>
+          </>
+        )}
         {/* Shine that sweeps across the cover as the pointer arrives. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-full"
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-full"
         />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="font-[family-name:var(--font-display)] text-4xl font-black opacity-20"
-            style={{ color: article.fieldColor }}
-          >
-            {dict.fields[article.field as keyof typeof dict.fields]?.[0]}
-          </span>
-        </div>
         {size !== "compact" && (
           <span
-            className="absolute top-3 start-3 rounded-full px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm"
+            className="absolute top-3 start-3 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-sm"
             // Opaque fill, and ink picked from the fill's luminance: at CC alpha
             // the chip sat over whatever the cover art happened to be, so its
             // contrast was never actually knowable.

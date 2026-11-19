@@ -254,12 +254,27 @@ export interface SecurityHeader {
   value: string;
 }
 
+export interface SecurityHeaderOptions {
+  /**
+   * Optional raw `frame-ancestors ...` directive injected by Cloud Run / AI Studio
+   * preview runtimes (e.g. from `CSP_HEADER_VALUE`). When provided, `X-Frame-Options`
+   * and `Cross-Origin-Opener-Policy: same-origin` are omitted so the preview iframe loads cleanly.
+   */
+  previewFrameAncestors?: string | null;
+}
+
 /**
  * Builds the global HTTP security headers including a strict Content-Security-Policy.
  * Frame restrictions (`X-Frame-Options` & `frame-ancestors 'self'`) are enabled in
  * production so local iframe-based development environments remain unobstructed.
  */
-export function buildSecurityHeaders(isProd: boolean): SecurityHeader[] {
+export function buildSecurityHeaders(
+  isProd: boolean,
+  options: SecurityHeaderOptions = {}
+): SecurityHeader[] {
+  const previewAncestors = options.previewFrameAncestors?.trim().replace(/;+$/, "") || "";
+  const isPreviewEmbed = Boolean(previewAncestors && /^frame-ancestors\s+/i.test(previewAncestors));
+
   const cspDirectives = [
     "default-src 'self'",
     isProd ? "script-src 'self' 'unsafe-inline'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -272,7 +287,8 @@ export function buildSecurityHeaders(isProd: boolean): SecurityHeader[] {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    ...(isProd ? ["frame-ancestors 'self'", "upgrade-insecure-requests"] : []),
+    ...(isPreviewEmbed ? [previewAncestors] : []),
+    ...(isProd ? [...(!isPreviewEmbed ? ["frame-ancestors 'self'"] : []), "upgrade-insecure-requests"] : []),
   ];
 
   return [
@@ -282,12 +298,14 @@ export function buildSecurityHeaders(isProd: boolean): SecurityHeader[] {
     { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
     { key: "X-DNS-Prefetch-Control", value: "on" },
     { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
-    ...(isProd
+    ...(isProd && !isPreviewEmbed
       ? [
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
-          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
         ]
+      : []),
+    ...(isProd
+      ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
       : []),
   ];
 }

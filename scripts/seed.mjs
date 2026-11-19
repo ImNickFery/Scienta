@@ -8,7 +8,7 @@
 import mysql from "mysql2/promise";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
-import { sampleArticles } from "./sample-articles.mjs";
+import { sampleArticles, sampleMedia } from "./sample-articles.mjs";
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST ?? "localhost",
@@ -41,7 +41,7 @@ async function main() {
     "articles.manage", "categories.manage", "categories.view", "fields.manage", "fields.view",
     "tags.manage", "authors.manage", "authors.view", "media.manage", "settings.manage",
     "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "comments.manage", "logs.view",
-    "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage",
+    "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage", "api_keys.manage",
   ];
   const permissionIds = {};
   for (const key of permissionKeys) {
@@ -130,6 +130,8 @@ async function main() {
     { slug: "sara-ahmadi", name_fa: "سارا احمدی", name_en: "Sara Ahmadi", title_fa: "پژوهشگر فیزیک نظری", title_en: "Theoretical Physics Researcher", bio_fa: "سارا احمدی پژوهشگر فیزیک نظری با تمرکز بر گرانش کوانتومی و کیهان‌شناسی است.", bio_en: "Sara Ahmadi is a theoretical physics researcher focused on quantum gravity and cosmology." },
     { slug: "kian-moradi", name_fa: "کیان مرادی", name_en: "Kian Moradi", title_fa: "نویسنده علمی حوزه هوش مصنوعی", title_en: "AI Science Writer", bio_fa: "کیان مرادی درباره یادگیری ماشین، شبکه‌های عصبی و آینده هوش مصنوعی می‌نویسد.", bio_en: "Kian Moradi writes about machine learning, neural networks, and the future of AI." },
     { slug: "elham-rostami", name_fa: "الهام رستمی", name_en: "Elham Rostami", title_fa: "اخترفیزیک‌دان", title_en: "Astrophysicist", bio_fa: "الهام رستمی اخترفیزیک‌دانی است که روی سیاه‌چاله‌ها و امواج گرانشی کار می‌کند.", bio_en: "Elham Rostami is an astrophysicist working on black holes and gravitational waves." },
+    { slug: "mina-karimi", name_fa: "دکتر مینا کریمی", name_en: "Dr. Mina Karimi", title_fa: "زیست‌شناس مولکولی و پژوهشگر نانوپزشکی", title_en: "Molecular Biologist & Nanomedicine Researcher", bio_fa: "دکتر مینا کریمی بر مهندسی ژنوم با ابزارهای کریسپر و طراحی سامانه‌های درمانی مبتنی بر mRNA تمرکز دارد.", bio_en: "Dr. Mina Karimi focuses on CRISPR genome engineering and next-generation mRNA therapeutic delivery systems." },
+    { slug: "arash-tehrani", name_fa: "دکتر آرش تهرانی", name_en: "Dr. Arash Tehrani", title_fa: "پژوهشگر نظریه اعداد و ریاضیات محض", title_en: "Number Theorist & Pure Mathematician", bio_fa: "دکتر آرش تهرانی درباره آنالیز مختلط، توزیع اعداد اول و پیوندهای غیرمنتظره ریاضیات و فیزیک می‌نویسد.", bio_en: "Dr. Arash Tehrani writes about complex analysis, prime distributions, and unexpected bridges between pure mathematics and physics." },
   ];
   const authorIds = {};
   for (const a of authorDefs) {
@@ -143,6 +145,21 @@ async function main() {
     );
   }
 
+  // ---- Seed sample media ----
+  const mediaIdsByFilename = {};
+  for (const m of sampleMedia) {
+    const [existingMedia] = await pool.query(`SELECT id FROM media WHERE path = ? AND deleted_at IS NULL LIMIT 1`, [m.path]);
+    const mediaId = existingMedia[0]?.id ?? uuid();
+    if (!existingMedia[0]) {
+      await pool.execute(
+        `INSERT INTO media (id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, alt_text, uploaded_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [mediaId, m.filename, m.originalName, m.mimeType, m.sizeBytes, m.width, m.height, m.path, m.thumbnailPath, m.altText, adminId]
+      );
+    }
+    mediaIdsByFilename[m.filename] = mediaId;
+  }
+
   // ---- Seed sample articles ----
   for (const article of sampleArticles) {
     const [existingArticle] = await pool.query(
@@ -150,16 +167,18 @@ async function main() {
       [article.slug]
     );
     const articleId = existingArticle[0]?.id ?? uuid();
+    const coverMediaId = mediaIdsByFilename[article.coverFilename] ?? null;
 
     if (!existingArticle[0]) {
       await pool.execute(
-        `INSERT INTO articles (id, field_id, category_id, author_id, status, featured, trending, views, published_at, created_by, updated_by)
-         VALUES (?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO articles (id, field_id, category_id, author_id, cover_media_id, status, featured, trending, views, published_at, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`,
         [
           articleId,
           fieldIds[article.field] ?? null,
           categoryId,
           authorIds[article.authorSlug] ?? null,
+          coverMediaId,
           article.featured ? 1 : 0,
           article.trending ? 1 : 0,
           article.views ?? 0,
@@ -168,6 +187,8 @@ async function main() {
           adminId,
         ]
       );
+    } else if (coverMediaId) {
+      await pool.execute(`UPDATE articles SET cover_media_id = COALESCE(cover_media_id, ?) WHERE id = ?`, [coverMediaId, articleId]);
     }
 
     for (const locale of ["fa", "en"]) {
@@ -180,12 +201,14 @@ async function main() {
       );
     }
 
-    for (const tagName of article.tags ?? []) {
-      const tagSlug = tagName.toLowerCase().replace(/\s+/g, "-");
+    for (const tagEntry of article.tags ?? []) {
+      const tagSlug = typeof tagEntry === "string" ? tagEntry.toLowerCase().replace(/\s+/g, "-") : tagEntry.slug;
+      const tagFa = typeof tagEntry === "string" ? tagEntry : tagEntry.name_fa;
+      const tagEn = typeof tagEntry === "string" ? tagEntry : tagEntry.name_en;
       const [existingTag] = await pool.query(`SELECT id FROM tags WHERE slug = ?`, [tagSlug]);
       const tagId = existingTag[0]?.id ?? uuid();
       if (!existingTag[0]) {
-        await pool.execute(`INSERT INTO tags (id, slug, name_fa, name_en) VALUES (?, ?, ?, ?)`, [tagId, tagSlug, tagName, tagName]);
+        await pool.execute(`INSERT INTO tags (id, slug, name_fa, name_en) VALUES (?, ?, ?, ?)`, [tagId, tagSlug, tagFa, tagEn]);
       }
       await pool.execute(`INSERT IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)`, [articleId, tagId]);
     }

@@ -15,6 +15,7 @@ import {
   type SavedEquationRecord,
 } from "@/lib/equation-bookmarks";
 import { cn, formatCount } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/clipboard";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import type { Article } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
@@ -85,12 +86,9 @@ function SavedEquationCard({
 
   async function handleCopy() {
     if (!item.latex) return;
-    try {
-      await navigator.clipboard.writeText(item.latex);
+    if (await copyToClipboard(item.latex)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // Clipboard unavailable.
     }
   }
 

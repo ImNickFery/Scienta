@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Upload, Trash2, Copy, Check, Loader2, ImageOff } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface MediaItem {
   id: string;
@@ -68,10 +69,11 @@ export default function MediaLibraryPage() {
     setItems((prev) => prev.filter((i) => i.id !== id));
   }
 
-  function copyUrl(item: MediaItem) {
-    navigator.clipboard.writeText(window.location.origin + item.path);
-    setCopiedId(item.id);
-    setTimeout(() => setCopiedId(null), 1500);
+  async function copyUrl(item: MediaItem) {
+    if (await copyToClipboard(window.location.origin + item.path)) {
+      setCopiedId(item.id);
+      setTimeout(() => setCopiedId(null), 1500);
+    }
   }
 
   return (

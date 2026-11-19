@@ -4,18 +4,22 @@ const variants = {
   info: { Icon: Info, color: "var(--color-accent-purple)" },
   warning: { Icon: AlertTriangle, color: "var(--color-accent-red)" },
   tip: { Icon: Lightbulb, color: "var(--color-accent-orange)" },
+  insight: { Icon: Lightbulb, color: "var(--color-accent-purple)" },
 };
 
 export function Callout({
-  type = "info",
+  type,
+  variant,
   title,
   children,
 }: {
-  type?: keyof typeof variants;
+  type?: keyof typeof variants | string;
+  variant?: keyof typeof variants | string;
   title?: string;
   children: React.ReactNode;
 }) {
-  const { Icon, color } = variants[type];
+  const key = (type ?? variant ?? "info") as keyof typeof variants;
+  const { Icon, color } = variants[key] ?? variants.info;
   return (
     <div
       className="my-8 flex gap-3 rounded-2xl border p-5"

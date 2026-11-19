@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Copy, Check, Download, Quote } from "lucide-react";
 import { buildAllCitations, type CitationInput } from "@/lib/citations";
+import { copyToClipboard } from "@/lib/clipboard";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -52,13 +53,10 @@ export function CiteModal({
   }, [onClose]);
 
   async function handleCopy() {
-    try {
-      await navigator.clipboard.writeText(activeText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard may be unavailable in restricted contexts.
-    }
+    const ok = await copyToClipboard(activeText);
+    if (!ok) return;
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   }
 
   function handleDownloadBib() {

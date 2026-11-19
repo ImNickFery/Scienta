@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Save, Eye, EyeOff, Loader2, Trash2, History, Star, TrendingUp,
-  ChevronDown, X, RotateCcw,
+  ChevronDown, X, RotateCcw, Image as ImageIcon,
 } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
 import {
@@ -19,7 +19,7 @@ import {
 } from "@/lib/mdx-snippets";
 import { MdxPreview } from "./mdx-preview";
 import { MdxToolbar } from "./mdx-toolbar";
-import { MediaPickerModal } from "./media-picker-modal";
+import { MediaPickerModal, type SelectedMediaAsset } from "./media-picker-modal";
 
 interface TranslationState {
   title: string;
@@ -67,6 +67,8 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
   const [fieldId, setFieldId] = useState<string>("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [authorId, setAuthorId] = useState<string>("");
+  const [coverMediaId, setCoverMediaId] = useState<string | null>(null);
+  const [coverPath, setCoverPath] = useState<string | null>(null);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [status, setStatus] = useState<"draft" | "published" | "scheduled">("draft");
   const [scheduledAt, setScheduledAt] = useState<string>("");
@@ -86,7 +88,7 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [revisionNote, setRevisionNote] = useState("");
   const [confirmTrash, setConfirmTrash] = useState(false);
-  const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [mediaPickerMode, setMediaPickerMode] = useState<"figure" | "cover" | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -107,6 +109,7 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
     if (!articleId) return;
     adminFetch<{
       field_id: string | null; category_id: string | null; author_id: string | null;
+      cover_media_id: string | null; cover_path: string | null;
       status: "draft" | "published" | "scheduled"; featured: number; trending: number;
       scheduled_at: string | null; tagIds: string[];
       translations: Record<string, ApiTranslationRow>;
@@ -115,6 +118,8 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
         setFieldId(data.field_id ?? "");
         setCategoryId(data.category_id ?? "");
         setAuthorId(data.author_id ?? "");
+        setCoverMediaId(data.cover_media_id ?? null);
+        setCoverPath(data.cover_path ?? null);
         setStatus(data.status);
         setFeatured(!!data.featured);
         setTrending(!!data.trending);
@@ -199,6 +204,7 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
         fieldId: fieldId || null,
         categoryId: categoryId || null,
         authorId: authorId || null,
+        coverMediaId: coverMediaId || null,
         status: publishNow ? "published" : status,
         featured,
         trending,
@@ -363,7 +369,7 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
 
           <MdxToolbar
             onInsertSnippet={handleInsertSnippet}
-            onOpenMediaPicker={() => setShowMediaPicker(true)}
+            onOpenMediaPicker={() => setMediaPickerMode("figure")}
             locale={activeLocale}
           />
 
@@ -459,6 +465,48 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
             )}
           </div>
 
+          <div className="card-elevated space-y-3 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-(--color-text-tertiary)">Cover Image</p>
+              {coverPath && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCoverMediaId(null);
+                    setCoverPath(null);
+                  }}
+                  className="text-[11px] text-(--color-accent-red) hover:underline"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {coverPath ? (
+              <div className="overflow-hidden rounded-xl border border-(--color-border-subtle) bg-black/30">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverPath}
+                  alt="Article cover preview"
+                  referrerPolicy="no-referrer"
+                  className="aspect-[16/9] w-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex aspect-[16/9] flex-col items-center justify-center rounded-xl border border-dashed border-(--color-border-subtle) bg-black/20 text-xs text-(--color-text-tertiary)">
+                <ImageIcon className="mb-1.5 h-5 w-5 opacity-60" />
+                <span>No cover image selected</span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setMediaPickerMode("cover")}
+              className="flex h-9 w-full items-center justify-center gap-1.5 rounded-full border border-(--color-border-subtle) bg-white/[0.03] text-xs font-medium text-(--color-text-primary) transition-colors hover:border-(--color-accent-purple)"
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              {coverPath ? "Change Cover Image" : "Choose Cover Image"}
+            </button>
+          </div>
+
           <div className="card-elevated space-y-4 rounded-2xl p-5">
             <SelectField label="Scientific Field" value={fieldId} onChange={setFieldId} options={fields.map((f) => ({ value: f.id, label: lookupLabel(f) }))} />
             <SelectField label="Category" value={categoryId} onChange={setCategoryId} options={categories.map((c) => ({ value: c.id, label: lookupLabel(c) }))} />
@@ -537,10 +585,15 @@ export function ArticleEditor({ articleId }: { articleId?: string }) {
         </div>
       )}
 
-      {showMediaPicker && (
+      {mediaPickerMode && (
         <MediaPickerModal
-          onClose={() => setShowMediaPicker(false)}
+          mode={mediaPickerMode}
+          onClose={() => setMediaPickerMode(null)}
           onInsert={handleInsertFigure}
+          onSelectMedia={(asset: SelectedMediaAsset) => {
+            setCoverMediaId(asset.id);
+            setCoverPath(asset.path);
+          }}
         />
       )}
     </div>

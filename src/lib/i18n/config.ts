@@ -2,6 +2,8 @@ export const locales = ["fa", "en"] as const;
 export type Locale = (typeof locales)[number];
 
 export const defaultLocale: Locale = "fa";
+export const LOCALE_COOKIE = "scienta-locale";
+export const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 export const localeDirection: Record<Locale, "rtl" | "ltr"> = {
   fa: "rtl",

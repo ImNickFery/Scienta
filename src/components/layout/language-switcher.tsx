@@ -2,10 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Check, ChevronDown, Globe } from "lucide-react";
-import { locales, localeLabels, type Locale } from "@/lib/i18n/config";
+import { Check, ChevronDown, Globe, Loader2 } from "lucide-react";
+import {
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  locales,
+  localeLabels,
+  type Locale,
+} from "@/lib/i18n/config";
 import { resolveLocaleSwitchPath } from "@/lib/i18n/switch-path";
-import { useNumerals } from "@/components/i18n/numerals-provider";
+import { useNumerals, writeClientCookie } from "@/components/i18n/numerals-provider";
 import type { Numerals } from "@/lib/i18n/numerals";
 import { cn } from "@/lib/utils";
 
@@ -14,16 +20,33 @@ const numeralOptions: { value: Numerals; label: string; sample: string }[] = [
   { value: "latn", label: "ارقام انگلیسی", sample: "123" },
 ];
 
+export function resolveClientLocaleHref(pathname: string | null, locale: Locale): string {
+  const altLink =
+    typeof document !== "undefined"
+      ? document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${locale}"]`)
+      : null;
+  const search = typeof window !== "undefined" ? window.location.search : "";
+  return resolveLocaleSwitchPath(pathname ?? "/", locale, altLink?.getAttribute("href"), search);
+}
+
 function useLocaleAndNumerals(currentLocale: Locale) {
   const pathname = usePathname();
   const router = useRouter();
   const { numerals, setNumerals } = useNumerals();
+  const [switchingTo, setSwitchingTo] = useState<Locale | null>(null);
+
+  function getLocaleHref(locale: Locale): string {
+    return resolveLocaleSwitchPath(pathname ?? "/", locale);
+  }
 
   function switchTo(locale: Locale) {
     if (locale === currentLocale) return;
-    const altLink = document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${locale}"]`);
-    const target = resolveLocaleSwitchPath(pathname, locale, altLink?.getAttribute("href"));
-    router.push(target);
+    setSwitchingTo(locale);
+    writeClientCookie(LOCALE_COOKIE, locale, LOCALE_COOKIE_MAX_AGE);
+    const target = resolveClientLocaleHref(pathname, locale);
+    // Full document navigation guarantees <html lang dir>, fonts, and direction CSS reset cleanly
+    // without stale Next.js client-router cache or HMR chunk mismatches across root layouts.
+    window.location.assign(target);
   }
 
   function chooseNumerals(next: Numerals) {
@@ -32,13 +55,14 @@ function useLocaleAndNumerals(currentLocale: Locale) {
     router.refresh();
   }
 
-  return { numerals, switchTo, chooseNumerals };
+  return { numerals, switchingTo, getLocaleHref, switchTo, chooseNumerals };
 }
 
 export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { numerals, switchTo, chooseNumerals } = useLocaleAndNumerals(currentLocale);
+  const { numerals, switchingTo, getLocaleHref, switchTo, chooseNumerals } =
+    useLocaleAndNumerals(currentLocale);
 
   useEffect(() => {
     if (!open) return;
@@ -73,8 +97,12 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
             : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
         )}
       >
-        <Globe className="h-4 w-4 shrink-0" />
-        <span>{localeLabels[currentLocale]}</span>
+        {switchingTo ? (
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-(--color-accent-purple)" />
+        ) : (
+          <Globe className="h-4 w-4 shrink-0" />
+        )}
+        <span>{switchingTo ? localeLabels[switchingTo] : localeLabels[currentLocale]}</span>
         <ChevronDown
           className={cn("h-3.5 w-3.5 shrink-0 opacity-70 transition-transform duration-200", open && "rotate-180")}
         />
@@ -87,13 +115,15 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
         >
           {locales.map((locale) => {
             const active = locale === currentLocale;
+            const href = getLocaleHref(locale);
             return (
-              <button
+              <a
                 key={locale}
-                type="button"
+                href={href}
                 role="menuitemradio"
                 aria-checked={active}
-                onClick={() => {
+                onClick={(e) => {
+                  e.preventDefault();
                   setOpen(false);
                   switchTo(locale);
                 }}
@@ -104,7 +134,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
               >
                 <span>{localeLabels[locale]}</span>
                 {active && <Check className="h-3.5 w-3.5 shrink-0" />}
-              </button>
+              </a>
             );
           })}
 
@@ -157,21 +187,30 @@ export function MobileLanguageControls({
   currentLocale: Locale;
   onSelect?: () => void;
 }) {
-  const { numerals, switchTo, chooseNumerals } = useLocaleAndNumerals(currentLocale);
+  const { numerals, switchingTo, getLocaleHref, switchTo, chooseNumerals } =
+    useLocaleAndNumerals(currentLocale);
 
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-2 gap-1.5 rounded-xl border border-(--color-border-subtle) bg-black/30 p-1">
         {locales.map((locale) => {
           const active = locale === currentLocale;
+          const isLoading = switchingTo === locale;
+          const href = getLocaleHref(locale);
           return (
-            <button
+            <a
               key={locale}
-              type="button"
-              aria-pressed={active}
-              onClick={() => {
-                onSelect?.();
+              href={href}
+              aria-current={active ? "page" : undefined}
+              onClick={(e) => {
+                if (active) {
+                  e.preventDefault();
+                  onSelect?.();
+                  return;
+                }
+                e.preventDefault();
                 switchTo(locale);
+                onSelect?.();
               }}
               className={cn(
                 "flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-colors",
@@ -180,9 +219,13 @@ export function MobileLanguageControls({
                   : "text-(--color-text-secondary) hover:bg-white/[0.06] hover:text-(--color-text-primary)"
               )}
             >
-              <Globe className="h-3.5 w-3.5" />
+              {isLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Globe className="h-3.5 w-3.5" />
+              )}
               <span>{localeLabels[locale]}</span>
-            </button>
+            </a>
           );
         })}
       </div>

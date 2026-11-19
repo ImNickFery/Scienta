@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { defaultLocale, locales } from "@/lib/i18n/config";
+import { defaultLocale, isValidLocale, LOCALE_COOKIE, locales } from "@/lib/i18n/config";
 import { ACCESS_TOKEN_COOKIE, verifyAccessToken } from "@/lib/auth";
 
-function getLocaleFromHeader(request: NextRequest): string {
+function resolvePreferredLocale(request: NextRequest): string {
+  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
+  if (cookieLocale && isValidLocale(cookieLocale)) {
+    return cookieLocale;
+  }
   const acceptLanguage = request.headers.get("accept-language") ?? "";
   const preferred = acceptLanguage.split(",")[0]?.split("-")[0];
   return locales.includes(preferred as (typeof locales)[number]) ? preferred! : defaultLocale;
@@ -59,7 +63,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const locale = getLocaleFromHeader(request);
+  const locale = resolvePreferredLocale(request);
   const url = request.nextUrl.clone();
   url.pathname = `/${locale}${pathname}`;
   return NextResponse.redirect(url);

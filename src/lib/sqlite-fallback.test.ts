@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { SEED_ARTICLES } from "./seed-data";
 import {
   SqliteFallbackDb,
   translateMysqlToSqlite,
@@ -78,8 +79,18 @@ test("SqliteFallbackDb seeds fields, authors, bilingual articles, and supports q
        ORDER BY a.published_at DESC`,
       ["en"]
     );
-    assert.equal(enArticles.length, 3);
+    assert.equal(enArticles.length, SEED_ARTICLES.length);
     assert.ok(enArticles[0].tags && enArticles[0].tags.includes("::"));
+    assert.ok(enArticles.some((a) => a.slug === "crispr-gene-editing"));
+
+    // Simulate pre-existing DB missing a seeded article; re-opening should restore it idempotently
+    db.execute(`DELETE FROM articles WHERE id = ?`, [enArticles[0].id]);
+    const deletedSlug = enArticles[0].slug;
+    const afterDelete = db.query<{ slug: string }>(
+      `SELECT t.slug FROM article_translations t WHERE t.locale = 'en' AND t.slug = ?`,
+      [deletedSlug]
+    );
+    assert.equal(afterDelete.length, 0);
 
     // Fulltext search translation
     const searchHits = db.query<{ slug: string }>(
@@ -91,7 +102,7 @@ test("SqliteFallbackDb seeds fields, authors, bilingual articles, and supports q
     assert.equal(searchHits[0].slug, "geometry-of-black-holes");
 
     // View increment via query()
-    const targetId = enArticles[0].id;
+    const targetId = enArticles[1].id;
     db.query("UPDATE articles SET views = views + 1 WHERE id = ?", [targetId]);
 
     // Subscriber upsert with ON DUPLICATE KEY UPDATE
@@ -139,5 +150,39 @@ test("SqliteFallbackDb seeds fields, authors, bilingual articles, and supports q
     );
   } finally {
     db.close();
+  }
+});
+
+test("SqliteFallbackDb incrementally seeds newly added articles on pre-existing database files", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const tmpFile = path.join(os.tmpdir(), `scienta-inc-${Date.now()}.sqlite`);
+
+  try {
+    const first = new SqliteFallbackDb(tmpFile);
+    first.execute(
+      `DELETE FROM articles WHERE id IN (SELECT article_id FROM article_translations WHERE slug IN ('crispr-gene-editing', 'riemann-zeta-prime-music'))`
+    );
+    const before = first.query<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM articles WHERE deleted_at IS NULL AND status = 'published'`
+    );
+    assert.equal(Number(before[0].count), SEED_ARTICLES.length - 2);
+    first.close();
+
+    const reopened = new SqliteFallbackDb(tmpFile);
+    const after = reopened.query<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM articles WHERE deleted_at IS NULL AND status = 'published'`
+    );
+    assert.equal(Number(after[0].count), SEED_ARTICLES.length);
+    reopened.close();
+  } finally {
+    for (const suffix of ["", "-wal", "-shm"]) {
+      try {
+        fs.unlinkSync(`${tmpFile}${suffix}`);
+      } catch {
+        // Ignore cleanup miss
+      }
+    }
   }
 });

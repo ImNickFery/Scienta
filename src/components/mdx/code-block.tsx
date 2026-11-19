@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 
 export function CodeBlock(props: React.HTMLAttributes<HTMLPreElement>) {
   const preRef = useRef<HTMLPreElement>(null);
@@ -11,9 +12,10 @@ export function CodeBlock(props: React.HTMLAttributes<HTMLPreElement>) {
 
   async function copy() {
     const text = preRef.current?.textContent ?? "";
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1600);
+    if (await copyToClipboard(text)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }
   }
 
   return (

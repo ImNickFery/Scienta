@@ -73,7 +73,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <ReadingJourney locale={locale} dict={dict} />
 
       <ArticleSection
-        articles={allSummaries}
+        articles={allSummaries.slice(0, 6)}
         locale={locale}
         dict={dict}
         title={dict.sections.latest}

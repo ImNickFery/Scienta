@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { adminFetch } from "@/lib/admin-api-client";
 
 export interface AdminUser {
@@ -20,6 +21,7 @@ interface AdminAuthState {
 const AdminAuthContext = createContext<AdminAuthState | null>(null);
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -35,9 +37,13 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrates the session once on mount
+    if (pathname === "/admin/login") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- no authenticated session expected on the login page
+      setLoading(false);
+      return;
+    }
     load();
-  }, [load]);
+  }, [load, pathname]);
 
   const logout = useCallback(async () => {
     await adminFetch("/api/admin/auth/logout", { method: "POST" }).catch(() => {});

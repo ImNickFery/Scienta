@@ -13,7 +13,7 @@ import {
 import { getAuthorBySlug, getFieldBySlug } from "@/lib/taxonomy";
 import { renderMdx } from "@/lib/render-mdx";
 import { buildArticleMetadata, articleJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
-import { safeJsonLd } from "@/lib/security";
+import { safeJsonLd, sanitizeUrl } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ReadingProgress } from "@/components/article/reading-progress";
@@ -95,6 +95,7 @@ export default async function ArticlePage({ params }: PageProps) {
   const PrevIcon = locale === "fa" ? ArrowRight : ArrowLeft;
   const fieldColor = field?.color ?? article.fieldColor;
   const fieldLabel = field?.name[locale] ?? dict.fields[article.field as keyof typeof dict.fields];
+  const coverSrc = sanitizeUrl(article.cover, { allowRelative: true, allowHash: false });
 
   return (
     <>
@@ -105,44 +106,80 @@ export default async function ArticlePage({ params }: PageProps) {
       {/* Hero */}
       <section className="article-hero relative overflow-hidden border-b border-(--color-border-subtle) transition-opacity duration-300">
         <div className="absolute inset-0">
-          <SciIllustration variant={HERO_ILLUSTRATION[article.field] ?? "orbit"} palette="aurora" className="h-full w-full opacity-70" />
+          {coverSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverSrc}
+              alt=""
+              aria-hidden="true"
+              referrerPolicy="no-referrer"
+              className="h-full w-full scale-110 object-cover opacity-30 blur-2xl"
+            />
+          ) : (
+            <SciIllustration variant={HERO_ILLUSTRATION[article.field] ?? "orbit"} palette="aurora" className="h-full w-full opacity-70" />
+          )}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-(--color-bg-deep) via-(--color-bg-deep)/70 to-(--color-bg-deep)/30" />
+        <div className="absolute inset-0 bg-gradient-to-t from-(--color-bg-deep) via-(--color-bg-deep)/75 to-(--color-bg-deep)/40" />
         <div
           className="absolute inset-0 opacity-60"
           style={{
             background: `radial-gradient(60% 60% at 20% 0%, ${fieldColor}33, transparent 60%), radial-gradient(50% 50% at 90% 30%, ${fieldColor}22, transparent 60%)`,
           }}
         />
-        <Container className="relative py-20 sm:py-28">
-          <nav className="mb-6 flex items-center gap-2 text-xs text-(--color-text-tertiary)">
-            <Link href={`/${locale}`} className="hover:text-(--color-text-primary)">{dict.nav.home}</Link>
-            <span>/</span>
-            <Link href={`/${locale}/fields/${article.field}`} className="hover:text-(--color-text-primary)">
-              {fieldLabel}
-            </Link>
-          </nav>
+        <Container className="relative py-16 sm:py-24">
+          <div className={coverSrc ? "grid items-center gap-10 lg:grid-cols-[1.15fr_1fr] lg:gap-12" : ""}>
+            <div>
+              <nav className="mb-6 flex items-center gap-2 text-xs text-(--color-text-tertiary)">
+                <Link href={`/${locale}`} className="hover:text-(--color-text-primary)">{dict.nav.home}</Link>
+                <span>/</span>
+                <Link href={`/${locale}/fields/${article.field}`} className="hover:text-(--color-text-primary)">
+                  {fieldLabel}
+                </Link>
+              </nav>
 
-          <Badge style={{ background: `${fieldColor}22`, color: fieldColor, borderColor: `${fieldColor}44` }}>
-            {fieldLabel}
-          </Badge>
+              <Badge style={{ background: `${fieldColor}22`, color: fieldColor, borderColor: `${fieldColor}44` }}>
+                {fieldLabel}
+              </Badge>
 
-          <h1 className="mt-5 max-w-4xl font-[family-name:var(--font-display)] text-3xl font-extrabold leading-tight sm:text-5xl">
-            {article.title}
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg text-(--color-text-secondary)">{article.excerpt}</p>
+              <h1 className="mt-5 max-w-4xl font-[family-name:var(--font-display)] text-3xl font-extrabold leading-tight sm:text-5xl">
+                {article.title}
+              </h1>
+              <p className="mt-5 max-w-2xl text-lg text-(--color-text-secondary)">{article.excerpt}</p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-5 text-sm text-(--color-text-tertiary)">
-            {author && <span className="text-(--color-text-primary)">{author.name[locale]}</span>}
-            <span className="inline-flex items-center gap-1.5">
-              <Clock className="h-4 w-4" />
-              {formatCount(article.readingTimeMinutes, locale, numerals)} {dict.common.minutes} {dict.article.readingTime.toLowerCase()}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <Eye className="h-4 w-4" />
-              {formatNumber(article.views, locale, numerals)} {dict.card.views}
-            </span>
-            <span>{formatDate(article.publishedAt, locale, numerals)}</span>
+              <div className="mt-8 flex flex-wrap items-center gap-5 text-sm text-(--color-text-tertiary)">
+                {author && <span className="text-(--color-text-primary)">{author.name[locale]}</span>}
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  {formatCount(article.readingTimeMinutes, locale, numerals)} {dict.common.minutes} {dict.article.readingTime.toLowerCase()}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Eye className="h-4 w-4" />
+                  {formatNumber(article.views, locale, numerals)} {dict.card.views}
+                </span>
+                <span>{formatDate(article.publishedAt, locale, numerals)}</span>
+              </div>
+            </div>
+
+            {coverSrc && (
+              <div
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-(--color-bg-elevated) shadow-2xl"
+                style={{ boxShadow: `0 24px 64px -20px ${fieldColor}44, 0 12px 32px -12px rgba(0,0,0,0.75)` }}
+              >
+                <div className="aspect-[16/9] w-full overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coverSrc}
+                    alt={article.title}
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/10"
+                />
+              </div>
+            )}
           </div>
         </Container>
       </section>

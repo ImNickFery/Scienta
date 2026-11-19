@@ -33,6 +33,7 @@ const PERMISSIONS: Record<RoleName, string[]> = {
     "search.use",
     "backup.manage",
     "cache.manage",
+    "api_keys.manage",
   ],
   editor: [
     "articles.manage",

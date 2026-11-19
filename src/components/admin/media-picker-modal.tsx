@@ -19,12 +19,21 @@ interface MediaPickerItem {
   created_at: string;
 }
 
-interface MediaPickerModalProps {
-  onClose: () => void;
-  onInsert: (figureMdx: string) => void;
+export interface SelectedMediaAsset {
+  id: string;
+  path: string;
+  thumbnailPath: string | null;
+  originalName: string;
 }
 
-export function MediaPickerModal({ onClose, onInsert }: MediaPickerModalProps) {
+interface MediaPickerModalProps {
+  mode?: "figure" | "cover";
+  onClose: () => void;
+  onInsert?: (figureMdx: string) => void;
+  onSelectMedia?: (media: SelectedMediaAsset) => void;
+}
+
+export function MediaPickerModal({ mode = "figure", onClose, onInsert, onSelectMedia }: MediaPickerModalProps) {
   const [items, setItems] = useState<MediaPickerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -101,13 +110,23 @@ export function MediaPickerModal({ onClose, onInsert }: MediaPickerModalProps) {
 
   function handleConfirmInsert() {
     if (!selectedItem) return;
+    if (mode === "cover" && onSelectMedia) {
+      onSelectMedia({
+        id: selectedItem.id,
+        path: selectedItem.path,
+        thumbnailPath: selectedItem.thumbnail_path,
+        originalName: selectedItem.original_name,
+      });
+      onClose();
+      return;
+    }
     const mdx = buildFigureMdx({
       src: selectedItem.path,
       alt: altText.trim() || selectedItem.original_name,
       caption: caption.trim() || undefined,
       aspect,
     });
-    onInsert(mdx);
+    onInsert?.(mdx);
     onClose();
   }
 
@@ -126,10 +145,12 @@ export function MediaPickerModal({ onClose, onInsert }: MediaPickerModalProps) {
         <div className="flex items-center justify-between border-b border-(--color-border-subtle) px-6 py-4">
           <div>
             <h2 className="font-[family-name:var(--font-display)] text-lg font-bold text-(--color-text-primary)">
-              Insert Image from Media Library
+              {mode === "cover" ? "Select Article Cover Image" : "Insert Image from Media Library"}
             </h2>
             <p className="text-xs text-(--color-text-tertiary)">
-              Pick an existing asset or upload a new image to insert a responsive &lt;Figure /&gt; block
+              {mode === "cover"
+                ? "Choose an existing photo or upload a new 16:9 image for the article card and hero"
+                : "Pick an existing asset or upload a new image to insert a responsive <Figure /> block"}
             </p>
           </div>
           <button
@@ -293,7 +314,7 @@ export function MediaPickerModal({ onClose, onInsert }: MediaPickerModalProps) {
               className="mt-4 flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) text-xs font-medium text-white disabled:opacity-40"
             >
               <ImagePlus className="h-3.5 w-3.5" />
-              Insert Figure
+              {mode === "cover" ? "Use as Cover Image" : "Insert Figure"}
             </button>
           </div>
         </div>

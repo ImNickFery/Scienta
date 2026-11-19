@@ -10,6 +10,7 @@ import {
 import { extractKnownSymbols } from "@/lib/equation-parser";
 import { exportKatexElementToSvg } from "@/lib/equation-svg-export";
 import { equationKey, isEquationBookmarked, toggleEquationBookmark } from "@/lib/equation-bookmarks";
+import { copyToClipboard } from "@/lib/clipboard";
 import type { Locale } from "@/lib/i18n/config";
 import type { SymbolDefinition } from "@/lib/equation-glossary";
 
@@ -163,8 +164,9 @@ export function EquationModal({ latex, equationId, index, articleSlug, articleTi
   }, []);
 
   async function handleCopyLatex() {
-    await navigator.clipboard.writeText(latex);
-    flashCopied("latex");
+    if (await copyToClipboard(latex)) {
+      flashCopied("latex");
+    }
   }
 
   async function handleCopySvg() {
@@ -177,14 +179,16 @@ export function EquationModal({ latex, equationId, index, articleSlug, articleTi
     // via ClipboardItem is inconsistent across Safari/Firefox/Chrome, while
     // plain text copy works everywhere. Paste into a .svg file or any
     // markup-aware editor.
-    await navigator.clipboard.writeText(svg);
-    flashCopied("svg");
+    if (await copyToClipboard(svg)) {
+      flashCopied("svg");
+    }
   }
 
   async function handleCopyLink() {
     const url = `${window.location.origin}${window.location.pathname}#${equationId}`;
-    await navigator.clipboard.writeText(url);
-    flashCopied("link");
+    if (await copyToClipboard(url)) {
+      flashCopied("link");
+    }
   }
 
   function handleToggleBookmark() {

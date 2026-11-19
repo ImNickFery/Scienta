@@ -8,6 +8,7 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import { cn, formatDate } from "@/lib/utils";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import { isArticleBookmarked, toggleArticleBookmark } from "@/lib/article-bookmarks";
+import { copyToClipboard } from "@/lib/clipboard";
 import { CiteModal } from "./cite-modal";
 
 export function ShareBar({
@@ -34,7 +35,8 @@ export function ShareBar({
   }, [article.slug]);
 
   async function copyLink() {
-    await navigator.clipboard.writeText(url);
+    const ok = await copyToClipboard(url);
+    if (!ok) return;
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 1600);
   }

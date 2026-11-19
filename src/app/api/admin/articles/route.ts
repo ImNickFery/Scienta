@@ -25,6 +25,7 @@ const createArticleSchema = z.object({
   fieldId: z.string().uuid().nullable().optional(),
   categoryId: z.string().uuid().nullable().optional(),
   authorId: z.string().uuid().nullable().optional(),
+  coverMediaId: z.string().uuid().nullable().optional(),
   status: z.enum(["draft", "published", "scheduled"]).default("draft"),
   featured: z.boolean().optional().default(false),
   trending: z.boolean().optional().default(false),
@@ -157,13 +158,14 @@ export async function POST(req: Request) {
   try {
     await withTransaction(async (conn) => {
       await conn.execute(
-        `INSERT INTO articles (id, field_id, category_id, author_id, status, featured, trending, scheduled_at, published_at, created_by, updated_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO articles (id, field_id, category_id, author_id, cover_media_id, status, featured, trending, scheduled_at, published_at, created_by, updated_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           articleId,
           data.fieldId ?? null,
           data.categoryId ?? null,
           data.authorId ?? null,
+          data.coverMediaId ?? null,
           data.status,
           data.featured ? 1 : 0,
           data.trending ? 1 : 0,

@@ -339,4 +339,47 @@ CREATE TABLE IF NOT EXISTS activity_logs (
   INDEX idx_activity_entity (entity_type, entity_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------
+-- AI / EXTERNAL INTEGRATION API KEYS & IDEMPOTENCY
+-- ---------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  description VARCHAR(500) NULL,
+  key_prefix VARCHAR(32) NOT NULL,
+  key_hash CHAR(64) NOT NULL UNIQUE,
+  scopes_json TEXT NOT NULL,
+  owner_user_id CHAR(36) NOT NULL,
+  default_author_id CHAR(36) NULL,
+  rate_limit_per_min INT NOT NULL DEFAULT 60,
+  status ENUM('active','revoked') NOT NULL DEFAULT 'active',
+  request_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  last_used_at DATETIME NULL,
+  last_used_ip VARCHAR(64) NULL,
+  expires_at DATETIME NULL,
+  revoked_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_apikeys_owner FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_apikeys_author FOREIGN KEY (default_author_id) REFERENCES authors(id) ON DELETE SET NULL,
+  INDEX idx_apikeys_status (status),
+  INDEX idx_apikeys_owner (owner_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS api_idempotency_keys (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  api_key_id CHAR(36) NOT NULL,
+  idempotency_key VARCHAR(128) NOT NULL,
+  method VARCHAR(16) NOT NULL,
+  path VARCHAR(255) NOT NULL,
+  request_hash CHAR(64) NOT NULL,
+  status_code INT NOT NULL,
+  response_json LONGTEXT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  expires_at DATETIME NOT NULL,
+  UNIQUE KEY uq_apikey_idempotency (api_key_id, idempotency_key),
+  CONSTRAINT fk_idempotency_apikey FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE,
+  INDEX idx_idempotency_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -1,8 +1,9 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Sparkles, Lock, Mail, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Sparkles, Lock, Mail, Loader2, ArrowLeft } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
 import { sanitizeAdminRedirect } from "@/lib/security";
 import { AuroraBackground } from "@/components/animations/aurora-background";
@@ -16,7 +17,6 @@ export default function AdminLoginPage() {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,11 +33,9 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       const target = sanitizeAdminRedirect(searchParams.get("from"));
-      router.push(target);
-      router.refresh();
+      window.location.assign(target === "/admin" ? "/admin/dashboard" : target);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
       setLoading(false);
     }
   }
@@ -96,6 +94,16 @@ function LoginForm() {
             Sign In
           </button>
         </form>
+
+        <div className="mt-6 border-t border-(--color-border-subtle) pt-4 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs text-(--color-text-tertiary) transition-colors hover:text-(--color-text-primary)"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Scienta
+          </Link>
+        </div>
       </div>
     </div>
   );

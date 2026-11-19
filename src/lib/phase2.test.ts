@@ -39,6 +39,16 @@ test("resolveLocaleSwitchPath prefers alternate hreflang slug over naive prefix 
     resolveLocaleSwitchPath("/fa/about", "en", "https://scienta.ir/fa/wrong-locale"),
     "/en/about"
   );
+
+  assert.equal(
+    resolveLocaleSwitchPath("/fa/search", "en", "https://scienta.ir/en/search", "?q=black"),
+    "/en/search?q=black"
+  );
+
+  assert.equal(
+    resolveLocaleSwitchPath("/fa/articles", "en", "https://scienta.ir/en", "?field=quantum"),
+    "/en/articles?field=quantum"
+  );
 });
 
 test("buildArticleMetadata honors custom SEO fields and emits bilingual hreflang alternates", () => {
