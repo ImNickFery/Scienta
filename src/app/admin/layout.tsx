@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "katex/dist/katex.min.css";
 import "../globals.css";
 import { AdminAuthProvider } from "@/components/admin/admin-auth-context";
+import { AdminLocaleProvider } from "@/components/admin/admin-locale-context";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { fontVariables } from "@/fonts";
 import { SITE_URL } from "@/lib/seo";
@@ -24,7 +25,9 @@ export default function AdminRootLayout({ children }: { children: React.ReactNod
     <html lang="en" dir="ltr" className={fontVariables}>
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
         <AdminAuthProvider>
-          <AdminShell>{children}</AdminShell>
+          <AdminLocaleProvider>
+            <AdminShell>{children}</AdminShell>
+          </AdminLocaleProvider>
         </AdminAuthProvider>
       </body>
     </html>
