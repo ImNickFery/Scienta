@@ -68,6 +68,9 @@ function VariableRow({ symbol, locale }: { symbol: SymbolDefinition; locale: Loc
   const symbolHtml = katex.renderToString(symbol.tokens[0].replace(/^\|/, "").replace(/\\rangle$/, ""), {
     throwOnError: false,
     displayMode: false,
+    trust: false,
+    maxExpand: 100,
+    maxSize: 10,
   });
   const t = STRINGS[locale];
 
@@ -124,10 +127,13 @@ export function EquationModal({ latex, equationId, index, articleSlug, articleTi
   useEffect(() => {
     if (!katexHostRef.current) return;
     try {
-      katex.render(latex, katexHostRef.current, {
+      katex.render(latex.slice(0, 4000), katexHostRef.current, {
         throwOnError: false,
         displayMode: true,
         output: "htmlAndMathml",
+        trust: false,
+        maxExpand: 300,
+        maxSize: 15,
       });
     } catch {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- surfaces a render failure from an external library call, not derived render state

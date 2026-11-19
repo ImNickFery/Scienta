@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { sanitizeUrl } from "@/lib/security";
 import { SciIllustration } from "./sci-illustration";
 
 interface GalleryImage {
@@ -17,24 +18,29 @@ export function ImageGallery({ images }: { images: GalleryImage[] }) {
 
   const next = () => setActiveIndex((i) => (i === null ? null : (i + 1) % images.length));
   const prev = () => setActiveIndex((i) => (i === null ? null : (i - 1 + images.length) % images.length));
+  const activeSafeSrc =
+    activeIndex !== null ? sanitizeUrl(images[activeIndex]?.src, { allowRelative: true, allowHash: false }) : null;
 
   return (
     <div className="not-prose my-10">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {images.map((img, i) => (
-          <button
-            key={i}
-            onClick={() => setActiveIndex(i)}
-            className="group relative aspect-square overflow-hidden rounded-xl border border-(--color-border-subtle)"
-          >
-            {img.src ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={img.src} alt={img.alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
-            ) : (
-              <SciIllustration variant={img.illustration ?? "nebula"} palette={img.palette ?? "aurora"} className="h-full w-full transition-transform duration-500 group-hover:scale-110" />
-            )}
-          </button>
-        ))}
+        {images.map((img, i) => {
+          const safeSrc = sanitizeUrl(img.src, { allowRelative: true, allowHash: false });
+          return (
+            <button
+              key={i}
+              onClick={() => setActiveIndex(i)}
+              className="group relative aspect-square overflow-hidden rounded-xl border border-(--color-border-subtle)"
+            >
+              {safeSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={safeSrc} alt={img.alt} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" />
+              ) : (
+                <SciIllustration variant={img.illustration ?? "nebula"} palette={img.palette ?? "aurora"} className="h-full w-full transition-transform duration-500 group-hover:scale-110" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       {activeIndex !== null && (
@@ -50,9 +56,9 @@ export function ImageGallery({ images }: { images: GalleryImage[] }) {
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="max-h-[80vh] max-w-4xl overflow-hidden rounded-xl" onClick={(e) => e.stopPropagation()}>
-            {images[activeIndex].src ? (
+            {activeSafeSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={images[activeIndex].src} alt={images[activeIndex].alt} className="max-h-[80vh] w-auto object-contain" />
+              <img src={activeSafeSrc} alt={images[activeIndex].alt} referrerPolicy="no-referrer" className="max-h-[80vh] w-auto object-contain" />
             ) : (
               <SciIllustration variant={images[activeIndex].illustration ?? "nebula"} palette={images[activeIndex].palette ?? "aurora"} className="max-h-[80vh] w-full max-w-2xl" />
             )}

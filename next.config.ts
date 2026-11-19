@@ -1,24 +1,30 @@
 import type { NextConfig } from "next";
+import { buildSecurityHeaders } from "./src/lib/security";
 
 const isProd = process.env.NODE_ENV === "production";
+const securityHeaders = buildSecurityHeaders(isProd);
 
-const securityHeaders = [
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-  { key: "X-DNS-Prefetch-Control", value: "on" },
-  ...(isProd
-    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
-    : []),
+const noStoreHeaders = [
+  { key: "Cache-Control", value: "no-store, private, max-age=0" },
+  { key: "Pragma", value: "no-cache" },
 ];
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  poweredByHeader: false,
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/admin/:path*",
+        headers: noStoreHeaders,
+      },
+      {
+        source: "/api/admin/:path*",
+        headers: noStoreHeaders,
       },
     ];
   },

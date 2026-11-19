@@ -40,7 +40,7 @@ async function main() {
   const permissionKeys = [
     "articles.manage", "categories.manage", "categories.view", "fields.manage", "fields.view",
     "tags.manage", "authors.manage", "authors.view", "media.manage", "settings.manage",
-    "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "logs.view",
+    "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "comments.manage", "logs.view",
     "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage",
   ];
   const permissionIds = {};

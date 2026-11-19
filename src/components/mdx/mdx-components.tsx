@@ -1,5 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
+import { sanitizeUrl } from "@/lib/security";
 import { Mermaid } from "./mermaid";
 import { CodeBlock } from "./code-block";
 import { Callout } from "./callout";
@@ -46,24 +47,31 @@ export const mdxComponents = {
       {...props}
     />
   ),
-  a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-    const isExternal = props.href?.startsWith("http");
+  a: ({ href, children, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+    const safeHref = sanitizeUrl(href, { allowRelative: true, allowMailto: true, allowHash: true });
+    if (!safeHref) {
+      return <span className="text-(--color-text-secondary)">{children}</span>;
+    }
+    const isExternal = safeHref.startsWith("http://") || safeHref.startsWith("https://") || safeHref.startsWith("mailto:");
     if (isExternal) {
       return (
         <a
+          {...rest}
+          href={safeHref}
           className="text-(--color-accent-orange) underline decoration-(--color-accent-orange)/40 underline-offset-4 hover:decoration-(--color-accent-orange)"
           target="_blank"
           rel="noopener noreferrer"
-          {...props}
-        />
+        >
+          {children}
+        </a>
       );
     }
     return (
       <Link
-        href={props.href ?? "#"}
+        href={safeHref}
         className="text-(--color-accent-orange) underline decoration-(--color-accent-orange)/40 underline-offset-4 hover:decoration-(--color-accent-orange)"
       >
-        {props.children}
+        {children}
       </Link>
     );
   },
@@ -86,10 +94,21 @@ export const mdxComponents = {
   ),
   hr: () => <hr className="my-12 border-(--color-border-subtle)" />,
   pre: CodeBlock,
-  img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img className="my-8 w-full rounded-2xl border border-(--color-border-subtle)" loading="lazy" alt={props.alt ?? ""} {...props} />
-  ),
+  img: ({ src, alt, ...rest }: React.ImgHTMLAttributes<HTMLImageElement>) => {
+    const safeSrc = typeof src === "string" ? sanitizeUrl(src, { allowRelative: true, allowHash: false }) : null;
+    if (!safeSrc) return null;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        {...rest}
+        src={safeSrc}
+        referrerPolicy="no-referrer"
+        className="my-8 w-full rounded-2xl border border-(--color-border-subtle)"
+        loading="lazy"
+        alt={alt ?? ""}
+      />
+    );
+  },
   Mermaid,
   Callout,
   Figure,

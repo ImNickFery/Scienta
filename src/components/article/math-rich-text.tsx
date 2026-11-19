@@ -30,6 +30,8 @@ export function MathRichText({
         throwOnError: false,
         strict: false,
         trust: false,
+        maxExpand: 200,
+        maxSize: 10,
       });
       return { key: `m-${idx}`, type: "math" as const, display: seg.display, html };
     });

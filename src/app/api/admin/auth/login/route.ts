@@ -18,10 +18,11 @@ import { generateCsrfToken } from "@/lib/csrf";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
 import { badRequest } from "@/lib/session";
+import { verifySameOrigin } from "@/lib/security";
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().trim().email().max(190),
+  password: z.string().min(1).max(128),
 });
 
 interface UserRow {
@@ -38,10 +39,17 @@ interface UserRow {
 const DUMMY_PASSWORD_HASH = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO9uM/7i7R4q4c8m2yR7d4hK8J/e2m2W.";
 
 export async function POST(req: Request) {
+  if (!verifySameOrigin(req)) {
+    return NextResponse.json({ error: "Cross-origin request blocked" }, { status: 403 });
+  }
+
   const ip = getClientIp(req);
-  const limit = rateLimit(`login:${ip}`, 8, 15 * 60 * 1000);
-  if (!limit.allowed) {
-    return NextResponse.json({ error: "Too many login attempts. Try again later." }, { status: 429 });
+  const ipLimit = rateLimit(`login:ip:${ip}`, 8, 15 * 60 * 1000);
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(ipLimit.retryAfterSeconds) } }
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -50,6 +58,15 @@ export async function POST(req: Request) {
 
   const email = parsed.data.email.trim().toLowerCase();
   const password = parsed.data.password;
+
+  // Dual-key rate limit prevents distributed credential stuffing against a single account.
+  const acctLimit = rateLimit(`login:acct:${email}`, 10, 15 * 60 * 1000);
+  if (!acctLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many login attempts for this account. Try again later." },
+      { status: 429, headers: { "Retry-After": String(acctLimit.retryAfterSeconds) } }
+    );
+  }
 
   const user = await queryOne<UserRow>(
     `SELECT u.id, u.name, u.email, u.password_hash, u.status, r.name AS role_name

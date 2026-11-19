@@ -7,7 +7,10 @@ export async function GET(req: Request) {
   const ip = getClientIp(req);
   const limit = rateLimit(`search:${ip}`, 60, 60 * 1000);
   if (!limit.allowed) {
-    return NextResponse.json({ error: "Too many search requests" }, { status: 429 });
+    return NextResponse.json(
+      { error: "Too many search requests" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
   }
 
   const url = new URL(req.url);

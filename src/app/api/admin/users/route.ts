@@ -7,6 +7,7 @@ import { requireApiAuth, requireAdminMutation, badRequest } from "@/lib/session"
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
 import { stripHtml } from "@/lib/sanitize";
+import { validatePasswordStrength } from "@/lib/security";
 
 interface UserListRow {
   id: string;
@@ -30,7 +31,7 @@ interface RoleRow {
 const createUserSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(190),
-  password: z.string().min(8).max(128),
+  password: z.string().min(10).max(128),
   role: z.enum(["super_admin", "admin", "editor"]),
 });
 
@@ -62,6 +63,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("Invalid user data", parsed.error.flatten());
 
   const { name, password, role } = parsed.data;
+  const pwCheck = validatePasswordStrength(password);
+  if (!pwCheck.valid) return badRequest(pwCheck.reason ?? "Password does not meet security requirements.");
+
   const email = parsed.data.email.toLowerCase();
 
   const existing = await queryOne<{ id: string }>(`SELECT id FROM users WHERE email = ?`, [email]);

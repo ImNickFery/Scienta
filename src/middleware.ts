@@ -34,8 +34,9 @@ export async function middleware(request: NextRequest) {
 
   if (pathname.startsWith("/admin")) {
     const result = await handleAdmin(request);
-    if (result) return result;
-    return NextResponse.next();
+    const res = result ?? NextResponse.next();
+    res.headers.set("Cache-Control", "no-store, private, max-age=0");
+    return res;
   }
 
   const pathnameHasLocale = locales.some(

@@ -16,24 +16,34 @@ export interface AccessTokenPayload {
 }
 
 const DEV_FALLBACK_JWT_SECRET = "scienta-local-dev-jwt-secret-change-in-production-2026";
+const JWT_ISSUER = "scienta";
+const JWT_AUDIENCE = "scienta-admin";
+const VALID_ROLES = new Set(["super_admin", "admin", "editor"]);
 
 function getSecret() {
-  const secret = process.env.JWT_SECRET;
-  if (secret && secret.length >= 16) {
+  const secret = process.env.JWT_SECRET?.trim();
+  const minLength = process.env.NODE_ENV === "production" ? 32 : 16;
+  if (secret && secret.length >= minLength) {
     return new TextEncoder().encode(secret);
   }
   if (process.env.NODE_ENV !== "production") {
     return new TextEncoder().encode(DEV_FALLBACK_JWT_SECRET);
   }
   throw new Error(
-    "JWT_SECRET is missing or too short. Set a long random value in your .env file."
+    "JWT_SECRET is missing or too short (minimum 32 characters required in production). Set a long random value in your .env file."
   );
 }
 
 export async function signAccessToken(payload: AccessTokenPayload): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
+  return new SignJWT({
+    email: payload.email,
+    name: payload.name,
+    role: payload.role,
+  })
+    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuedAt()
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE)
     .setExpirationTime(`${ACCESS_TOKEN_TTL_SECONDS}s`)
     .setSubject(payload.sub)
     .sign(getSecret());
@@ -41,8 +51,28 @@ export async function signAccessToken(payload: AccessTokenPayload): Promise<stri
 
 export async function verifyAccessToken(token: string): Promise<AccessTokenPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return payload as unknown as AccessTokenPayload;
+    const { payload } = await jwtVerify(token, getSecret(), {
+      algorithms: ["HS256"],
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
+    if (
+      typeof payload.sub !== "string" ||
+      !payload.sub ||
+      typeof payload.email !== "string" ||
+      !payload.email ||
+      typeof payload.name !== "string" ||
+      typeof payload.role !== "string" ||
+      !VALID_ROLES.has(payload.role)
+    ) {
+      return null;
+    }
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role,
+    };
   } catch {
     return null;
   }

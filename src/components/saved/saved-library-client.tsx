@@ -68,11 +68,15 @@ function SavedEquationCard({
   const [copied, setCopied] = useState(false);
 
   const renderedHtml = useMemo(() => {
-    if (!item.latex) return "";
+    if (!item.latex || item.latex.length > 2000) return "";
     try {
       return katex.renderToString(item.latex, {
         displayMode: true,
         throwOnError: false,
+        strict: false,
+        trust: false,
+        maxExpand: 200,
+        maxSize: 10,
       });
     } catch {
       return "";

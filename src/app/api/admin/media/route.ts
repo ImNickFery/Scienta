@@ -59,23 +59,40 @@ export async function POST(req: Request) {
   const filename = `${id}.${detected.ext}`;
   const thumbFilename = `${id}_thumb.webp`;
 
+  let safeImageBuffer: Buffer;
   let thumbBuffer: Buffer;
   try {
-    const image = sharp(buffer);
+    // Guard against decompression bombs (pixel-flood attacks) with a 25 MP ceiling.
+    const sharpOpts = { limitInputPixels: 25_000_000, failOn: "error" as const };
+    const image = sharp(buffer, sharpOpts);
     const meta = await image.metadata();
     width = meta.width ?? null;
     height = meta.height ?? null;
-    thumbBuffer = await image
+
+    // Re-encode static formats (JPEG/PNG/WebP) to strip EXIF/GPS metadata and neutralize
+    // polyglot trailing payloads; keep animated GIFs verified after metadata validation.
+    if (detected.ext === "jpg") {
+      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
+    } else if (detected.ext === "png") {
+      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().png({ compressionLevel: 8 }).toBuffer();
+    } else if (detected.ext === "webp") {
+      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().webp({ quality: 86 }).toBuffer();
+    } else {
+      safeImageBuffer = buffer;
+    }
+
+    thumbBuffer = await sharp(buffer, sharpOpts)
+      .rotate()
       .resize(480, 480, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();
   } catch {
-    return badRequest("Corrupted or unreadable image file.");
+    return badRequest("Corrupted, oversized, or unreadable image file.");
   }
 
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
   await fs.mkdir(THUMB_DIR, { recursive: true });
-  await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  await fs.writeFile(path.join(UPLOAD_DIR, filename), safeImageBuffer);
   await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
 
   const publicPath = `/uploads/media/${filename}`;
@@ -85,7 +102,7 @@ export async function POST(req: Request) {
   await execute(
     `INSERT INTO media (id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, filename, safeOriginalName, detected.mime, buffer.length, width, height, publicPath, thumbnailPublicPath, session!.sub]
+    [id, filename, safeOriginalName, detected.mime, safeImageBuffer.length, width, height, publicPath, thumbnailPublicPath, session!.sub]
   );
 
   await logActivity({ userId: session!.sub, action: "media.upload", entityType: "media", entityId: id, ipAddress: ip });

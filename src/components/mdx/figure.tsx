@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, ZoomIn } from "lucide-react";
+import { sanitizeUrl } from "@/lib/security";
 import { SciIllustration } from "./sci-illustration";
 
 interface FigureProps {
@@ -24,6 +25,7 @@ const ASPECT_CLASSES: Record<string, string> = {
 
 export function Figure({ src, illustration = "orbit", palette = "aurora", alt, caption, credit, wide, aspect = "video" }: FigureProps) {
   const [open, setOpen] = useState(false);
+  const safeSrc = sanitizeUrl(src, { allowRelative: true, allowHash: false });
 
   return (
     <figure className={wide ? "-mx-6 sm:-mx-12 lg:-mx-24" : ""}>
@@ -33,9 +35,9 @@ export function Figure({ src, illustration = "orbit", palette = "aurora", alt, c
         className={`group relative block w-full overflow-hidden rounded-2xl border border-(--color-border-subtle) ${ASPECT_CLASSES[aspect]}`}
         aria-label={`Zoom image: ${alt}`}
       >
-        {src ? (
+        {safeSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={alt} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+          <img src={safeSrc} alt={alt} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
         ) : (
           <div className="h-full w-full transition-transform duration-700 group-hover:scale-105">
             <SciIllustration variant={illustration} palette={palette} className="h-full w-full" />
@@ -69,9 +71,9 @@ export function Figure({ src, illustration = "orbit", palette = "aurora", alt, c
             <X className="h-5 w-5" />
           </button>
           <div className="max-h-[85vh] max-w-5xl overflow-hidden rounded-xl" onClick={(e) => e.stopPropagation()}>
-            {src ? (
+            {safeSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={src} alt={alt} className="max-h-[85vh] w-auto object-contain" />
+              <img src={safeSrc} alt={alt} referrerPolicy="no-referrer" className="max-h-[85vh] w-auto object-contain" />
             ) : (
               <SciIllustration variant={illustration} palette={palette} className="max-h-[85vh] w-full max-w-3xl" />
             )}

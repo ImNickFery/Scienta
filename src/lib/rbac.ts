@@ -14,9 +14,12 @@ const PERMISSIONS: Record<RoleName, string[]> = {
   admin: [
     "articles.manage",
     "categories.manage",
+    "categories.view",
     "fields.manage",
+    "fields.view",
     "tags.manage",
     "authors.manage",
+    "authors.view",
     "media.manage",
     "settings.manage",
     "menus.manage",
@@ -47,7 +50,12 @@ const PERMISSIONS: Record<RoleName, string[]> = {
 export function can(role: string, permission: string): boolean {
   const perms = PERMISSIONS[role as RoleName];
   if (!perms) return false;
-  return perms.includes("*") || perms.includes(permission);
+  if (perms.includes("*") || perms.includes(permission)) return true;
+  if (permission.endsWith(".view")) {
+    const resource = permission.slice(0, -".view".length);
+    return perms.includes(`${resource}.manage`);
+  }
+  return false;
 }
 
 export function requireRole(role: string, allowed: RoleName[]): boolean {

@@ -7,6 +7,7 @@ import { validateUserMutation } from "@/lib/admin-users";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
 import { stripHtml } from "@/lib/sanitize";
+import { validatePasswordStrength } from "@/lib/security";
 import type { RoleName } from "@/lib/rbac";
 
 interface TargetUserRow {
@@ -20,7 +21,7 @@ const updateUserSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
   role: z.enum(["super_admin", "admin", "editor"]).optional(),
   status: z.enum(["active", "suspended"]).optional(),
-  password: z.string().min(8).max(128).optional(),
+  password: z.string().min(10).max(128).optional(),
 });
 
 async function countActiveSuperAdmins(): Promise<number> {
@@ -51,6 +52,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const parsed = updateUserSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid user update", parsed.error.flatten());
   const data = parsed.data;
+  if (data.password !== undefined) {
+    const pwCheck = validatePasswordStrength(data.password);
+    if (!pwCheck.valid) return badRequest(pwCheck.reason ?? "Password does not meet security requirements.");
+  }
 
   const activeSuperAdminCount = await countActiveSuperAdmins();
   const guard = validateUserMutation({

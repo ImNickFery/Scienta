@@ -6,11 +6,13 @@ import rehypeSlug from "rehype-slug";
 import rehypePrettyCode from "rehype-pretty-code";
 import { mdxComponents } from "@/components/mdx/mdx-components";
 import { DEFAULT_NUMERALS, type Numerals } from "@/lib/i18n/numerals";
+import { validateMdxSafety } from "@/lib/security";
 
 function preprocessMermaid(source: string): string {
-  return source.replace(/```mermaid\n([\s\S]*?)```/g, (_match, code: string) => {
-    const escaped = code.replace(/`/g, "\\`").trim();
-    return `<Mermaid chart={\`${escaped}\`} />`;
+  return source.replace(/```mermaid\r?\n([\s\S]*?)```/g, (_match, code: string) => {
+    // Serialize as a JSON string literal (never a template literal) so `${...}`
+    // expressions or backslashes inside Mermaid blocks cannot execute JS at SSR time.
+    return `<Mermaid chart={${JSON.stringify(code.trim())}} />`;
   });
 }
 
@@ -47,6 +49,11 @@ function toLatinDigits(source: string): string {
 }
 
 export async function renderMdx(content: string, numerals: Numerals = DEFAULT_NUMERALS) {
+  const safety = validateMdxSafety(content);
+  if (!safety.safe) {
+    throw new Error(`Unsafe MDX content rejected: ${safety.reason}`);
+  }
+
   // Digits first, while fenced blocks are still fences — preprocessMermaid
   // rewrites those into JSX and the protection would no longer apply.
   const source = preprocessMermaid(numerals === "latn" ? toLatinDigits(content) : content);
@@ -54,18 +61,14 @@ export async function renderMdx(content: string, numerals: Numerals = DEFAULT_NU
     source,
     components: mdxComponents,
     options: {
-      // Content is authored exclusively by authenticated admins/editors
-      // (see the RBAC-gated article editor), never by end users, so it's
-      // safe to allow JS expression props like `stats={[{...}]}` that
-      // next-mdx-remote strips by default as an anti-XSS measure for
-      // untrusted MDX. HTML output is still escaped normally by React;
-      // this only affects whether JSX attribute *expressions* survive.
+      // Content is authored exclusively by authenticated admins/editors and
+      // validated by validateMdxSafety() above before compilation.
       blockJS: false,
       mdxOptions: {
         remarkPlugins: [remarkMath, remarkGfm],
         rehypePlugins: [
           rehypeSlug,
-          rehypeKatex,
+          [rehypeKatex, { trust: false, strict: false, maxExpand: 300, maxSize: 15 }],
           [
             rehypePrettyCode,
             {

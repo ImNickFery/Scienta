@@ -6,16 +6,21 @@ import { CSRF_HEADER, verifyCsrf } from "@/lib/csrf";
 import { getSession } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
+import { verifySameOrigin } from "@/lib/security";
 
 export async function POST(req: Request) {
-  const store = await cookies();
-  const csrfCookie = store.get(CSRF_COOKIE)?.value;
-  if (csrfCookie && !verifyCsrf(csrfCookie, req.headers.get(CSRF_HEADER))) {
-    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  if (!verifySameOrigin(req)) {
+    return NextResponse.json({ error: "Cross-origin request blocked" }, { status: 403 });
   }
 
+  const store = await cookies();
+  const csrfCookie = store.get(CSRF_COOKIE)?.value;
   const session = await getSession();
   const refreshToken = store.get(REFRESH_TOKEN_COOKIE)?.value;
+
+  if ((csrfCookie || session || refreshToken) && !verifyCsrf(csrfCookie, req.headers.get(CSRF_HEADER))) {
+    return NextResponse.json({ error: "Invalid CSRF token" }, { status: 403 });
+  }
 
   if (refreshToken) {
     const hash = await hashToken(refreshToken);

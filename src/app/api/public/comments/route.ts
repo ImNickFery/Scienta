@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity-log";
 import { validateCommentSubmission } from "@/lib/comments";
 import { getApprovedCommentsForArticle } from "@/lib/comments-server";
 import { isValidLocale } from "@/lib/i18n/config";
+import { sanitizeMathComment, verifySameOrigin } from "@/lib/security";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -23,12 +24,16 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!verifySameOrigin(req)) {
+    return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
+  }
+
   const ip = getClientIp(req);
   const limit = rateLimit(`comment:${ip}`, 8, 15 * 60 * 1000);
   if (!limit.allowed) {
     return NextResponse.json(
       { error: "Too many submissions. Please wait a few minutes before posting again." },
-      { status: 429 }
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
     );
   }
 
@@ -60,7 +65,7 @@ export async function POST(req: Request) {
   await execute(
     `INSERT INTO comments (id, article_id, locale, name, email, content, is_question, status, ip_address)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
-    [id, articleId, locale, stripHtml(name), email, stripHtml(content), isQuestion ? 1 : 0, ip]
+    [id, articleId, locale, stripHtml(name), email, sanitizeMathComment(content), isQuestion ? 1 : 0, ip]
   );
 
   await logActivity({

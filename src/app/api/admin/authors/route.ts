@@ -6,6 +6,7 @@ import { requireApiAuth, requireAdminMutation, badRequest } from "@/lib/session"
 import { generateSlug, stripHtml } from "@/lib/sanitize";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
+import { sanitizeUrl } from "@/lib/security";
 
 const schema = z.object({
   slug: z.string().max(160).optional(),
@@ -40,6 +41,23 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("Invalid author data", parsed.error.flatten());
   const d = parsed.data;
 
+  let safeAvatarUrl: string | null = null;
+  if (d.avatarUrl && d.avatarUrl.trim()) {
+    safeAvatarUrl = sanitizeUrl(d.avatarUrl, { allowRelative: true, allowMailto: false, allowHash: false });
+    if (!safeAvatarUrl) return badRequest("Invalid avatar URL.");
+  }
+
+  let safeSocial: Record<string, string> | null = null;
+  if (d.social) {
+    safeSocial = {};
+    for (const [k, v] of Object.entries(d.social)) {
+      if (!v || !v.trim()) continue;
+      const clean = sanitizeUrl(v, { allowRelative: false, allowMailto: false, allowHash: false });
+      if (!clean) return badRequest(`Invalid social URL for "${k}".`);
+      safeSocial[k.slice(0, 40)] = clean;
+    }
+  }
+
   const id = uuid();
   const slug = d.slug?.trim() || generateSlug(d.nameEn, "en");
   try {
@@ -48,7 +66,7 @@ export async function POST(req: Request) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id, slug, stripHtml(d.nameFa), stripHtml(d.nameEn), d.titleFa ?? null, d.titleEn ?? null,
-        d.bioFa ?? null, d.bioEn ?? null, d.avatarUrl ?? null, d.social ? JSON.stringify(d.social) : null,
+        d.bioFa ?? null, d.bioEn ?? null, safeAvatarUrl, safeSocial ? JSON.stringify(safeSocial) : null,
       ]
     );
   } catch (err) {

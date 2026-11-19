@@ -7,12 +7,13 @@ import { requireApiAuth, requireAdminMutation, badRequest } from "@/lib/session"
 import { generateSlug, stripHtml } from "@/lib/sanitize";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
+import { sanitizeUrl, validateMdxSafety } from "@/lib/security";
 
 const translationSchema = z.object({
   title: z.string().min(3).max(255),
   slug: z.string().min(1).max(255).optional(),
   excerpt: z.string().max(500).optional().default(""),
-  content: z.string().min(1),
+  content: z.string().min(1).max(250_000),
   seoTitle: z.string().max(255).optional(),
   seoDescription: z.string().max(320).optional(),
   seoKeywords: z.string().max(500).optional(),
@@ -131,6 +132,26 @@ export async function POST(req: Request) {
   if (!parsed.success) return badRequest("Invalid article data", parsed.error.flatten());
   const data = parsed.data;
 
+  const normalizedCanonical: Record<"fa" | "en", string> = { fa: "", en: "" };
+  for (const locale of ["fa", "en"] as const) {
+    const t = data.translations[locale];
+    const safety = validateMdxSafety(t.content);
+    if (!safety.safe) {
+      return badRequest(`Unsafe MDX content (${locale}): ${safety.reason ?? "Forbidden construct detected."}`);
+    }
+    if (t.canonicalUrl && t.canonicalUrl.trim()) {
+      const safeCanonical = sanitizeUrl(t.canonicalUrl, {
+        allowRelative: false,
+        allowMailto: false,
+        allowHash: false,
+      });
+      if (!safeCanonical) {
+        return badRequest(`Invalid canonical URL (${locale}): must be a valid http(s) URL.`);
+      }
+      normalizedCanonical[locale] = safeCanonical;
+    }
+  }
+
   const articleId = uuid();
 
   try {
@@ -163,7 +184,7 @@ export async function POST(req: Request) {
           [
             uuid(), articleId, locale, stripHtml(t.title), slug, t.excerpt ?? "", t.content,
             t.seoTitle ?? t.title, t.seoDescription ?? t.excerpt ?? "", t.seoKeywords ?? "",
-            t.canonicalUrl ?? "", t.twitterCard ?? "summary_large_image",
+            normalizedCanonical[locale], t.twitterCard ?? "summary_large_image",
           ]
         );
       }

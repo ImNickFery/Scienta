@@ -5,6 +5,7 @@ import { execute } from "@/lib/db";
 import { stripHtml } from "@/lib/sanitize";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
+import { verifySameOrigin } from "@/lib/security";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -16,10 +17,17 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!verifySameOrigin(req)) {
+    return NextResponse.json({ error: "Cross-site request blocked." }, { status: 403 });
+  }
+
   const ip = getClientIp(req);
   const limit = rateLimit(`contact:${ip}`, 5, 15 * 60 * 1000);
   if (!limit.allowed) {
-    return NextResponse.json({ error: "Too many messages sent. Please try again later." }, { status: 429 });
+    return NextResponse.json(
+      { error: "Too many messages sent. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
   }
 
   const body = await req.json().catch(() => null);

@@ -5,7 +5,7 @@ import { execute, query, queryOne } from "@/lib/db";
 import { requireAdminMutation, badRequest } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
-import { stripHtml } from "@/lib/sanitize";
+import { sanitizeMathComment } from "@/lib/security";
 
 const patchSchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]).optional(),
@@ -49,7 +49,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     values.push(parsed.data.status);
   }
   if (parsed.data.adminReply !== undefined) {
-    const cleaned = parsed.data.adminReply ? stripHtml(parsed.data.adminReply).trim() : "";
+    const cleaned = parsed.data.adminReply ? sanitizeMathComment(parsed.data.adminReply) : "";
     updates.push("admin_reply = ?");
     values.push(cleaned || null);
     updates.push("replied_at = ?");
