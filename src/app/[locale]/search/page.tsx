@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { getAllArticles } from "@/lib/content";
+import { getAllTags, searchArticles, stripArticleContent } from "@/lib/content";
 import { buildBaseMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 import { SearchClient } from "@/components/search/search-client";
@@ -25,12 +25,27 @@ export async function generateMetadata({
   return { ...base, title: dict.search.title };
 }
 
-export default async function SearchPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function SearchPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string }>;
+}) {
   const { locale: rawLocale } = await params;
   if (!isValidLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
-  const dict = await getDictionary(locale);
-  const articles = await getAllArticles(locale);
+  const { q: rawQ } = await searchParams;
+  const initialQuery = (rawQ ?? "").trim().slice(0, 120);
+
+  const [dict, allTags, initialMatches] = await Promise.all([
+    getDictionary(locale),
+    getAllTags(locale),
+    initialQuery ? searchArticles(locale, initialQuery) : Promise.resolve([]),
+  ]);
+
+  const trendingTags = allTags.slice(0, 8).map((t) => t.tag);
+  const initialResults = initialMatches.map(stripArticleContent);
 
   return (
     <Container size="narrow" className="py-20">
@@ -43,7 +58,13 @@ export default async function SearchPage({ params }: { params: Promise<{ locale:
         </h1>
         <p className="mt-3 text-(--color-text-secondary)">{dict.search.subtitle}</p>
       </header>
-      <SearchClient articles={articles} locale={locale} dict={dict} />
+      <SearchClient
+        trendingTags={trendingTags}
+        initialQuery={initialQuery}
+        initialResults={initialResults}
+        locale={locale}
+        dict={dict}
+      />
     </Container>
   );
 }

@@ -33,6 +33,10 @@ interface UserRow {
   role_name: string;
 }
 
+// Precomputed bcrypt hash (cost 12) used when the email does not exist so
+// invalid-email requests take comparable time to wrong-password requests.
+const DUMMY_PASSWORD_HASH = "$2b$12$C6UzMDM.H6dfI/f/IKcEeO9uM/7i7R4q4c8m2yR7d4hK8J/e2m2W.";
+
 export async function POST(req: Request) {
   const ip = getClientIp(req);
   const limit = rateLimit(`login:${ip}`, 8, 15 * 60 * 1000);
@@ -44,18 +48,20 @@ export async function POST(req: Request) {
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid credentials format", parsed.error.flatten());
 
-  const { email, password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
+  const password = parsed.data.password;
 
   const user = await queryOne<UserRow>(
     `SELECT u.id, u.name, u.email, u.password_hash, u.status, r.name AS role_name
      FROM users u JOIN roles r ON r.id = u.role_id
-     WHERE u.email = ? AND u.deleted_at IS NULL LIMIT 1`,
+     WHERE LOWER(u.email) = ? AND u.deleted_at IS NULL LIMIT 1`,
     [email]
   );
 
-  // Constant-shape response whether the user exists or not, to avoid
-  // leaking which emails are registered.
-  if (!user || user.status !== "active" || !(await verifyPassword(password, user.password_hash))) {
+  // Constant-shape & constant-time verification whether the user exists or not,
+  // to avoid leaking which emails are registered.
+  const passwordValid = await verifyPassword(password, user?.password_hash ?? DUMMY_PASSWORD_HASH);
+  if (!user || user.status !== "active" || !passwordValid) {
     await logActivity({ userId: null, action: "auth.login_failed", meta: { email }, ipAddress: ip });
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }

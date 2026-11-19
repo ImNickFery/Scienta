@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { v4 as uuid } from "uuid";
 import { query, queryOne, withTransaction } from "@/lib/db";
@@ -146,6 +147,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   await logActivity({ userId: session!.sub, action: "article.update", entityType: "article", entityId: id, ipAddress: getClientIp(req) });
+  revalidatePath("/", "layout");
 
   return NextResponse.json({ ok: true });
 }
@@ -158,6 +160,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const { execute } = await import("@/lib/db");
   await execute(`UPDATE articles SET deleted_at = NOW() WHERE id = ?`, [id]);
   await logActivity({ userId: session!.sub, action: "article.trash", entityType: "article", entityId: id, ipAddress: getClientIp(req) });
+  revalidatePath("/", "layout");
 
   return NextResponse.json({ ok: true });
 }

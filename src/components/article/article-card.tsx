@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Clock, Eye, Bookmark, ArrowUpRight } from "lucide-react";
 import { SpotlightCard } from "@/components/animations/spotlight-card";
 import { cn, formatCount, formatDate, formatNumber, readableOn } from "@/lib/utils";
 import { useNumerals } from "@/components/i18n/numerals-provider";
+import { isArticleBookmarked, toggleArticleBookmark } from "@/lib/article-bookmarks";
 import type { Article } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
@@ -20,6 +22,12 @@ export function ArticleCard({
   size?: "default" | "large" | "compact";
 }) {
   const { numerals } = useNumerals();
+  const [bookmarked, setBookmarked] = useState(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate client-only localStorage bookmark state after mount
+    setBookmarked(isArticleBookmarked(article.slug));
+  }, [article.slug]);
 
   return (
     <SpotlightCard
@@ -101,11 +109,22 @@ export function ArticleCard({
           )}
           {size === "large" && (
             <button
-              aria-label={dict.card.bookmark}
-              onClick={(e) => e.preventDefault()}
-              className="ms-auto text-(--color-text-tertiary) transition-colors hover:text-(--color-accent-orange)"
+              type="button"
+              aria-label={`${dict.card.bookmark}: ${article.title}`}
+              aria-pressed={bookmarked}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setBookmarked(toggleArticleBookmark(article.slug));
+              }}
+              className={cn(
+                "ms-auto transition-colors",
+                bookmarked
+                  ? "text-(--color-accent-orange)"
+                  : "text-(--color-text-tertiary) hover:text-(--color-accent-orange)"
+              )}
             >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className={cn("h-4 w-4", bookmarked && "fill-current")} />
             </button>
           )}
 

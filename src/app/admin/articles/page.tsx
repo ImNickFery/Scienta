@@ -29,6 +29,7 @@ export default function ArticlesListPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [confirmTrashId, setConfirmTrashId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -49,8 +50,8 @@ export default function ArticlesListPage() {
   useEffect(() => { load(); }, [load]);
 
   async function handleTrash(id: string) {
-    if (!confirm("Move this article to the recycle bin?")) return;
     await adminFetch(`/api/admin/articles/${id}`, { method: "DELETE" });
+    setConfirmTrashId(null);
     load();
   }
 
@@ -129,9 +130,33 @@ export default function ArticlesListPage() {
                   </td>
                   <td className="px-5 py-3 text-(--color-text-tertiary)">{new Date(a.updated_at).toLocaleDateString()}</td>
                   <td className="px-5 py-3 text-end">
-                    <button onClick={() => handleTrash(a.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {confirmTrashId === a.id ? (
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleTrash(a.id)}
+                          className="rounded-full bg-(--color-accent-red) px-2.5 py-1 text-xs font-medium text-white"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmTrashId(null)}
+                          className="rounded-full border border-(--color-border-subtle) px-2.5 py-1 text-xs text-(--color-text-tertiary)"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmTrashId(a.id)}
+                        aria-label={`Move "${a.title_en || a.title_fa || "article"}" to trash`}
+                        className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))

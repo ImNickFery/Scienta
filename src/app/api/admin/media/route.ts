@@ -6,13 +6,13 @@ import sharp from "sharp";
 import { query, queryOne, execute } from "@/lib/db";
 import { requireApiAuth, requireAdminMutation, badRequest } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
-import { getClientIp } from "@/lib/rate-limit";
-import { rateLimit } from "@/lib/rate-limit";
+import { getClientIp, rateLimit } from "@/lib/rate-limit";
+import { detectImageFormat } from "@/lib/media-validation";
+import { stripHtml } from "@/lib/sanitize";
 
 const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "media");
 const THUMB_DIR = path.join(process.cwd(), "public", "uploads", "thumbnails");
 const MAX_SIZE_BYTES = 8 * 1024 * 1024; // 8MB
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml"]);
 
 export async function GET(req: Request) {
   const { response } = await requireApiAuth("media.manage");
@@ -44,53 +44,54 @@ export async function POST(req: Request) {
   const formData = await req.formData().catch(() => null);
   const file = formData?.get("file");
   if (!file || !(file instanceof File)) return badRequest("No file provided");
+  if (file.size === 0) return badRequest("File is empty");
   if (file.size > MAX_SIZE_BYTES) return badRequest("File exceeds the 8MB size limit");
-  if (!ALLOWED_MIME.has(file.type)) return badRequest("Unsupported file type. Allowed: JPEG, PNG, WebP, GIF, SVG");
 
-  await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  await fs.mkdir(THUMB_DIR, { recursive: true });
-
-  const id = uuid();
-  const ext = (file.name.split(".").pop() || "bin").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const filename = `${id}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  const filePath = path.join(UPLOAD_DIR, filename);
-  await fs.writeFile(filePath, buffer);
+  const detected = detectImageFormat(buffer);
+  if (!detected) {
+    return badRequest("Unsupported or invalid image file. Allowed formats: JPEG, PNG, WebP, GIF (SVG is disabled for security).");
+  }
 
   let width: number | null = null;
   let height: number | null = null;
-  let thumbnailPublicPath: string | null = null;
+  const id = uuid();
+  const filename = `${id}.${detected.ext}`;
+  const thumbFilename = `${id}_thumb.webp`;
 
-  if (file.type !== "image/svg+xml") {
-    try {
-      const image = sharp(buffer);
-      const meta = await image.metadata();
-      width = meta.width ?? null;
-      height = meta.height ?? null;
-
-      const thumbFilename = `${id}_thumb.webp`;
-      await image
-        .resize(480, 480, { fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toFile(path.join(THUMB_DIR, thumbFilename));
-      thumbnailPublicPath = `/uploads/thumbnails/${thumbFilename}`;
-    } catch (err) {
-      console.error("[media] thumbnail generation failed:", err);
-    }
+  let thumbBuffer: Buffer;
+  try {
+    const image = sharp(buffer);
+    const meta = await image.metadata();
+    width = meta.width ?? null;
+    height = meta.height ?? null;
+    thumbBuffer = await image
+      .resize(480, 480, { fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch {
+    return badRequest("Corrupted or unreadable image file.");
   }
 
+  await fs.mkdir(UPLOAD_DIR, { recursive: true });
+  await fs.mkdir(THUMB_DIR, { recursive: true });
+  await fs.writeFile(path.join(UPLOAD_DIR, filename), buffer);
+  await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
+
   const publicPath = `/uploads/media/${filename}`;
+  const thumbnailPublicPath = `/uploads/thumbnails/${thumbFilename}`;
+  const safeOriginalName = stripHtml(file.name).slice(0, 255) || filename;
 
   await execute(
     `INSERT INTO media (id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, uploaded_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [id, filename, file.name, file.type, file.size, width, height, publicPath, thumbnailPublicPath, session!.sub]
+    [id, filename, safeOriginalName, detected.mime, buffer.length, width, height, publicPath, thumbnailPublicPath, session!.sub]
   );
 
   await logActivity({ userId: session!.sub, action: "media.upload", entityType: "media", entityId: id, ipAddress: ip });
 
   return NextResponse.json(
-    { id, path: publicPath, thumbnailPath: thumbnailPublicPath, width, height, originalName: file.name },
+    { id, path: publicPath, thumbnailPath: thumbnailPublicPath, width, height, originalName: safeOriginalName },
     { status: 201 }
   );
 }

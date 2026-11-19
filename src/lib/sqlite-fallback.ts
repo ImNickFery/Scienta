@@ -1,0 +1,616 @@
+import bcrypt from "bcryptjs";
+import { v4 as uuid } from "uuid";
+import { SEED_ARTICLES, SEED_AUTHORS, SEED_FIELDS } from "./seed-data";
+
+type SqliteParam = null | number | bigint | string | Uint8Array;
+
+interface SqliteRunResult {
+  changes: number | bigint;
+  lastInsertRowid: number | bigint;
+}
+
+interface SqliteStatement {
+  all: (...params: SqliteParam[]) => Record<string, unknown>[];
+  get: (...params: SqliteParam[]) => Record<string, unknown> | undefined;
+  run: (...params: SqliteParam[]) => SqliteRunResult;
+}
+
+interface SqliteDatabase {
+  exec: (sql: string) => void;
+  prepare: (sql: string) => SqliteStatement;
+  close: () => void;
+}
+
+export interface SqliteResultHeader {
+  affectedRows: number;
+  insertId: number;
+}
+
+export interface SqliteConnection {
+  query: <T = unknown>(sql: string, params?: unknown[]) => Promise<[T[], unknown[]]>;
+  execute: (sql: string, params?: unknown[]) => Promise<[SqliteResultHeader, unknown[]]>;
+}
+
+const DEFAULT_DB_PATH = "/tmp/scienta-local.sqlite";
+
+const SCHEMA_SQL = `
+PRAGMA foreign_keys = ON;
+PRAGMA busy_timeout = 5000;
+
+CREATE TABLE IF NOT EXISTS roles (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  description TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS permissions (
+  id TEXT NOT NULL PRIMARY KEY,
+  "key" TEXT NOT NULL UNIQUE,
+  description TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS role_permissions (
+  role_id TEXT NOT NULL,
+  permission_id TEXT NOT NULL,
+  PRIMARY KEY (role_id, permission_id),
+  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role_id TEXT NOT NULL,
+  avatar_url TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  last_login_at TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL,
+  FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id TEXT NOT NULL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL,
+  user_agent TEXT NULL,
+  ip_address TEXT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS authors (
+  id TEXT NOT NULL PRIMARY KEY,
+  user_id TEXT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  title_fa TEXT NULL,
+  title_en TEXT NULL,
+  bio_fa TEXT NULL,
+  bio_en TEXT NULL,
+  avatar_url TEXT NULL,
+  social_json TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS fields (
+  id TEXT NOT NULL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT '#7B3FFB',
+  icon TEXT NOT NULL DEFAULT 'atom',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT NOT NULL PRIMARY KEY,
+  parent_id TEXT NULL,
+  slug TEXT NOT NULL UNIQUE,
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  description_fa TEXT NULL,
+  description_en TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL,
+  FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT NOT NULL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name_fa TEXT NOT NULL,
+  name_en TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS media (
+  id TEXT NOT NULL PRIMARY KEY,
+  filename TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  width INTEGER NULL,
+  height INTEGER NULL,
+  path TEXT NOT NULL,
+  thumbnail_path TEXT NULL,
+  alt_text TEXT NULL,
+  uploaded_by TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL,
+  FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS articles (
+  id TEXT NOT NULL PRIMARY KEY,
+  field_id TEXT NULL,
+  category_id TEXT NULL,
+  author_id TEXT NULL,
+  cover_media_id TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  featured INTEGER NOT NULL DEFAULT 0,
+  trending INTEGER NOT NULL DEFAULT 0,
+  views INTEGER NOT NULL DEFAULT 0,
+  published_at TEXT NULL,
+  scheduled_at TEXT NULL,
+  created_by TEXT NULL,
+  updated_by TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL,
+  FOREIGN KEY (field_id) REFERENCES fields(id) ON DELETE SET NULL,
+  FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL,
+  FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE SET NULL,
+  FOREIGN KEY (cover_media_id) REFERENCES media(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS article_translations (
+  id TEXT NOT NULL PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  title TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  excerpt TEXT NULL,
+  content TEXT NOT NULL,
+  seo_title TEXT NULL,
+  seo_description TEXT NULL,
+  seo_keywords TEXT NULL,
+  canonical_url TEXT NULL,
+  og_image_id TEXT NULL,
+  twitter_card TEXT NOT NULL DEFAULT 'summary_large_image',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (article_id, locale),
+  UNIQUE (locale, slug),
+  FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  FOREIGN KEY (og_image_id) REFERENCES media(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS article_tags (
+  article_id TEXT NOT NULL,
+  tag_id TEXT NOT NULL,
+  PRIMARY KEY (article_id, tag_id),
+  FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS article_revisions (
+  id TEXT NOT NULL PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  locale TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  editor_id TEXT NULL,
+  note TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  FOREIGN KEY (editor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT NOT NULL PRIMARY KEY,
+  article_id TEXT NOT NULL,
+  parent_id TEXT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  content TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  "key" TEXT NOT NULL PRIMARY KEY,
+  "value" TEXT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT NOT NULL PRIMARY KEY,
+  "key" TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS menu_items (
+  id TEXT NOT NULL PRIMARY KEY,
+  menu_id TEXT NOT NULL,
+  parent_id TEXT NULL,
+  label_fa TEXT NOT NULL,
+  label_en TEXT NOT NULL,
+  url TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (menu_id) REFERENCES menus(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_id) REFERENCES menu_items(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS pages (
+  id TEXT NOT NULL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  title_fa TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  content_fa TEXT NULL,
+  content_en TEXT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  deleted_at TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS subscribers (
+  id TEXT NOT NULL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  locale TEXT NOT NULL DEFAULT 'fa',
+  status TEXT NOT NULL DEFAULT 'subscribed',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT NULL,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  ip_address TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id TEXT NOT NULL PRIMARY KEY,
+  user_id TEXT NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT NULL,
+  entity_id TEXT NULL,
+  meta_json TEXT NULL,
+  ip_address TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+`;
+
+function loadSqliteModule(): { DatabaseSync: new (filename: string) => SqliteDatabase } {
+  const getter = (process as unknown as { getBuiltinModule?: (id: string) => unknown }).getBuiltinModule;
+  const mod = getter?.("node:sqlite") as { DatabaseSync?: new (filename: string) => SqliteDatabase } | undefined;
+  if (!mod?.DatabaseSync) {
+    throw new Error("Built-in node:sqlite is unavailable in this Node.js runtime.");
+  }
+  return { DatabaseSync: mod.DatabaseSync };
+}
+
+/**
+ * Translates the subset of MySQL syntax used by this codebase into valid SQLite SQL.
+ */
+export function translateMysqlToSqlite(sql: string): string {
+  let out = sql;
+
+  // DATE_ADD(NOW(), INTERVAL ? SECOND) -> datetime('now', '+' || ? || ' seconds')
+  out = out.replace(
+    /DATE_ADD\(\s*NOW\(\)\s*,\s*INTERVAL\s+\?\s+SECOND\s*\)/gi,
+    "datetime('now', '+' || ? || ' seconds')"
+  );
+
+  // NOW() -> datetime('now')
+  out = out.replace(/\bNOW\(\)/gi, "datetime('now')");
+
+  // GROUP_CONCAT(a, b, c SEPARATOR 'sep') -> GROUP_CONCAT(a || b || c, 'sep')
+  out = out.replace(
+    /GROUP_CONCAT\(\s*([^)]+?)\s+SEPARATOR\s+('[^']*')\s*\)/gi,
+    (_match, exprList: string, sep: string) => {
+      const parts = exprList.split(",").map((p) => p.trim()).filter(Boolean);
+      return `GROUP_CONCAT(${parts.join(" || ")}, ${sep})`;
+    }
+  );
+
+  // INSERT IGNORE INTO -> INSERT OR IGNORE INTO
+  out = out.replace(/\bINSERT\s+IGNORE\s+INTO\b/gi, "INSERT OR IGNORE INTO");
+
+  // ON DUPLICATE KEY UPDATE (used by subscribers table)
+  out = out.replace(
+    /\bON\s+DUPLICATE\s+KEY\s+UPDATE\s+status\s*=\s*'subscribed'/gi,
+    "ON CONFLICT(email) DO UPDATE SET status = 'subscribed'"
+  );
+
+  // MATCH(col1, col2, col3) AGAINST (? IN NATURAL LANGUAGE MODE)
+  out = out.replace(
+    /MATCH\(\s*([^)]+)\s*\)\s+AGAINST\s*\(\s*\?\s+IN\s+NATURAL\s+LANGUAGE\s+MODE\s*\)/gi,
+    (_match, cols: string) => {
+      const parts = cols.split(",").map((c) => `COALESCE(${c.trim()}, '')`);
+      return `instr(lower(${parts.join(" || ' ' || ")}), lower(?)) > 0`;
+    }
+  );
+
+  return out;
+}
+
+export function normalizeSqliteParams(params: unknown[]): SqliteParam[] {
+  return params.map((p) => {
+    if (p === undefined || p === null) return null;
+    if (typeof p === "boolean") return p ? 1 : 0;
+    if (typeof p === "number" || typeof p === "bigint" || typeof p === "string") return p;
+    if (p instanceof Uint8Array) return p;
+    if (p instanceof Date) return p.toISOString().slice(0, 19).replace("T", " ");
+    return String(p);
+  });
+}
+
+function mapSqliteError(err: unknown): Error {
+  if (!(err instanceof Error)) return new Error(String(err));
+  const msg = err.message ?? "";
+  if (msg.includes("UNIQUE constraint failed: article_translations.locale, article_translations.slug")) {
+    return new Error(`Duplicate entry for uq_locale_slug (${msg})`);
+  }
+  if (msg.includes("UNIQUE constraint failed")) {
+    return new Error(`Duplicate entry (${msg})`);
+  }
+  return err;
+}
+
+function toPlainRows<T>(rows: Record<string, unknown>[]): T[] {
+  return rows.map((r) => ({ ...r })) as T[];
+}
+
+function seedIfEmpty(db: SqliteDatabase) {
+  const existing = db.prepare(`SELECT COUNT(*) AS count FROM roles`).get() as { count?: number } | undefined;
+  if (existing && Number(existing.count) > 0) return;
+
+  db.exec("BEGIN");
+  try {
+    const roleIds = { super_admin: uuid(), admin: uuid(), editor: uuid() };
+    const insertRole = db.prepare(`INSERT OR IGNORE INTO roles (id, name, label, description) VALUES (?, ?, ?, ?)`);
+    insertRole.run(roleIds.super_admin, "super_admin", "Super Admin", "Full unrestricted access");
+    insertRole.run(roleIds.admin, "admin", "Admin", "Manages content, settings, and users (view only)");
+    insertRole.run(roleIds.editor, "editor", "Editor", "Manages articles and media");
+
+    const permissionKeys = [
+      "articles.manage", "categories.manage", "categories.view", "fields.manage", "fields.view",
+      "tags.manage", "authors.manage", "authors.view", "media.manage", "settings.manage",
+      "menus.manage", "pages.manage", "subscribers.manage", "messages.manage", "logs.view",
+      "users.view", "users.manage", "dashboard.view", "search.use", "backup.manage", "cache.manage",
+    ];
+    const insertPerm = db.prepare(`INSERT OR IGNORE INTO permissions (id, "key") VALUES (?, ?)`);
+    const permIds: Record<string, string> = {};
+    for (const key of permissionKeys) {
+      const id = uuid();
+      permIds[key] = id;
+      insertPerm.run(id, key);
+    }
+
+    const insertRolePerm = db.prepare(`INSERT OR IGNORE INTO role_permissions (role_id, permission_id) VALUES (?, ?)`);
+    const rolePermMap: Record<keyof typeof roleIds, string[]> = {
+      super_admin: permissionKeys,
+      admin: permissionKeys.filter((k) => k !== "users.manage"),
+      editor: ["articles.manage", "categories.view", "fields.view", "tags.manage", "authors.view", "media.manage", "dashboard.view", "search.use"],
+    };
+    for (const [roleName, perms] of Object.entries(rolePermMap)) {
+      const rId = roleIds[roleName as keyof typeof roleIds];
+      for (const permKey of perms) {
+        insertRolePerm.run(rId, permIds[permKey]);
+      }
+    }
+
+    const adminId = uuid();
+    const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@scienta.ir";
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe_2026!";
+    const passwordHash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare(
+      `INSERT OR IGNORE INTO users (id, name, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, ?, 'active')`
+    ).run(adminId, "Super Admin", adminEmail, passwordHash, roleIds.super_admin);
+
+    const fieldIds: Record<string, string> = {};
+    const insertField = db.prepare(
+      `INSERT OR IGNORE INTO fields (id, slug, name_fa, name_en, color, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    );
+    SEED_FIELDS.forEach((f, idx) => {
+      const id = uuid();
+      fieldIds[f.slug] = id;
+      insertField.run(id, f.slug, f.name_fa, f.name_en, f.color, f.icon, idx);
+    });
+
+    const categoryId = uuid();
+    db.prepare(`INSERT OR IGNORE INTO categories (id, slug, name_fa, name_en) VALUES (?, ?, ?, ?)`).run(
+      categoryId,
+      "deep-dive",
+      "بررسی عمیق",
+      "Deep Dive"
+    );
+
+    const authorIds: Record<string, string> = {};
+    const insertAuthor = db.prepare(
+      `INSERT OR IGNORE INTO authors (id, slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    for (const a of SEED_AUTHORS) {
+      const id = uuid();
+      authorIds[a.slug] = id;
+      insertAuthor.run(id, a.slug, a.name_fa, a.name_en, a.title_fa, a.title_en, a.bio_fa, a.bio_en);
+    }
+
+    const insertArticle = db.prepare(
+      `INSERT OR IGNORE INTO articles (id, field_id, category_id, author_id, status, featured, trending, views, published_at, created_by, updated_by)
+       VALUES (?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?)`
+    );
+    const insertTranslation = db.prepare(
+      `INSERT OR IGNORE INTO article_translations (id, article_id, locale, title, slug, excerpt, content, seo_title, seo_description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const findTag = db.prepare(`SELECT id FROM tags WHERE slug = ?`);
+    const insertTag = db.prepare(`INSERT OR IGNORE INTO tags (id, slug, name_fa, name_en) VALUES (?, ?, ?, ?)`);
+    const insertArticleTag = db.prepare(`INSERT OR IGNORE INTO article_tags (article_id, tag_id) VALUES (?, ?)`);
+
+    for (const article of SEED_ARTICLES) {
+      const articleId = uuid();
+      insertArticle.run(
+        articleId,
+        fieldIds[article.field] ?? null,
+        categoryId,
+        authorIds[article.authorSlug] ?? null,
+        article.featured ? 1 : 0,
+        article.trending ? 1 : 0,
+        article.views,
+        article.publishedAt,
+        adminId,
+        adminId
+      );
+
+      for (const locale of ["fa", "en"] as const) {
+        const t = article[locale];
+        insertTranslation.run(uuid(), articleId, locale, t.title, article.slug, t.excerpt, t.content, t.title, t.excerpt);
+      }
+
+      for (const tag of article.tags) {
+        const existingTag = findTag.get(tag.slug) as { id?: string } | undefined;
+        const tagId = existingTag?.id ?? uuid();
+        if (!existingTag?.id) {
+          insertTag.run(tagId, tag.slug, tag.name_fa, tag.name_en);
+        }
+        insertArticleTag.run(articleId, tagId);
+      }
+    }
+
+    const insertSetting = db.prepare(`INSERT OR IGNORE INTO settings ("key", "value") VALUES (?, ?)`);
+    const defaultSettings: Record<string, string> = {
+      site_title: JSON.stringify({ fa: "Scienta", en: "Scienta" }),
+      site_description: JSON.stringify({
+        fa: "پلتفرم علمی غوطه‌ور برای روایت‌های عمیق در فیزیک، فضا، هوش مصنوعی و ریاضیات.",
+        en: "An immersive scientific platform for deep narratives in physics, space, AI, and mathematics.",
+      }),
+      logo_url: JSON.stringify(null),
+      favicon_url: JSON.stringify(null),
+      social_links: JSON.stringify({ twitter: "", instagram: "", telegram: "", linkedin: "" }),
+      footer_text: JSON.stringify({ fa: "پلتفرمی برای کنجکاوهای علمی.", en: "A platform for the scientifically curious." }),
+      homepage_sections: JSON.stringify(["hero", "featured", "fields", "latest", "trending"]),
+    };
+    for (const [k, v] of Object.entries(defaultSettings)) {
+      insertSetting.run(k, v);
+    }
+
+    const insertMenu = db.prepare(`INSERT OR IGNORE INTO menus (id, "key", label) VALUES (?, ?, ?)`);
+    insertMenu.run(uuid(), "primary", "Primary Navigation");
+    insertMenu.run(uuid(), "footer", "Footer Links");
+
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
+export class SqliteFallbackDb {
+  private db: SqliteDatabase;
+
+  constructor(filename: string = DEFAULT_DB_PATH) {
+    const { DatabaseSync } = loadSqliteModule();
+    this.db = new DatabaseSync(filename);
+    if (filename !== ":memory:") {
+      try {
+        this.db.exec("PRAGMA journal_mode = WAL;");
+      } catch {
+        // Ignore if filesystem does not support WAL
+      }
+    }
+    this.db.exec(SCHEMA_SQL);
+    seedIfEmpty(this.db);
+  }
+
+  query<T = unknown>(sql: string, params: unknown[] = []): T[] {
+    const translated = translateMysqlToSqlite(sql);
+    const normalized = normalizeSqliteParams(params);
+    try {
+      const stmt = this.db.prepare(translated);
+      const isMutation = /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(translated);
+      if (isMutation) {
+        stmt.run(...normalized);
+        return [];
+      }
+      return toPlainRows<T>(stmt.all(...normalized));
+    } catch (err) {
+      throw mapSqliteError(err);
+    }
+  }
+
+  execute(sql: string, params: unknown[] = []): SqliteResultHeader {
+    const translated = translateMysqlToSqlite(sql);
+    const normalized = normalizeSqliteParams(params);
+    try {
+      const res = this.db.prepare(translated).run(...normalized);
+      return {
+        affectedRows: Number(res.changes ?? 0),
+        insertId: Number(res.lastInsertRowid ?? 0),
+      };
+    } catch (err) {
+      throw mapSqliteError(err);
+    }
+  }
+
+  async withTransaction<T>(fn: (conn: SqliteConnection) => Promise<T>): Promise<T> {
+    const conn: SqliteConnection = {
+      query: async <R = unknown>(sql: string, params: unknown[] = []) => [this.query<R>(sql, params), []],
+      execute: async (sql: string, params: unknown[] = []) => [this.execute(sql, params), []],
+    };
+    this.db.exec("BEGIN");
+    try {
+      const result = await fn(conn);
+      this.db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+  }
+
+  close() {
+    this.db.close();
+  }
+}
+
+declare global {
+  var __scientaSqliteFallback: SqliteFallbackDb | undefined;
+}
+
+export function getSqliteFallback(): SqliteFallbackDb {
+  if (!globalThis.__scientaSqliteFallback) {
+    globalThis.__scientaSqliteFallback = new SqliteFallbackDb(
+      process.env.SQLITE_FALLBACK_PATH ?? DEFAULT_DB_PATH
+    );
+  }
+  return globalThis.__scientaSqliteFallback;
+}

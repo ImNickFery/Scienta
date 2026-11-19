@@ -4,7 +4,8 @@ import { isValidLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import {
   getArticle,
-  getAllArticles,
+  getArticleLocaleSlugs,
+  getAdjacentArticles,
   getRelatedArticles,
   extractToc,
   incrementArticleViews,
@@ -12,6 +13,7 @@ import {
 import { getAuthorBySlug, getFieldBySlug } from "@/lib/taxonomy";
 import { renderMdx } from "@/lib/render-mdx";
 import { buildArticleMetadata, articleJsonLd, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { Badge } from "@/components/ui/badge";
 import { ReadingProgress } from "@/components/article/reading-progress";
@@ -52,7 +54,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!isValidLocale(rawLocale)) return {};
   const article = await getArticle(rawLocale, slug);
   if (!article) return {};
-  return buildArticleMetadata(rawLocale, article);
+  const alternateSlugs = await getArticleLocaleSlugs(article.id);
+  return buildArticleMetadata(rawLocale, article, alternateSlugs);
 }
 
 export default async function ArticlePage({ params }: PageProps) {
@@ -74,10 +77,7 @@ export default async function ArticlePage({ params }: PageProps) {
   // Fire-and-forget view increment — doesn't block the response.
   incrementArticleViews(article.id).catch(() => {});
 
-  const allInLocale = await getAllArticles(locale);
-  const currentIndex = allInLocale.findIndex((a) => a.slug === article.slug);
-  const nextArticle = allInLocale[currentIndex + 1];
-  const prevArticle = allInLocale[currentIndex - 1];
+  const { prev: prevArticle, next: nextArticle } = await getAdjacentArticles(locale, article.id);
 
   const url = `${SITE_URL}/${locale}/articles/${article.slug}`;
   const jsonLd = articleJsonLd(locale, article, author ?? undefined);
@@ -94,8 +94,8 @@ export default async function ArticlePage({ params }: PageProps) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
       <ReadingProgress />
 
       {/* Hero */}

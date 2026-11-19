@@ -15,14 +15,19 @@ export interface AccessTokenPayload {
   role: string; // role name: super_admin | admin | editor
 }
 
+const DEV_FALLBACK_JWT_SECRET = "scienta-local-dev-jwt-secret-change-in-production-2026";
+
 function getSecret() {
   const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 16) {
-    throw new Error(
-      "JWT_SECRET is missing or too short. Set a long random value in your .env file."
-    );
+  if (secret && secret.length >= 16) {
+    return new TextEncoder().encode(secret);
   }
-  return new TextEncoder().encode(secret);
+  if (process.env.NODE_ENV !== "production") {
+    return new TextEncoder().encode(DEV_FALLBACK_JWT_SECRET);
+  }
+  throw new Error(
+    "JWT_SECRET is missing or too short. Set a long random value in your .env file."
+  );
 }
 
 export async function signAccessToken(payload: AccessTokenPayload): Promise<string> {

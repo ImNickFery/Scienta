@@ -41,25 +41,49 @@ export function buildBaseMetadata(locale: Locale, pathname = ""): Metadata {
   };
 }
 
-export function buildArticleMetadata(locale: Locale, article: Article): Metadata {
-  const url = `${SITE_URL}/${locale}/articles/${article.slug}`;
+export function buildArticleMetadata(
+  locale: Locale,
+  article: Article,
+  alternateSlugs?: Partial<Record<Locale, string>>
+): Metadata {
+  const defaultUrl = `${SITE_URL}/${locale}/articles/${article.slug}`;
+  const canonical = article.canonicalUrl?.trim() || defaultUrl;
+  const title = article.seoTitle?.trim() || article.title;
+  const description = article.seoDescription?.trim() || article.excerpt;
+  const keywords = article.seoKeywords
+    ? article.seoKeywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean)
+    : article.tags;
+
+  const languages: Partial<Record<Locale, string>> = {};
+  if (alternateSlugs?.fa) languages.fa = `${SITE_URL}/fa/articles/${alternateSlugs.fa}`;
+  if (alternateSlugs?.en) languages.en = `${SITE_URL}/en/articles/${alternateSlugs.en}`;
+  if (!languages[locale]) languages[locale] = defaultUrl;
+
   return {
-    title: article.title,
-    description: article.excerpt,
-    alternates: { canonical: url },
+    title,
+    description,
+    keywords,
+    alternates: {
+      canonical,
+      languages,
+    },
     openGraph: {
       type: "article",
-      title: article.title,
-      description: article.excerpt,
-      url,
+      title,
+      description,
+      url: defaultUrl,
+      locale: locale === "fa" ? "fa_IR" : "en_US",
       publishedTime: article.publishedAt,
       modifiedTime: article.updatedAt ?? article.publishedAt,
       tags: article.tags,
     },
     twitter: {
-      card: "summary_large_image",
-      title: article.title,
-      description: article.excerpt,
+      card: article.twitterCard === "summary" ? "summary" : "summary_large_image",
+      title,
+      description,
     },
   };
 }

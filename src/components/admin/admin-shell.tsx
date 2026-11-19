@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Newspaper, FolderTree, Tags, Users, Image as ImageIcon,
-  Settings, ListTree, FileStack, Mail, Inbox, Activity, Trash2, Database,
+  LayoutDashboard, Newspaper, FolderTree, Tags, Image as ImageIcon,
+  ListTree, Mail, Inbox, Activity, Trash2,
   Search, LogOut, Globe, Menu, X, Sparkles, UserCircle,
 } from "lucide-react";
 import { useAdminAuth } from "./admin-auth-context";
@@ -26,15 +26,10 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/tags", label: "Tags", icon: Tags, permission: "tags.manage" },
   { href: "/admin/authors", label: "Authors", icon: UserCircle, permission: "authors.view" },
   { href: "/admin/media", label: "Media Library", icon: ImageIcon, permission: "media.manage" },
-  { href: "/admin/pages", label: "Pages", icon: FileStack, permission: "pages.manage" },
-  { href: "/admin/menus", label: "Menu Builder", icon: ListTree, permission: "menus.manage" },
   { href: "/admin/subscribers", label: "Subscribers", icon: Mail, permission: "subscribers.manage" },
   { href: "/admin/messages", label: "Contact Messages", icon: Inbox, permission: "messages.manage" },
-  { href: "/admin/users", label: "Users", icon: Users, permission: "users.view" },
   { href: "/admin/logs", label: "Activity Logs", icon: Activity, permission: "logs.view" },
   { href: "/admin/trash", label: "Recycle Bin", icon: Trash2, permission: "articles.manage" },
-  { href: "/admin/backup", label: "Backup & Cache", icon: Database, permission: "backup.manage" },
-  { href: "/admin/settings", label: "Settings", icon: Settings, permission: "settings.manage" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -119,8 +114,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </button>
             <div className="hidden items-center gap-2 rounded-full border border-(--color-border-subtle) px-3 py-1.5 text-xs text-(--color-text-tertiary) sm:flex">
               <Search className="h-3.5 w-3.5" />
-              <Link href="/admin/search" className="hover:text-(--color-text-primary)">
-                Search everything…
+              <Link href="/admin/articles" className="hover:text-(--color-text-primary)">
+                Search articles…
               </Link>
             </div>
           </div>

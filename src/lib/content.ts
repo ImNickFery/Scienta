@@ -1,6 +1,6 @@
 import GithubSlugger from "github-slugger";
 import readingTime from "reading-time";
-import { query, queryOne } from "./db";
+import { query, queryOne, execute } from "./db";
 import type { Article, ArticleFrontmatter, FieldSlug, TocItem } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -22,8 +22,16 @@ interface ArticleRow {
   slug: string;
   excerpt: string | null;
   content: string;
+  seo_title: string | null;
+  seo_description: string | null;
+  seo_keywords: string | null;
+  canonical_url: string | null;
+  twitter_card: string | null;
   tags: string | null; // comma-joined via GROUP_CONCAT
 }
+
+/** Matches published articles as well as scheduled articles whose publish time has arrived. */
+const LIVE_STATUS_SQL = "(a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= NOW()))";
 
 const BASE_SELECT = `
   SELECT
@@ -31,6 +39,7 @@ const BASE_SELECT = `
     au.slug AS author_slug, au.name_fa AS author_name_fa, au.name_en AS author_name_en,
     a.status, a.featured, a.trending, a.views, a.published_at, a.updated_at,
     t.title, t.slug, t.excerpt, t.content,
+    t.seo_title, t.seo_description, t.seo_keywords, t.canonical_url, t.twitter_card,
     (SELECT GROUP_CONCAT(tg.name_fa, '::', tg.name_en SEPARATOR '||')
        FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id
       WHERE atg.article_id = a.id) AS tags
@@ -64,9 +73,15 @@ function rowToArticle(row: ArticleRow, locale: Locale): Article {
     authorSlug: row.author_slug ?? "",
     authorName: (locale === "fa" ? row.author_name_fa : row.author_name_en) ?? "",
     publishedAt: row.published_at ?? row.updated_at,
+    updatedAt: row.updated_at,
     views: row.views,
     featured: !!row.featured,
     trending: !!row.trending,
+    seoTitle: row.seo_title || undefined,
+    seoDescription: row.seo_description || undefined,
+    seoKeywords: row.seo_keywords || undefined,
+    canonicalUrl: row.canonical_url || undefined,
+    twitterCard: row.twitter_card === "summary" ? "summary" : "summary_large_image",
   };
 
   return {
@@ -76,8 +91,13 @@ function rowToArticle(row: ArticleRow, locale: Locale): Article {
   };
 }
 
+/** Strips heavy MDX body before passing article summaries to Client Components or JSON APIs. */
+export function stripArticleContent(article: Article): Article {
+  return { ...article, content: "" };
+}
+
 export async function getAllArticles(locale: Locale, opts: { includeUnpublished?: boolean } = {}): Promise<Article[]> {
-  const statusClause = opts.includeUnpublished ? "" : "AND a.status = 'published'";
+  const statusClause = opts.includeUnpublished ? "" : `AND ${LIVE_STATUS_SQL}`;
   const rows = await query<ArticleRow>(
     `${BASE_SELECT} ${statusClause} ORDER BY a.published_at DESC, a.created_at DESC`,
     [locale]
@@ -87,10 +107,49 @@ export async function getAllArticles(locale: Locale, opts: { includeUnpublished?
 
 export async function getArticle(locale: Locale, slug: string): Promise<Article | null> {
   const row = await queryOne<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND t.slug = ? LIMIT 1`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND t.slug = ? LIMIT 1`,
     [locale, slug]
   );
   return row ? rowToArticle(row, locale) : null;
+}
+
+/** Returns the per-locale slugs for a given article id (used for hreflang SEO & locale switching). */
+export async function getArticleLocaleSlugs(articleId: string): Promise<Partial<Record<Locale, string>>> {
+  const rows = await query<{ locale: Locale; slug: string }>(
+    `SELECT locale, slug FROM article_translations WHERE article_id = ?`,
+    [articleId]
+  );
+  const result: Partial<Record<Locale, string>> = {};
+  for (const row of rows) {
+    result[row.locale] = row.slug;
+  }
+  return result;
+}
+
+export interface AdjacentArticleLink {
+  slug: string;
+  title: string;
+}
+
+/** Fetches only the immediate previous and next article links without loading all MDX bodies. */
+export async function getAdjacentArticles(
+  locale: Locale,
+  articleId: string
+): Promise<{ prev: AdjacentArticleLink | null; next: AdjacentArticleLink | null }> {
+  const rows = await query<{ id: string; slug: string; title: string }>(
+    `SELECT a.id, t.slug, t.title
+     FROM articles a
+     JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
+     WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL}
+     ORDER BY a.published_at DESC, a.created_at DESC`,
+    [locale]
+  );
+  const idx = rows.findIndex((r) => r.id === articleId);
+  if (idx === -1) return { prev: null, next: null };
+  return {
+    prev: idx > 0 ? { slug: rows[idx - 1].slug, title: rows[idx - 1].title } : null,
+    next: idx < rows.length - 1 ? { slug: rows[idx + 1].slug, title: rows[idx + 1].title } : null,
+  };
 }
 
 /** Used by the admin panel — fetches regardless of status, keyed by article id. */
@@ -104,7 +163,7 @@ export async function getArticleByIdAnyStatus(locale: Locale, articleId: string)
 
 export async function getFeaturedArticles(locale: Locale): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND a.featured = 1 ORDER BY a.published_at DESC LIMIT 6`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.featured = 1 ORDER BY a.published_at DESC LIMIT 6`,
     [locale]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -112,7 +171,7 @@ export async function getFeaturedArticles(locale: Locale): Promise<Article[]> {
 
 export async function getTrendingArticles(locale: Locale): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND a.trending = 1 ORDER BY a.views DESC LIMIT 6`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.trending = 1 ORDER BY a.views DESC LIMIT 6`,
     [locale]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -120,7 +179,7 @@ export async function getTrendingArticles(locale: Locale): Promise<Article[]> {
 
 export async function getArticlesByField(locale: Locale, field: FieldSlug): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND f.slug = ? ORDER BY a.published_at DESC`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? ORDER BY a.published_at DESC`,
     [locale, field]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -128,7 +187,7 @@ export async function getArticlesByField(locale: Locale, field: FieldSlug): Prom
 
 export async function getRelatedArticles(locale: Locale, current: Article, limit = 3): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND f.slug = ? AND t.slug != ? ORDER BY a.published_at DESC LIMIT ?`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? AND t.slug != ? ORDER BY a.published_at DESC LIMIT ?`,
     [locale, current.field, current.slug, limit]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -136,7 +195,7 @@ export async function getRelatedArticles(locale: Locale, current: Article, limit
 
 export async function getMostViewedArticles(locale: Locale, limit = 5): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' ORDER BY a.views DESC LIMIT ?`,
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.views DESC LIMIT ?`,
     [locale, limit]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -145,10 +204,18 @@ export async function getMostViewedArticles(locale: Locale, limit = 5): Promise<
 export async function searchArticles(locale: Locale, search: string): Promise<Article[]> {
   const q = search.trim();
   if (!q) return [];
+  const like = `%${q}%`;
+  const authorCol = locale === "fa" ? "au.name_fa" : "au.name_en";
+  const tagCol = locale === "fa" ? "tg.name_fa" : "tg.name_en";
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND MATCH(t.title, t.excerpt, t.content) AGAINST (? IN NATURAL LANGUAGE MODE)
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND (
+       t.title LIKE ? OR t.excerpt LIKE ? OR t.content LIKE ? OR ${authorCol} LIKE ? OR EXISTS (
+         SELECT 1 FROM article_tags atg2 JOIN tags tg ON tg.id = atg2.tag_id
+         WHERE atg2.article_id = a.id AND ${tagCol} LIKE ?
+       )
+     )
      ORDER BY a.published_at DESC LIMIT 30`,
-    [locale, q]
+    [locale, like, like, like, like, like]
   );
   return rows.map((r) => rowToArticle(r, locale));
 }
@@ -158,7 +225,7 @@ export async function getAllTags(locale: Locale): Promise<{ tag: string; count: 
     `SELECT ${locale === "fa" ? "tg.name_fa" : "tg.name_en"} AS name, COUNT(*) AS count
      FROM article_tags atg
      JOIN tags tg ON tg.id = atg.tag_id
-     JOIN articles a ON a.id = atg.article_id AND a.status = 'published' AND a.deleted_at IS NULL
+     JOIN articles a ON a.id = atg.article_id AND ${LIVE_STATUS_SQL} AND a.deleted_at IS NULL
      GROUP BY tg.id
      ORDER BY count DESC`
   );
@@ -168,7 +235,7 @@ export async function getAllTags(locale: Locale): Promise<{ tag: string; count: 
 export async function getArticlesByTag(locale: Locale, tag: string): Promise<Article[]> {
   const nameCol = locale === "fa" ? "tg.name_fa" : "tg.name_en";
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND a.status = 'published' AND a.id IN (
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
        SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE ${nameCol} = ?
      ) ORDER BY a.published_at DESC`,
     [locale, tag]
@@ -201,5 +268,5 @@ export function extractToc(content: string): TocItem[] {
 }
 
 export async function incrementArticleViews(articleId: string): Promise<void> {
-  await query(`UPDATE articles SET views = views + 1 WHERE id = ?`, [articleId]);
+  await execute(`UPDATE articles SET views = views + 1 WHERE id = ?`, [articleId]);
 }

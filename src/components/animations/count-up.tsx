@@ -31,14 +31,24 @@ export function CountUp({
 }) {
   const { numerals } = useNumerals();
   const ref = useRef<HTMLSpanElement>(null);
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(value);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion gets the final value with no tween
+    if (
+      typeof window === "undefined" ||
+      !("IntersectionObserver" in window) ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync final value when reduced motion or IO is unavailable
+      setCurrent(value);
+      return;
+    }
+
+    // If already visible on mount, keep the real value instead of flashing 0.
+    if (el.getBoundingClientRect().top < window.innerHeight) {
       setCurrent(value);
       return;
     }
@@ -62,7 +72,7 @@ export function CountUp({
         observer.disconnect();
         frame = requestAnimationFrame(step);
       },
-      { threshold: 0.4 }
+      { threshold: 0.1 }
     );
     observer.observe(el);
 

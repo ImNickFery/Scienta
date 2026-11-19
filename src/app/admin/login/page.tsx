@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles, Lock, Mail, Loader2 } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
+import { sanitizeAdminRedirect } from "@/lib/security";
 import { AuroraBackground } from "@/components/animations/aurora-background";
 
 export default function AdminLoginPage() {
@@ -31,8 +32,8 @@ function LoginForm() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      const from = searchParams.get("from");
-      router.push(from && from.startsWith("/admin") ? from : "/admin/dashboard");
+      const target = sanitizeAdminRedirect(searchParams.get("from"));
+      router.push(target);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

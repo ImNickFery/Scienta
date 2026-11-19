@@ -99,7 +99,7 @@ export default function MediaLibraryPage() {
           ref={fileInputRef}
           type="file"
           multiple
-          accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+          accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
           onChange={(e) => e.target.files && uploadFiles(e.target.files)}
         />
@@ -107,7 +107,7 @@ export default function MediaLibraryPage() {
         <p className="text-sm text-(--color-text-secondary)">
           {uploading ? "Uploading…" : "Drag and drop images here, or click to browse"}
         </p>
-        <p className="text-xs text-(--color-text-tertiary)">JPEG, PNG, WebP, GIF, SVG — up to 8MB each</p>
+        <p className="text-xs text-(--color-text-tertiary)">JPEG, PNG, WebP, GIF — up to 8MB each</p>
       </div>
 
       {error && <p className="rounded-lg border border-(--color-accent-red)/30 bg-(--color-accent-red)/10 px-4 py-2 text-sm text-(--color-accent-red)">{error}</p>}

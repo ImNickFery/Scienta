@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,53 +36,26 @@ export function DerivationConsole({
   chips: string[];
   className?: string;
 }) {
-  const [shown, setShown] = useState(0);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(lines.length);
+  const [done, setDone] = useState(false);
 
-  // Only start once the panel is actually on screen — an animation that
-  // already finished before the reader arrived is a wasted animation.
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion shows the finished derivation immediately
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion finishes immediately
       setShown(lines.length);
+      setDone(true);
       return;
     }
 
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setStarted(true);
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.25 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    const totalMs = Math.max(800, lines.length * 360 + 400);
+    const id = setTimeout(() => setDone(true), totalMs);
+    return () => clearTimeout(id);
   }, [lines.length]);
 
-  useEffect(() => {
-    if (!started) return;
-    if (shown >= lines.length) return;
-
-    // Commands land fast; prose and math get room to be read.
-    const line = lines[shown];
-    const pause = line.kind === "command" ? 520 : line.kind === "log" ? 620 : 900;
-
-    const id = setTimeout(() => setShown((n) => n + 1), pause);
-    return () => clearTimeout(id);
-  }, [started, shown, lines]);
-
-  const running = started && shown < lines.length;
-  const done = shown >= lines.length;
+  const running = !done;
 
   return (
     <div
-      ref={ref}
       className={cn(
         "glass-panel relative overflow-hidden rounded-2xl shadow-[0_40px_120px_-40px_rgba(123,63,251,0.55)]",
         className
@@ -118,7 +91,7 @@ export function DerivationConsole({
       {/* Body */}
       <div className="relative min-h-[19rem] space-y-3 p-5 font-[family-name:var(--font-mono)] text-[13px] leading-relaxed sm:min-h-[21rem]">
         {lines.slice(0, shown).map((line, i) => (
-          <div key={i} style={{ animation: "reveal-word 0.4s var(--ease-premium) both" }}>
+          <div key={i} style={{ animation: `reveal-word 0.45s var(--ease-premium) ${i * 220}ms both` }}>
             {line.kind === "command" && (
               <div className="flex items-center gap-2 text-(--color-text-primary)">
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-(--color-accent-purple)" />

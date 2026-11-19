@@ -36,6 +36,11 @@ export interface ArticleFrontmatter {
   views: number;
   featured?: boolean;
   trending?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  twitterCard?: "summary" | "summary_large_image";
 }
 
 export interface Article extends ArticleFrontmatter {

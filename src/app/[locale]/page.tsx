@@ -1,6 +1,12 @@
 import { isValidLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { getAllArticles, getFeaturedArticles, getTrendingArticles, getMostViewedArticles } from "@/lib/content";
+import {
+  getAllArticles,
+  getFeaturedArticles,
+  getTrendingArticles,
+  getMostViewedArticles,
+  stripArticleContent,
+} from "@/lib/content";
 import { getFields } from "@/lib/taxonomy";
 import { Hero } from "@/components/home/hero";
 import { TopicsTicker } from "@/components/home/topics-ticker";
@@ -14,19 +20,25 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const { locale: rawLocale } = await params;
   if (!isValidLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
-  const dict = await getDictionary(locale);
 
-  const all = await getAllArticles(locale);
-  const featured = await getFeaturedArticles(locale);
-  const trending = await getTrendingArticles(locale);
-  const mostViewed = await getMostViewedArticles(locale, 4);
-  const fields = await getFields();
+  const [dict, all, featured, trending, mostViewed, fields] = await Promise.all([
+    getDictionary(locale),
+    getAllArticles(locale),
+    getFeaturedArticles(locale),
+    getTrendingArticles(locale),
+    getMostViewedArticles(locale, 4),
+    getFields(),
+  ]);
 
   // Every stat is derived from what's actually in the database. The
   // equation count is a floor, not a guess: it counts display-math blocks
   // ($$…$$) across published MDX, so it can only under-report.
   const equationCount = all.reduce((sum, a) => sum + Math.floor((a.content.match(/\$\$/g)?.length ?? 0) / 2), 0);
   const readerCount = all.reduce((sum, a) => sum + a.views, 0);
+
+  const allSummaries = all.map(stripArticleContent);
+  const featuredSummaries = featured.map(stripArticleContent);
+  const trendingSummaries = (trending.length ? trending : mostViewed).map(stripArticleContent);
 
   return (
     <>
@@ -44,7 +56,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       />
 
       <ArticleSection
-        articles={featured}
+        articles={featuredSummaries}
         locale={locale}
         dict={dict}
         title={dict.sections.featured}
@@ -61,7 +73,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       <ReadingJourney locale={locale} dict={dict} />
 
       <ArticleSection
-        articles={all}
+        articles={allSummaries}
         locale={locale}
         dict={dict}
         title={dict.sections.latest}
@@ -75,7 +87,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       />
 
       <ArticleSection
-        articles={trending.length ? trending : mostViewed}
+        articles={trendingSummaries}
         locale={locale}
         dict={dict}
         title={dict.sections.trending}

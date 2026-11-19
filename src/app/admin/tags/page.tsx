@@ -11,6 +11,7 @@ export default function TagsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ nameFa: "", nameEn: "" });
   const [showForm, setShowForm] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -39,8 +40,8 @@ export default function TagsAdminPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this tag?")) return;
     await adminFetch(`/api/admin/tags/${id}`, { method: "DELETE" });
+    setConfirmDeleteId(null);
     load();
   }
 
@@ -79,7 +80,24 @@ export default function TagsAdminPage() {
           <span key={t.id} className="card-elevated flex items-center gap-2 rounded-full px-4 py-2 text-sm">
             <span className="text-(--color-text-primary)">{t.name_en}</span>
             <span className="text-(--color-text-tertiary)">({t.article_count})</span>
-            <button onClick={() => handleDelete(t.id)} className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"><Trash2 className="h-3.5 w-3.5" /></button>
+            {confirmDeleteId === t.id ? (
+              <button
+                type="button"
+                onClick={() => handleDelete(t.id)}
+                className="rounded-full bg-(--color-accent-red) px-2 py-0.5 text-[11px] font-medium text-white"
+              >
+                Confirm
+              </button>
+            ) : (
+              <button
+                type="button"
+                aria-label={`Delete tag ${t.name_en}`}
+                onClick={() => setConfirmDeleteId(t.id)}
+                className="text-(--color-text-tertiary) hover:text-(--color-accent-red)"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
           </span>
         ))}
       </div>

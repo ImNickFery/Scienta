@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { Globe } from "lucide-react";
 import { locales, localeLabels, type Locale } from "@/lib/i18n/config";
+import { resolveLocaleSwitchPath } from "@/lib/i18n/switch-path";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import type { Numerals } from "@/lib/i18n/numerals";
 
@@ -17,9 +18,10 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
   const { numerals, setNumerals } = useNumerals();
 
   function switchTo(locale: Locale) {
-    const segments = pathname.split("/");
-    segments[1] = locale;
-    router.push(segments.join("/") || `/${locale}`);
+    if (locale === currentLocale) return;
+    const altLink = document.querySelector<HTMLLinkElement>(`link[rel="alternate"][hreflang="${locale}"]`);
+    const target = resolveLocaleSwitchPath(pathname, locale, altLink?.getAttribute("href"));
+    router.push(target);
   }
 
   function chooseNumerals(next: Numerals) {

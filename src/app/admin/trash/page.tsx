@@ -13,6 +13,7 @@ interface ArticleRow {
 
 export default function TrashPage() {
   const [items, setItems] = useState<ArticleRow[]>([]);
+  const [confirmPurgeId, setConfirmPurgeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -34,8 +35,8 @@ export default function TrashPage() {
   }
 
   async function purge(id: string) {
-    if (!confirm("Permanently delete this article? This cannot be undone.")) return;
     await adminFetch(`/api/admin/articles/${id}/permanent`, { method: "DELETE" });
+    setConfirmPurgeId(null);
     load();
   }
 
@@ -71,9 +72,32 @@ export default function TrashPage() {
                       <button onClick={() => restore(a.id)} className="flex items-center gap-1 rounded-full border border-(--color-border-subtle) px-3 py-1.5 text-xs text-(--color-text-secondary) hover:text-(--color-text-primary)">
                         <RotateCcw className="h-3 w-3" /> Restore
                       </button>
-                      <button onClick={() => purge(a.id)} className="flex items-center gap-1 rounded-full border border-(--color-border-subtle) px-3 py-1.5 text-xs text-(--color-accent-red) hover:border-(--color-accent-red)/50">
-                        <Trash2 className="h-3 w-3" /> Delete Forever
-                      </button>
+                      {confirmPurgeId === a.id ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => purge(a.id)}
+                            className="rounded-full bg-(--color-accent-red) px-3 py-1.5 text-xs font-medium text-white"
+                          >
+                            Confirm Permanent Delete
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setConfirmPurgeId(null)}
+                            className="rounded-full border border-(--color-border-subtle) px-3 py-1.5 text-xs text-(--color-text-tertiary)"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmPurgeId(a.id)}
+                          className="flex items-center gap-1 rounded-full border border-(--color-border-subtle) px-3 py-1.5 text-xs text-(--color-accent-red) hover:border-(--color-accent-red)/50"
+                        >
+                          <Trash2 className="h-3 w-3" /> Delete Forever
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

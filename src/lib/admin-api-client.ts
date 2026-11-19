@@ -28,11 +28,16 @@ export async function adminFetch<T = unknown>(
   const res = await fetch(path, { ...options, headers, credentials: "include" });
 
   if (res.status === 401 && path !== "/api/admin/auth/me") {
-    // Try a silent refresh once, then retry the original request.
+    // Try a silent refresh once, then retry the original request with the rotated CSRF token.
     const refreshRes = await fetch("/api/admin/auth/refresh", { method: "POST", credentials: "include" });
     if (refreshRes.ok) {
+      if (method !== "GET" && method !== "HEAD") {
+        const refreshedCsrf = readCookie("aurora_csrf");
+        if (refreshedCsrf) headers.set("x-csrf-token", refreshedCsrf);
+      }
       const retry = await fetch(path, { ...options, headers, credentials: "include" });
       if (!retry.ok) throw await toError(retry);
+      if (retry.status === 204) return undefined as T;
       return retry.json();
     }
     window.location.href = "/admin/login";

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { v4 as uuid } from "uuid";
 import { query, queryOne, withTransaction } from "@/lib/db";
@@ -180,6 +181,7 @@ export async function POST(req: Request) {
   }
 
   await logActivity({ userId: session!.sub, action: "article.create", entityType: "article", entityId: articleId, ipAddress: getClientIp(req) });
+  revalidatePath("/", "layout");
 
   return NextResponse.json({ id: articleId }, { status: 201 });
 }

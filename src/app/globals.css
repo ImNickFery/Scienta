@@ -862,3 +862,37 @@ html[dir="ltr"] .prose-scientific .pull-quote {
   from { opacity: 0; transform: translateY(0.4em); filter: blur(6px); }
   to   { opacity: 1; transform: translateY(0);     filter: blur(0); }
 }
+
+/* Above-the-fold entrance: pure CSS so hero copy and CTAs never stay hidden
+   waiting for IntersectionObserver in iframes or compact viewports. */
+@keyframes hero-enter-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.hero-enter {
+  animation-name: hero-enter-up;
+  animation-timing-function: var(--ease-premium);
+  animation-fill-mode: both;
+}
+
+/* Below-the-fold scroll entrance: content is always visible (opacity: 1) by
+   default so SSR, slow hydration, and iframe scroll containers can never leave
+   sections invisible. When IntersectionObserver triggers, this subtle settle
+   motion plays once and always finishes at opacity: 1. */
+@keyframes reveal-settle {
+  from {
+    opacity: 0.35;
+    transform: translate3d(var(--reveal-x, 0px), var(--reveal-y, 16px), 0) scale(var(--reveal-scale, 1));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.reveal-settle {
+  animation-name: reveal-settle;
+  animation-timing-function: var(--ease-premium);
+  animation-fill-mode: both;
+}

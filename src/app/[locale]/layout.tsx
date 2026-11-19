@@ -6,6 +6,7 @@ import { locales, isValidLocale, dir, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getFields } from "@/lib/taxonomy";
 import { buildBaseMetadata, organizationJsonLd } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { fontVariables } from "@/fonts";
@@ -56,11 +57,17 @@ export default async function LocaleLayout({
     // data-numerals drives the font-feature rule in globals.css. Rendering it
     // from the cookie here is what keeps the first paint in the reader's chosen
     // numerals instead of flipping once the client picks the preference up.
-    <html lang={locale} dir={dir(locale)} data-numerals={numerals} className={fontVariables}>
+    <html
+      lang={locale}
+      dir={dir(locale)}
+      data-numerals={numerals}
+      data-scroll-behavior="smooth"
+      className={fontVariables}
+    >
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd()) }}
         />
         <a
           href="#main-content"

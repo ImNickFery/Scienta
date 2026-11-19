@@ -58,27 +58,27 @@ export function Hero({ locale, dict }: { locale: Locale; dict: Dictionary }) {
         <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-12">
           {/* ---------- Copy ---------- */}
           <div className="text-center lg:text-start">
-            <ScrollReveal direction="scale" duration={600}>
+            <ScrollReveal immediate direction="scale" duration={550}>
               <div className="inline-flex items-center gap-2 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-(--color-text-secondary) backdrop-blur-sm">
                 <span className="pulse-ring relative h-1.5 w-1.5 rounded-full bg-(--color-accent-orange) text-(--color-accent-orange)" />
                 {dict.hero.eyebrow}
               </div>
             </ScrollReveal>
 
-            <ScrollReveal delay={90} blur>
+            <ScrollReveal immediate delay={70} blur>
               <h1 className="mt-6 font-[family-name:var(--font-display)] text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
                 <span className="text-gradient-flow">{dict.hero.titleLead}</span>{" "}
                 <span className="text-(--color-text-tertiary)">{dict.hero.titleTail}</span>
               </h1>
             </ScrollReveal>
 
-            <ScrollReveal delay={180}>
+            <ScrollReveal immediate delay={140}>
               <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-(--color-text-secondary) sm:text-lg lg:mx-0">
                 {dict.hero.subtitle}
               </p>
             </ScrollReveal>
 
-            <ScrollReveal delay={260}>
+            <ScrollReveal immediate delay={210}>
               <p className="mt-7 flex flex-wrap items-baseline justify-center gap-x-2 font-[family-name:var(--font-mono)] text-sm text-(--color-text-tertiary) lg:justify-start">
                 <span>{dict.hero.rotatingPrefix}</span>
                 <RotatingWord
@@ -89,7 +89,7 @@ export function Hero({ locale, dict }: { locale: Locale; dict: Dictionary }) {
               </p>
             </ScrollReveal>
 
-            <ScrollReveal delay={340}>
+            <ScrollReveal immediate delay={280}>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
                 <Button href={`/${locale}/articles`} size="lg">
                   {dict.hero.ctaPrimary}
@@ -102,7 +102,7 @@ export function Hero({ locale, dict }: { locale: Locale; dict: Dictionary }) {
           </div>
 
           {/* ---------- Live derivation panel ---------- */}
-          <ScrollReveal direction="end" delay={260} distance={40} blur>
+          <ScrollReveal immediate direction="end" delay={200} distance={40} blur>
             <DerivationConsole
               lines={consoleLines}
               title={c.title}

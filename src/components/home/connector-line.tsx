@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
  */
 export function ConnectorLine() {
   const ref = useRef<HTMLDivElement>(null);
-  const [drawn, setDrawn] = useState(false);
+  const [drawn, setDrawn] = useState(true);
   const [rtl, setRtl] = useState(false);
 
   useEffect(() => {
@@ -21,9 +21,12 @@ export function ConnectorLine() {
 
     setRtl(document.documentElement.dir === "rtl");
 
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced motion gets the finished rail
-      setDrawn(true);
+    if (
+      typeof window === "undefined" ||
+      !("IntersectionObserver" in window) ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      el.getBoundingClientRect().top < window.innerHeight
+    ) {
       return;
     }
 
@@ -34,7 +37,7 @@ export function ConnectorLine() {
           observer.disconnect();
         }
       },
-      { threshold: 0.3 }
+      { threshold: 0.05 }
     );
     observer.observe(el);
     return () => observer.disconnect();

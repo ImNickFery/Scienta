@@ -64,6 +64,17 @@ interface AuthorRow {
   social_json: string | null;
 }
 
+export function safeParseSocialJson(raw: string | null | undefined): Author["social"] {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return undefined;
+    return parsed as Author["social"];
+  } catch {
+    return undefined;
+  }
+}
+
 function rowToAuthor(row: AuthorRow): Author {
   return {
     slug: row.slug,
@@ -71,7 +82,7 @@ function rowToAuthor(row: AuthorRow): Author {
     title: { fa: row.title_fa ?? "", en: row.title_en ?? "" },
     bio: { fa: row.bio_fa ?? "", en: row.bio_en ?? "" },
     avatar: row.avatar_url ?? "",
-    social: row.social_json ? JSON.parse(row.social_json) : undefined,
+    social: safeParseSocialJson(row.social_json),
   };
 }
 
