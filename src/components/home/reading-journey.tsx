@@ -17,9 +17,9 @@ import type { Dictionary } from "@/lib/i18n/get-dictionary";
  */
 export function ReadingJourney({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const steps = [
-    { icon: ListTree, title: dict.journey.step1Title, body: dict.journey.step1Body, color: "#7B3FFB" },
-    { icon: Sigma, title: dict.journey.step2Title, body: dict.journey.step2Body, color: "#FF7A00" },
-    { icon: Route, title: dict.journey.step3Title, body: dict.journey.step3Body, color: "#FF3C5A" },
+    { icon: ListTree, title: dict.journey.step1Title, body: dict.journey.step1Body, color: "var(--color-accent-purple)" },
+    { icon: Sigma, title: dict.journey.step2Title, body: dict.journey.step2Body, color: "var(--color-accent-orange)" },
+    { icon: Route, title: dict.journey.step3Title, body: dict.journey.step3Body, color: "var(--color-aurora-3)" },
   ];
 
   return (
@@ -52,8 +52,8 @@ export function ReadingJourney({ locale, dict }: { locale: Locale; dict: Diction
                     <span
                       className="relative mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border transition-transform duration-500 group-hover:scale-105"
                       style={{
-                        background: `linear-gradient(135deg, ${step.color}26, transparent)`,
-                        borderColor: `${step.color}40`,
+                        background: `linear-gradient(135deg, color-mix(in srgb, ${step.color} 18%, transparent), transparent)`,
+                        borderColor: `color-mix(in srgb, ${step.color} 32%, transparent)`,
                         color: step.color,
                         boxShadow: `0 0 40px -12px ${step.color}`,
                       }}

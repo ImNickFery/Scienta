@@ -87,7 +87,7 @@ export function CiteModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="glass-panel w-full max-w-2xl overflow-hidden rounded-2xl bg-(--color-bg-elevated) shadow-[0_30px_100px_-20px_rgba(123,63,251,0.45)]"
+        className="glass-panel w-full max-w-2xl overflow-hidden rounded-2xl bg-(--color-bg-elevated) shadow-[0_30px_100px_-20px_rgba(var(--color-accent-glow-rgb),0.45)]"
       >
         <div className="flex items-start justify-between gap-4 border-b border-(--color-border-subtle) px-6 py-4">
           <div className="flex items-center gap-3">

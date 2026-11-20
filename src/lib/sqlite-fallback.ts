@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 import { SEED_ARTICLES, SEED_AUTHORS, SEED_FIELDS, SEED_MEDIA } from "./seed-data";
@@ -854,13 +856,65 @@ function ensureApiKeysSchema(db: SqliteDatabase) {
   }
 }
 
+export function resolveSqlitePath(rawPath?: string): string {
+  const trimmed = rawPath?.trim();
+  if (!trimmed) return DEFAULT_DB_PATH;
+  if (trimmed === ":memory:") return ":memory:";
+  return path.resolve(trimmed);
+}
+
+function tryOpenDatabase(
+  DatabaseSync: new (filename: string) => SqliteDatabase,
+  targetPath: string
+): SqliteDatabase {
+  if (targetPath !== ":memory:") {
+    const dir = path.dirname(targetPath);
+    if (dir && dir !== ".") {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  }
+  return new DatabaseSync(targetPath);
+}
+
+function openSqliteWithFallback(
+  DatabaseSync: new (filename: string) => SqliteDatabase,
+  filename: string
+): { db: SqliteDatabase; openedPath: string } {
+  const primary = resolveSqlitePath(filename);
+  const candidates = primary === ":memory:"
+    ? [":memory:"]
+    : primary === DEFAULT_DB_PATH
+      ? [DEFAULT_DB_PATH, ":memory:"]
+      : [primary, DEFAULT_DB_PATH, ":memory:"];
+
+  let lastError: unknown;
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
+    try {
+      const db = tryOpenDatabase(DatabaseSync, candidate);
+      if (i > 0) {
+        console.warn(
+          `[db] Could not open SQLite database at "${primary}" (${lastError instanceof Error ? lastError.message : String(lastError)}); using "${candidate}" instead.`
+        );
+      }
+      return { db, openedPath: candidate };
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
 export class SqliteFallbackDb {
   private db: SqliteDatabase;
+  public readonly filePath: string;
 
   constructor(filename: string = DEFAULT_DB_PATH) {
     const { DatabaseSync } = loadSqliteModule();
-    this.db = new DatabaseSync(filename);
-    if (filename !== ":memory:") {
+    const { db, openedPath } = openSqliteWithFallback(DatabaseSync, filename);
+    this.db = db;
+    this.filePath = openedPath;
+    if (openedPath !== ":memory:") {
       try {
         this.db.exec("PRAGMA journal_mode = WAL;");
       } catch {
@@ -932,7 +986,7 @@ declare global {
 export function getSqliteFallback(): SqliteFallbackDb {
   if (!globalThis.__scientaSqliteFallback) {
     globalThis.__scientaSqliteFallback = new SqliteFallbackDb(
-      process.env.SQLITE_FALLBACK_PATH ?? DEFAULT_DB_PATH
+      resolveSqlitePath(process.env.SQLITE_FALLBACK_PATH)
     );
   }
   return globalThis.__scientaSqliteFallback;

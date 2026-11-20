@@ -52,9 +52,11 @@ export function Hero({ locale, dict }: { locale: Locale; dict: Dictionary }) {
       <AuroraBackground />
       <DeferredAmbient delayMs={700}>
         <AnimatedGrid variant="line" size={56} opacity={0.04} />
-        <Starfield />
-        <ParticleField count={22} seed={11} />
-        <FloatingFormulas />
+        <div className="ambient-effects-layer pointer-events-none absolute inset-0" aria-hidden="true">
+          <Starfield />
+          <ParticleField count={22} seed={11} />
+          <FloatingFormulas />
+        </div>
       </DeferredAmbient>
 
       <Container className="relative z-10 py-28 lg:py-32">

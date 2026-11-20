@@ -85,7 +85,9 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
     };
   });
 
-  const probeStroke = probeMeta.insideHorizon ? "#ff3c5a" : "#ff7a00";
+  const probeStroke = probeMeta.insideHorizon
+    ? "var(--color-accent-red)"
+    : "var(--color-accent-orange)";
 
   return (
     <motion.div
@@ -123,23 +125,23 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
         >
           <defs>
             <radialGradient id="scienta-404-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor="#05050a" stopOpacity="1" />
-              <stop offset="32%" stopColor="#05050a" stopOpacity="1" />
-              <stop offset="44%" stopColor="#ff7a00" stopOpacity="0.48" />
-              <stop offset="62%" stopColor="#7b3ffb" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#7b3ffb" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--color-bg-deep)" stopOpacity="1" />
+              <stop offset="32%" stopColor="var(--color-bg-deep)" stopOpacity="1" />
+              <stop offset="44%" stopColor="var(--color-accent-orange)" stopOpacity="0.48" />
+              <stop offset="62%" stopColor="var(--color-accent-purple)" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="var(--color-accent-purple)" stopOpacity="0" />
             </radialGradient>
 
             <linearGradient id="scienta-404-photon-ring" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ff7a00" stopOpacity="0.95" />
-              <stop offset="50%" stopColor="#ff3c5a" stopOpacity="0.7" />
-              <stop offset="100%" stopColor="#7b3ffb" stopOpacity="0.95" />
+              <stop offset="0%" stopColor="var(--color-accent-orange)" stopOpacity="0.95" />
+              <stop offset="50%" stopColor="var(--color-aurora-3)" stopOpacity="0.78" />
+              <stop offset="100%" stopColor="var(--color-accent-purple)" stopOpacity="0.95" />
             </linearGradient>
 
             <linearGradient id="scienta-404-geodesic" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="#7b3ffb" stopOpacity="0.08" />
-              <stop offset="50%" stopColor="#f5f5fa" stopOpacity="0.55" />
-              <stop offset="100%" stopColor="#ff7a00" stopOpacity="0.14" />
+              <stop offset="0%" stopColor="var(--color-accent-purple)" stopOpacity="0.08" />
+              <stop offset="50%" stopColor="var(--color-text-primary)" stopOpacity="0.55" />
+              <stop offset="100%" stopColor="var(--color-accent-orange)" stopOpacity="0.14" />
             </linearGradient>
           </defs>
 
@@ -223,7 +225,7 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
               cy={CENTER}
               r={HORIZON_RADIUS}
               fill="none"
-              stroke="rgba(123, 63, 251, 0.45)"
+              stroke="rgba(var(--color-accent-glow-rgb), 0.45)"
               strokeWidth="1"
               style={{ transformOrigin: `${CENTER}px ${CENTER}px` }}
               animate={{ scale: [1, 3.1], opacity: [0.45, 0] }}
@@ -242,11 +244,11 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
               cy={CENTER}
               r={ISCO_RADIUS}
               fill="none"
-              stroke="rgba(123,63,251,0.28)"
+              stroke="rgba(var(--color-accent-glow-rgb), 0.28)"
               strokeWidth="1"
               strokeDasharray="6 8"
             />
-            <circle cx={CENTER} cy={CENTER - ISCO_RADIUS} r="3" fill="#7b3ffb" />
+            <circle cx={CENTER} cy={CENTER - ISCO_RADIUS} r="3" fill="var(--color-accent-purple)" />
           </motion.g>
 
           {/* Photon sphere (r = 1.5 r_s) — smooth clockwise orbit via framer-motion */}
@@ -260,11 +262,11 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
               cy={CENTER}
               r={PHOTON_RADIUS}
               fill="none"
-              stroke="rgba(255,122,0,0.42)"
+              stroke="rgba(var(--color-accent-secondary-rgb), 0.42)"
               strokeWidth="1.25"
               strokeDasharray="12 6"
             />
-            <circle cx={CENTER + PHOTON_RADIUS} cy={CENTER} r="3.5" fill="#ff7a00" />
+            <circle cx={CENTER + PHOTON_RADIUS} cy={CENTER} r="3.5" fill="var(--color-accent-orange)" />
           </motion.g>
 
           {/* Tilted relativistic accretion ellipse with subtle harmonic precession */}
@@ -291,7 +293,7 @@ export function EventHorizonGraphic({ locale }: EventHorizonGraphicProps) {
             cx={CENTER}
             cy={CENTER}
             r={HORIZON_RADIUS}
-            fill="#05050a"
+            fill="var(--color-bg-deep)"
             stroke="url(#scienta-404-photon-ring)"
             strokeWidth="2"
           />

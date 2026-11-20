@@ -120,7 +120,7 @@ export function Navbar({
             href={`/${locale}`}
             className="group flex shrink-0 items-center gap-2 whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold"
           >
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-accent-red) transition-transform duration-300 group-hover:scale-105">
+            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-aurora-3) transition-transform duration-300 group-hover:scale-105">
               <Sparkles className="h-4 w-4 text-white" />
             </span>
             <span className="text-gradient-aurora">Scienta</span>

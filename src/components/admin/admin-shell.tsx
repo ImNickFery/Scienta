@@ -28,6 +28,7 @@ import {
   ExternalLink,
   ChevronRight,
   ChevronLeft,
+  Palette,
 } from "lucide-react";
 import { useAdminAuth } from "./admin-auth-context";
 import { useAdminLocale } from "./admin-locale-context";
@@ -57,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/messages", labelEn: "Messages", labelFa: "پیام‌های تماس", icon: Inbox, permission: "messages.manage", group: "audience" },
   { href: "/admin/subscribers", labelEn: "Subscribers", labelFa: "مشترکین خبرنامه", icon: Mail, permission: "subscribers.manage", group: "audience" },
 
+  { href: "/admin/modes", labelEn: "Site Modes", labelFa: "حالت‌های سایت", icon: Palette, permission: "settings.manage", group: "platform" },
   { href: "/admin/api-keys", labelEn: "AI & API Keys", labelFa: "API و هوش مصنوعی", icon: KeyRound, permission: "api_keys.manage", group: "platform" },
   { href: "/admin/users", labelEn: "Users & Roles", labelFa: "کاربران و نقش‌ها", icon: Users, permission: "users.view", group: "platform" },
   { href: "/admin/logs", labelEn: "Activity Logs", labelFa: "گزارش فعالیت‌ها", icon: Activity, permission: "logs.view", group: "platform" },

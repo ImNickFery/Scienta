@@ -186,3 +186,58 @@ test("SqliteFallbackDb incrementally seeds newly added articles on pre-existing 
     }
   }
 });
+
+test("SqliteFallbackDb creates missing nested parent directories automatically", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { resolveSqlitePath } = await import("./sqlite-fallback");
+
+  assert.equal(resolveSqlitePath(undefined), "/tmp/scienta-local.sqlite");
+  assert.equal(resolveSqlitePath("   "), "/tmp/scienta-local.sqlite");
+  assert.equal(resolveSqlitePath(":memory:"), ":memory:");
+
+  const nestedDir = path.join(os.tmpdir(), `scienta-nested-${Date.now()}`, "sub", "data");
+  const dbPath = path.join(nestedDir, "scienta.sqlite");
+
+  try {
+    assert.equal(fs.existsSync(nestedDir), false);
+    const db = new SqliteFallbackDb(dbPath);
+    try {
+      assert.equal(db.filePath, dbPath);
+      assert.equal(fs.existsSync(dbPath), true);
+      const rows = db.query<{ count: number }>(`SELECT COUNT(*) AS count FROM articles`);
+      assert.ok(Number(rows[0].count) > 0);
+    } finally {
+      db.close();
+    }
+  } finally {
+    fs.rmSync(path.join(os.tmpdir(), path.relative(os.tmpdir(), nestedDir).split(path.sep)[0]), {
+      recursive: true,
+      force: true,
+    });
+  }
+});
+
+test("SqliteFallbackDb falls back gracefully if configured path cannot be created", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const blockingFile = path.join(os.tmpdir(), `scienta-blocker-${Date.now()}`);
+  fs.writeFileSync(blockingFile, "not-a-directory");
+
+  try {
+    const impossiblePath = path.join(blockingFile, "scienta.sqlite");
+    const db = new SqliteFallbackDb(impossiblePath);
+    try {
+      assert.notEqual(db.filePath, impossiblePath);
+      const rows = db.query<{ count: number }>(`SELECT COUNT(*) AS count FROM fields`);
+      assert.equal(Number(rows[0].count), 10);
+    } finally {
+      db.close();
+    }
+  } finally {
+    fs.rmSync(blockingFile, { force: true });
+  }
+});
+

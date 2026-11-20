@@ -15,6 +15,17 @@
   --color-accent-orange: #ff7a00;
   --color-accent-red: #ff3c5a;
 
+  /* Aurora & Decorative Gradients (decoupled from semantic error red) */
+  --color-aurora-1: #7b3ffb;
+  --color-aurora-2: #ff7a00;
+  --color-aurora-3: #ff3c5a;
+  --color-gradient-start: #7b3ffb;
+  --color-gradient-mid: #ff7a00;
+  --color-gradient-end: #ff3c5a;
+  --color-accent-glow-rgb: 123, 63, 251;
+  --color-accent-secondary-rgb: 255, 122, 0;
+  --color-aurora-3-rgb: 255, 60, 90;
+
   /* Text */
   --color-text-primary: #f5f5fa;
   --color-text-secondary: #a8a8bd;
@@ -54,6 +65,65 @@
     color-scheme: dark;
     scroll-behavior: smooth;
     overflow-x: clip;
+  }
+
+  /* ============================================================
+     SITE MODES — Deep Emerald & Ocean Blue Theme
+     Dark midnight navy canvases paired with deep forest emerald
+     and luminous ocean sapphire accents.
+     ============================================================ */
+  html[data-site-theme="emerald-blue"] {
+    --color-bg-deep: #040b12;
+    --color-bg-secondary: #071620;
+    --color-bg-elevated: #0b212c;
+    --color-bg-glass: rgba(7, 22, 32, 0.68);
+
+    --color-accent-purple: #158f69;
+    --color-accent-orange: #2b8fd6;
+    --color-accent-red: #f43f5e;
+
+    --color-aurora-1: #0f7a58;
+    --color-aurora-2: #165ea8;
+    --color-aurora-3: #0e6369;
+    --color-gradient-start: #23b582;
+    --color-gradient-mid: #3498db;
+    --color-gradient-end: #168a78;
+
+    --color-accent-glow-rgb: 21, 143, 105;
+    --color-accent-secondary-rgb: 43, 143, 214;
+    --color-aurora-3-rgb: 14, 99, 105;
+
+    --color-text-primary: #edf7f5;
+    --color-text-secondary: #9cb9c4;
+    --color-text-tertiary: #6e8f9c;
+    --color-border-subtle: rgba(116, 198, 186, 0.12);
+    --color-border-strong: rgba(116, 198, 186, 0.26);
+  }
+
+  /* High-contrast reading mode — raises secondary/tertiary ink and border visibility */
+  html[data-contrast-mode="high"] {
+    --color-text-primary: #ffffff;
+    --color-text-secondary: #d4dce6;
+    --color-text-tertiary: #a6b4c4;
+    --color-border-subtle: rgba(255, 255, 255, 0.18);
+    --color-border-strong: rgba(255, 255, 255, 0.34);
+  }
+  html[data-site-theme="emerald-blue"][data-contrast-mode="high"] {
+    --color-text-primary: #f6fffd;
+    --color-text-secondary: #c9e2e6;
+    --color-text-tertiary: #9ac0c9;
+    --color-border-subtle: rgba(130, 218, 204, 0.24);
+    --color-border-strong: rgba(130, 218, 204, 0.42);
+  }
+
+  /* Calm ambient mode — keeps a serene static backdrop without drifting particles or orbs */
+  html[data-ambient-mode="calm"] .ambient-effects-layer {
+    display: none !important;
+  }
+  html[data-ambient-mode="calm"] .bg-grid-drift,
+  html[data-ambient-mode="calm"] .bg-dot-drift,
+  html[data-ambient-mode="calm"] .animate-orb {
+    animation: none !important;
   }
 
   /* ============================================================
@@ -247,9 +317,9 @@
   .text-gradient-aurora {
     background: linear-gradient(
       110deg,
-      var(--color-accent-purple) 0%,
-      var(--color-accent-orange) 55%,
-      var(--color-accent-red) 100%
+      var(--color-gradient-start) 0%,
+      var(--color-gradient-mid) 55%,
+      var(--color-gradient-end) 100%
     );
     background-clip: text;
     -webkit-background-clip: text;
@@ -257,7 +327,7 @@
   }
 
   .text-gradient-purple-orange {
-    background: linear-gradient(120deg, var(--color-accent-purple), var(--color-accent-orange));
+    background: linear-gradient(120deg, var(--color-gradient-start), var(--color-gradient-mid));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
@@ -265,9 +335,9 @@
 
   .bg-aurora-mesh {
     background-image:
-      radial-gradient(45% 55% at 15% 10%, rgba(123, 63, 251, 0.35), transparent 60%),
-      radial-gradient(40% 50% at 85% 15%, rgba(255, 122, 0, 0.22), transparent 60%),
-      radial-gradient(50% 60% at 50% 100%, rgba(255, 60, 90, 0.18), transparent 60%);
+      radial-gradient(45% 55% at 15% 10%, rgba(var(--color-accent-glow-rgb), 0.35), transparent 60%),
+      radial-gradient(40% 50% at 85% 15%, rgba(var(--color-accent-secondary-rgb), 0.24), transparent 60%),
+      radial-gradient(50% 60% at 50% 100%, rgba(var(--color-aurora-3-rgb), 0.2), transparent 60%);
   }
 
   .glass-panel {
@@ -278,10 +348,10 @@
   }
 
   .glow-purple {
-    box-shadow: 0 0 60px -15px rgba(123, 63, 251, 0.5);
+    box-shadow: 0 0 60px -15px rgba(var(--color-accent-glow-rgb), 0.5);
   }
   .glow-orange {
-    box-shadow: 0 0 60px -15px rgba(255, 122, 0, 0.45);
+    box-shadow: 0 0 60px -15px rgba(var(--color-accent-secondary-rgb), 0.45);
   }
 
   .admin-input {
@@ -342,7 +412,7 @@
   .card-elevated:hover {
     transform: translateY(-4px);
     border-color: var(--color-border-strong);
-    box-shadow: 0 24px 60px -20px rgba(123, 63, 251, 0.35);
+    box-shadow: 0 24px 60px -20px rgba(var(--color-accent-glow-rgb), 0.35);
   }
 
   .noise-overlay {
@@ -484,8 +554,8 @@ html[dir="rtl"] .equation-interactive {
 }
 .equation-interactive:hover,
 .equation-interactive:focus-visible {
-  background-color: rgba(123, 63, 251, 0.07);
-  box-shadow: 0 0 0 1px rgba(123, 63, 251, 0.25);
+  background-color: rgba(var(--color-accent-glow-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--color-accent-glow-rgb), 0.28);
 }
 .equation-interactive:focus-visible {
   outline: none;
@@ -532,7 +602,7 @@ html[data-article-focus="true"] footer:hover {
   height: 1.75rem;
   padding-inline: 0.375rem;
   border-radius: 999px;
-  background: rgba(123, 63, 251, 0.15);
+  background: rgba(var(--color-accent-glow-rgb), 0.16);
   color: var(--color-accent-purple);
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -797,9 +867,9 @@ html[dir="ltr"] .prose-scientific .pull-quote {
   .text-gradient-flow {
     background: linear-gradient(
       110deg,
-      var(--color-accent-purple) 0%,
-      var(--color-accent-orange) 48%,
-      var(--color-accent-red) 100%
+      var(--color-gradient-start) 0%,
+      var(--color-gradient-mid) 48%,
+      var(--color-gradient-end) 100%
     );
     background-clip: text;
     -webkit-background-clip: text;
@@ -829,7 +899,7 @@ html[dir="ltr"] .prose-scientific .pull-quote {
     transition: opacity 0.45s var(--ease-premium);
     background: radial-gradient(
       420px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-      color-mix(in oklab, var(--spot-color, #7b3ffb) 22%, transparent),
+      color-mix(in oklab, var(--spot-color, var(--color-accent-purple)) 22%, transparent),
       transparent 62%
     );
   }
@@ -839,7 +909,7 @@ html[dir="ltr"] .prose-scientific .pull-quote {
   }
   .spotlight-surface:hover {
     transform: translateY(-4px);
-    border-color: color-mix(in oklab, var(--spot-color, #7b3ffb) 45%, transparent);
+    border-color: color-mix(in oklab, var(--spot-color, var(--color-accent-purple)) 45%, transparent);
   }
 
   /* Hairline gradient border that follows the pointer — layered on top of
@@ -855,7 +925,7 @@ html[dir="ltr"] .prose-scientific .pull-quote {
     transition: opacity 0.45s var(--ease-premium);
     background: radial-gradient(
       300px circle at var(--spot-x, 50%) var(--spot-y, 50%),
-      color-mix(in oklab, var(--spot-color, #7b3ffb) 70%, transparent),
+      color-mix(in oklab, var(--spot-color, var(--color-accent-purple)) 70%, transparent),
       transparent 60%
     );
     /* Punches out the interior so only the 1px ring paints. */

@@ -11,6 +11,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { getLocaleFontVariables } from "@/fonts";
 import { getNumerals } from "@/lib/i18n/numerals-server";
+import { getSiteModes } from "@/lib/site-modes-server";
 import { NumeralsProvider } from "@/components/i18n/numerals-provider";
 import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
 
@@ -50,18 +51,26 @@ export default async function LocaleLayout({
   const { locale: rawLocale } = await params;
   if (!isValidLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
-  const dict = await getDictionary(locale);
-  const fields = await getFields();
-  const numerals = await getNumerals();
+  const [dict, fields, numerals, siteModes] = await Promise.all([
+    getDictionary(locale),
+    getFields(),
+    getNumerals(),
+    getSiteModes(),
+  ]);
 
   return (
     // data-numerals drives the font-feature rule in globals.css. Rendering it
     // from the cookie here is what keeps the first paint in the reader's chosen
     // numerals instead of flipping once the client picks the preference up.
+    // data-site-theme / data-ambient-mode / data-contrast-mode are loaded from
+    // DB settings so the admin-configured site mode renders on first paint.
     <html
       lang={locale}
       dir={dir(locale)}
       data-numerals={numerals}
+      data-site-theme={siteModes.theme}
+      data-ambient-mode={siteModes.ambientMode}
+      data-contrast-mode={siteModes.contrastMode}
       data-scroll-behavior="smooth"
       className={getLocaleFontVariables(locale)}
     >

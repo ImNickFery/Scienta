@@ -95,7 +95,7 @@ export function SearchClient({
           onChange={(e) => updateQuery(e.target.value)}
           placeholder={dict.nav.searchPlaceholder}
           aria-label={dict.search.title}
-          className="glass-panel h-16 w-full rounded-2xl ps-14 pe-14 text-lg text-(--color-text-primary) outline-none transition-shadow focus:border-(--color-accent-purple) focus:shadow-[0_0_0_4px_rgba(123,63,251,0.15)] placeholder:text-(--color-text-tertiary)"
+          className="glass-panel h-16 w-full rounded-2xl ps-14 pe-14 text-lg text-(--color-text-primary) outline-none transition-shadow focus:border-(--color-accent-purple) focus:shadow-[0_0_0_4px_rgba(var(--color-accent-glow-rgb),0.18)] placeholder:text-(--color-text-tertiary)"
         />
         {loading ? (
           <Loader2 className="absolute top-1/2 -translate-y-1/2 end-5 h-5 w-5 animate-spin text-(--color-accent-purple)" />

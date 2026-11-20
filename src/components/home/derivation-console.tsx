@@ -57,7 +57,7 @@ export function DerivationConsole({
   return (
     <div
       className={cn(
-        "glass-panel relative overflow-hidden rounded-2xl shadow-[0_40px_120px_-40px_rgba(123,63,251,0.55)]",
+        "glass-panel relative overflow-hidden rounded-2xl shadow-[0_40px_120px_-40px_rgba(var(--color-accent-glow-rgb),0.55)]",
         className
       )}
       dir="ltr"
@@ -72,9 +72,9 @@ export function DerivationConsole({
       {/* Window chrome */}
       <div className="relative flex items-center gap-3 border-b border-(--color-border-subtle) px-4 py-3">
         <div className="flex gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-(--color-accent-red)/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-(--color-accent-orange)/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-(--color-accent-purple)/70" />
+          <span className="h-2.5 w-2.5 rounded-full bg-(--color-aurora-3)/75" />
+          <span className="h-2.5 w-2.5 rounded-full bg-(--color-accent-orange)/75" />
+          <span className="h-2.5 w-2.5 rounded-full bg-(--color-accent-purple)/75" />
         </div>
         <span className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)">{title}</span>
         <span className="ms-auto inline-flex items-center gap-1.5 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-2.5 py-1 text-[10px] font-medium text-(--color-text-secondary)">

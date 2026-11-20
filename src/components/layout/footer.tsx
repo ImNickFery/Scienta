@@ -28,7 +28,7 @@ export function Footer({
         <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
           <div>
             <Link href={`/${locale}`} className="group flex items-center gap-2 font-[family-name:var(--font-display)] text-lg font-bold">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-accent-red) transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-aurora-3) transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
                 <Sparkles className="h-4 w-4 text-white" />
               </span>
               <span className="text-gradient-aurora">

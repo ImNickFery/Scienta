@@ -73,7 +73,7 @@ export function MobileTocDrawer({
         onClick={() => setOpen(true)}
         aria-label={dict.article.tableOfContents}
         aria-expanded={open}
-        className="glass-panel safe-bottom fixed bottom-5 end-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-(--color-accent-purple)/40 bg-(--color-bg-elevated)/90 px-4 py-2.5 text-xs font-medium text-(--color-text-primary) shadow-[0_12px_36px_-8px_rgba(123,63,251,0.55)] transition-transform active:scale-95"
+        className="glass-panel safe-bottom fixed bottom-5 end-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-(--color-accent-purple)/40 bg-(--color-bg-elevated)/90 px-4 py-2.5 text-xs font-medium text-(--color-text-primary) shadow-[0_12px_36px_-8px_rgba(var(--color-accent-glow-rgb),0.55)] transition-transform active:scale-95"
       >
         <ListTree className="h-4 w-4 shrink-0 text-(--color-accent-purple)" />
         <span className="shrink-0">{dict.article.tableOfContents}</span>

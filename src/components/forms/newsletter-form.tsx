@@ -56,7 +56,7 @@ export function NewsletterForm({ locale, dict }: { locale: Locale; dict: Diction
       <button
         type="submit"
         disabled={status === "loading"}
-        className="flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) px-4 text-sm font-medium text-white shadow-[0_8px_30px_-8px_rgba(123,63,251,0.6)] transition-all hover:scale-[1.03] hover:shadow-[0_12px_40px_-8px_rgba(123,63,251,0.8)] active:scale-[0.98] disabled:opacity-60"
+        className="flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) px-4 text-sm font-medium text-white shadow-[0_8px_30px_-8px_rgba(var(--color-accent-glow-rgb),0.6)] transition-all hover:scale-[1.03] hover:shadow-[0_12px_40px_-8px_rgba(var(--color-accent-glow-rgb),0.8)] active:scale-[0.98] disabled:opacity-60"
       >
         {status === "loading" ? <Loader2 className="h-4 w-4 animate-spin" /> : dict.footer.subscribe}
       </button>
