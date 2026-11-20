@@ -65,10 +65,20 @@ function getRobotsConfig(noIndex = false): Metadata["robots"] {
   };
 }
 
-function getSiteVerification(): Metadata["verification"] {
-  const google = process.env.GOOGLE_SITE_VERIFICATION?.trim();
-  if (!google) return undefined;
-  return { google };
+export function getSiteVerification(
+  env: Record<string, string | undefined> = process.env
+): Metadata["verification"] {
+  const google = env.GOOGLE_SITE_VERIFICATION?.trim() || undefined;
+  const yandex = env.YANDEX_VERIFICATION?.trim() || undefined;
+  const bing = env.BING_SITE_VERIFICATION?.trim() || undefined;
+
+  if (!google && !yandex && !bing) return undefined;
+
+  return {
+    ...(google ? { google } : {}),
+    ...(yandex ? { yandex } : {}),
+    ...(bing ? { other: { "msvalidate.01": bing } } : {}),
+  };
 }
 
 export interface PageMetadataOptions {

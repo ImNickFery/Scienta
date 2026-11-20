@@ -255,6 +255,10 @@ test("buildSecurityHeaders enforces strict CSP and production framing/HSTS prote
   assert.ok(prodHeaders["Content-Security-Policy"]?.includes("object-src 'none'"));
   assert.ok(prodHeaders["Content-Security-Policy"]?.includes("frame-ancestors 'self'"));
   assert.ok(prodHeaders["Content-Security-Policy"]?.includes("upgrade-insecure-requests"));
+  assert.ok(prodHeaders["Content-Security-Policy"]?.includes("https://www.googletagmanager.com"));
+  assert.ok(prodHeaders["Content-Security-Policy"]?.includes("https://www.google-analytics.com"));
+  assert.ok(prodHeaders["Content-Security-Policy"]?.includes("https://www.clarity.ms"));
+  assert.ok(prodHeaders["Content-Security-Policy"]?.includes("https://mc.yandex.ru"));
   assert.ok(!prodHeaders["Content-Security-Policy"]?.includes("'unsafe-eval'"));
   assert.equal(prodHeaders["X-Frame-Options"], "SAMEORIGIN");
   assert.equal(prodHeaders["X-Content-Type-Options"], "nosniff");

@@ -12,6 +12,7 @@ import { Footer } from "@/components/layout/footer";
 import { fontVariables } from "@/fonts";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 import { NumeralsProvider } from "@/components/i18n/numerals-provider";
+import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -65,6 +66,7 @@ export default async function LocaleLayout({
       className={fontVariables}
     >
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
+        <AnalyticsScripts />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd(locale)) }}

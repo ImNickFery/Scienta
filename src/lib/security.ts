@@ -275,15 +275,22 @@ export function buildSecurityHeaders(
   const previewAncestors = options.previewFrameAncestors?.trim().replace(/;+$/, "") || "";
   const isPreviewEmbed = Boolean(previewAncestors && /^frame-ancestors\s+/i.test(previewAncestors));
 
+  const analyticsScriptHosts =
+    "https://www.googletagmanager.com https://www.google-analytics.com https://www.clarity.ms https://*.clarity.ms https://mc.yandex.ru";
+  const analyticsConnectHosts =
+    "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.clarity.ms https://c.bing.com https://mc.yandex.ru";
+
   const cspDirectives = [
     "default-src 'self'",
-    isProd ? "script-src 'self' 'unsafe-inline'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    isProd
+      ? `script-src 'self' 'unsafe-inline' ${analyticsScriptHosts}`
+      : `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${analyticsScriptHosts}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    "connect-src 'self'",
+    `connect-src 'self' ${analyticsConnectHosts}`,
     "media-src 'self' https:",
-    "frame-src https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://youtube-nocookie.com https://player.vimeo.com https://vimeo.com https://www.aparat.com https://aparat.com",
+    "frame-src https://www.googletagmanager.com https://www.youtube.com https://youtube.com https://www.youtube-nocookie.com https://youtube-nocookie.com https://player.vimeo.com https://vimeo.com https://www.aparat.com https://aparat.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

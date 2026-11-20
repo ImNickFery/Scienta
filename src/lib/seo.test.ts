@@ -16,6 +16,7 @@ import {
   collectionPageJsonLd,
   contactPageJsonLd,
   estimateWordCount,
+  getSiteVerification,
   organizationJsonLd,
   websiteJsonLd,
 } from "./seo";
@@ -190,4 +191,20 @@ test("robots() disallows private/utility routes and manifest() exposes Scienta m
   const m = manifest();
   assert.equal(m.short_name, "Scienta");
   assert.equal(m.start_url, "/fa");
+});
+
+test("getSiteVerification emits Google, Bing (msvalidate.01), and Yandex verification tokens when configured", () => {
+  assert.equal(getSiteVerification({}), undefined);
+  assert.deepEqual(
+    getSiteVerification({
+      GOOGLE_SITE_VERIFICATION: " google-tok-123 ",
+      BING_SITE_VERIFICATION: "bing-tok-456",
+      YANDEX_VERIFICATION: "yandex-tok-789",
+    }),
+    {
+      google: "google-tok-123",
+      yandex: "yandex-tok-789",
+      other: { "msvalidate.01": "bing-tok-456" },
+    }
+  );
 });
