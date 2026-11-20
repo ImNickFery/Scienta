@@ -44,9 +44,6 @@ export function ScrollReveal({
     const el = ref.current;
     if (!el) return;
 
-    const isRtl = document.documentElement.dir === "rtl";
-    setRtl(isRtl);
-
     if (
       typeof window === "undefined" ||
       !("IntersectionObserver" in window) ||
@@ -55,15 +52,20 @@ export function ScrollReveal({
       return;
     }
 
-    // Only animate elements that genuinely start below the initial viewport.
-    const rect = el.getBoundingClientRect();
-    if (rect.top < window.innerHeight) {
-      return;
-    }
-
+    let initialized = false;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
+        const intersecting = entries.some((e) => e.isIntersecting);
+        if (!initialized) {
+          initialized = true;
+          // Elements already visible on initial paint stay crisp with zero forced layout read.
+          if (intersecting) {
+            observer.disconnect();
+          }
+          return;
+        }
+        if (intersecting) {
+          setRtl(document.documentElement.dir === "rtl");
           setSettling(true);
           observer.disconnect();
         }

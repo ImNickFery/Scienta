@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
+  BarChart3,
   Newspaper,
   FolderTree,
   Tags,
@@ -44,6 +45,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/admin/dashboard", labelEn: "Dashboard", labelFa: "داشبورد", icon: LayoutDashboard, permission: "dashboard.view", group: "editorial" },
+  { href: "/admin/analytics", labelEn: "Analytics", labelFa: "آمار و تحلیل", icon: BarChart3, permission: "dashboard.view", group: "editorial" },
   { href: "/admin/articles", labelEn: "Articles", labelFa: "مقالات", icon: Newspaper, permission: "articles.manage", group: "editorial" },
   { href: "/admin/fields", labelEn: "Scientific Fields", labelFa: "حوزه‌های علمی", icon: ListTree, permission: "fields.view", group: "editorial" },
   { href: "/admin/categories", labelEn: "Categories", labelFa: "دسته‌بندی‌ها", icon: FolderTree, permission: "categories.view", group: "editorial" },

@@ -347,6 +347,16 @@ CREATE TABLE IF NOT EXISTS api_idempotency_keys (
   UNIQUE (api_key_id, idempotency_key),
   FOREIGN KEY (api_key_id) REFERENCES api_keys(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS analytics_pageviews (
+  id TEXT NOT NULL PRIMARY KEY,
+  article_id TEXT NULL,
+  locale TEXT NOT NULL DEFAULT 'fa',
+  path TEXT NOT NULL,
+  referrer_host TEXT NOT NULL DEFAULT 'Direct',
+  device_type TEXT NOT NULL DEFAULT 'desktop',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 function loadSqliteModule(): { DatabaseSync: new (filename: string) => SqliteDatabase } {

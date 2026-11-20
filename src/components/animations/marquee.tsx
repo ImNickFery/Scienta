@@ -12,10 +12,13 @@ import { cn } from "@/lib/utils";
  */
 export function Marquee({
   children,
+  duplicate,
   duration = 42,
   className,
 }: {
   children: React.ReactNode;
+  /** Optional non-interactive copy rendered inside the aria-hidden seamless track. */
+  duplicate?: React.ReactNode;
   /** Seconds for one full pass. Longer = calmer. */
   duration?: number;
   className?: string;
@@ -24,8 +27,8 @@ export function Marquee({
     <div className={cn("marquee-mask relative overflow-hidden", className)}>
       <div className="marquee-track" style={{ ["--marquee-duration" as string]: `${duration}s` }}>
         <div className="flex shrink-0 items-center">{children}</div>
-        <div className="flex shrink-0 items-center" aria-hidden="true">
-          {children}
+        <div className="flex shrink-0 items-center" aria-hidden="true" inert={true}>
+          {duplicate ?? children}
         </div>
       </div>
     </div>

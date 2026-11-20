@@ -7,6 +7,7 @@ import { Starfield } from "@/components/animations/starfield";
 import { FloatingFormulas } from "@/components/animations/floating-formulas";
 import { AnimatedGrid } from "@/components/animations/animated-grid";
 import { ParticleField } from "@/components/animations/particle-field";
+import { DeferredAmbient } from "@/components/animations/deferred-ambient";
 import { RotatingWord } from "@/components/animations/rotating-word";
 import { ScrollReveal } from "@/components/animations/scroll-reveal";
 import { DerivationConsole, type ConsoleLine } from "./derivation-console";
@@ -49,60 +50,52 @@ export function Hero({ locale, dict }: { locale: Locale; dict: Dictionary }) {
           rising motes → drifting formulas. Each layer moves at a different
           rate, which is what gives the hero depth rather than just texture. */}
       <AuroraBackground />
-      <AnimatedGrid variant="line" size={56} opacity={0.04} />
-      <Starfield />
-      <ParticleField count={22} seed={11} />
-      <FloatingFormulas />
+      <DeferredAmbient delayMs={700}>
+        <AnimatedGrid variant="line" size={56} opacity={0.04} />
+        <Starfield />
+        <ParticleField count={22} seed={11} />
+        <FloatingFormulas />
+      </DeferredAmbient>
 
       <Container className="relative z-10 py-28 lg:py-32">
         <div className="grid items-center gap-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] lg:gap-12">
           {/* ---------- Copy ---------- */}
           <div className="text-center lg:text-start">
-            <ScrollReveal immediate direction="scale" duration={550}>
-              <div className="inline-flex items-center gap-2 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-(--color-text-secondary) backdrop-blur-sm">
-                <span className="pulse-ring relative h-1.5 w-1.5 rounded-full bg-(--color-accent-orange) text-(--color-accent-orange)" />
-                {dict.hero.eyebrow}
-              </div>
-            </ScrollReveal>
+            <div className="inline-flex items-center gap-2 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-4 py-1.5 text-xs font-medium text-(--color-text-secondary) backdrop-blur-sm">
+              <span className="pulse-ring relative h-1.5 w-1.5 rounded-full bg-(--color-accent-orange) text-(--color-accent-orange)" />
+              {dict.hero.eyebrow}
+            </div>
 
-            <ScrollReveal immediate delay={70} blur>
-              <h1 className="mt-6 font-[family-name:var(--font-display)] text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
-                <span className="text-gradient-flow">{dict.hero.titleLead}</span>{" "}
-                <span className="text-(--color-text-tertiary)">{dict.hero.titleTail}</span>
-              </h1>
-            </ScrollReveal>
+            <h1 className="mt-6 font-[family-name:var(--font-display)] text-4xl font-extrabold leading-[1.15] tracking-tight sm:text-5xl lg:text-6xl">
+              <span className="text-gradient-flow">{dict.hero.titleLead}</span>{" "}
+              <span className="text-(--color-text-tertiary)">{dict.hero.titleTail}</span>
+            </h1>
 
-            <ScrollReveal immediate delay={140}>
-              <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-(--color-text-secondary) sm:text-lg lg:mx-0">
-                {dict.hero.subtitle}
-              </p>
-            </ScrollReveal>
+            <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-(--color-text-secondary) sm:text-lg lg:mx-0">
+              {dict.hero.subtitle}
+            </p>
 
-            <ScrollReveal immediate delay={210}>
-              <p className="mt-7 flex flex-wrap items-baseline justify-center gap-x-2 font-[family-name:var(--font-mono)] text-sm text-(--color-text-tertiary) lg:justify-start">
-                <span>{dict.hero.rotatingPrefix}</span>
-                <RotatingWord
-                  words={dict.hero.rotating}
-                  locale={locale}
-                  className="font-[family-name:var(--font-display)] text-base font-bold"
-                />
-              </p>
-            </ScrollReveal>
+            <p className="mt-7 flex flex-wrap items-baseline justify-center gap-x-2 font-[family-name:var(--font-mono)] text-sm text-(--color-text-tertiary) lg:justify-start">
+              <span>{dict.hero.rotatingPrefix}</span>
+              <RotatingWord
+                words={dict.hero.rotating}
+                locale={locale}
+                className="font-[family-name:var(--font-display)] text-base font-bold"
+              />
+            </p>
 
-            <ScrollReveal immediate delay={280}>
-              <div className="mt-9 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
-                <Button href={`/${locale}/articles`} size="lg">
-                  {dict.hero.ctaPrimary}
-                </Button>
-                <Button href={`/${locale}/about`} variant="secondary" size="lg">
-                  {dict.hero.ctaSecondary}
-                </Button>
-              </div>
-            </ScrollReveal>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-4 lg:justify-start">
+              <Button href={`/${locale}/articles`} size="lg">
+                {dict.hero.ctaPrimary}
+              </Button>
+              <Button href={`/${locale}/about`} variant="secondary" size="lg">
+                {dict.hero.ctaSecondary}
+              </Button>
+            </div>
           </div>
 
           {/* ---------- Live derivation panel ---------- */}
-          <ScrollReveal immediate direction="end" delay={200} distance={40} blur>
+          <ScrollReveal immediate direction="end" delay={60} distance={20}>
             <DerivationConsole
               lines={consoleLines}
               title={c.title}

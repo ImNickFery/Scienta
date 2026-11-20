@@ -11,14 +11,34 @@ const noStoreHeaders = [
   { key: "Pragma", value: "no-cache" },
 ];
 
+const immutableImageHeaders = [
+  { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+];
+
+const uploadImageHeaders = [
+  { key: "Cache-Control", value: "public, max-age=2592000, stale-while-revalidate=86400" },
+];
+
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  experimental: {
+    inlineCss: true,
+    optimizePackageImports: ["lucide-react", "framer-motion"],
+  },
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        source: "/images/:path*",
+        headers: immutableImageHeaders,
+      },
+      {
+        source: "/uploads/:path*",
+        headers: uploadImageHeaders,
       },
       {
         source: "/admin/:path*",

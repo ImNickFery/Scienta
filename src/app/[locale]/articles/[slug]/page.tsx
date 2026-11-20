@@ -23,6 +23,7 @@ import { AuthorBox } from "@/components/article/author-box";
 import { ShareBar } from "@/components/article/share-bar";
 import { ReadingControls } from "@/components/article/reading-controls";
 import { ArticleComments } from "@/components/article/article-comments";
+import { ArticleViewTracker } from "@/components/article/article-view-tracker";
 import { EquationEnhancer } from "@/components/equation-explorer/equation-enhancer";
 import { ArticleSection } from "@/components/home/article-section";
 import { getApprovedCommentsForArticle } from "@/lib/comments-server";
@@ -105,6 +106,7 @@ export default async function ArticlePage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
       <ReadingProgress />
+      <ArticleViewTracker slug={article.slug} locale={locale} />
 
       {/* Hero */}
       <section className="article-hero relative overflow-hidden border-b border-(--color-border-subtle) transition-opacity duration-300">

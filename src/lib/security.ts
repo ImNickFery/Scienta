@@ -276,9 +276,9 @@ export function buildSecurityHeaders(
   const isPreviewEmbed = Boolean(previewAncestors && /^frame-ancestors\s+/i.test(previewAncestors));
 
   const analyticsScriptHosts =
-    "https://www.googletagmanager.com https://www.google-analytics.com https://www.clarity.ms https://*.clarity.ms https://mc.yandex.ru";
+    "https://www.googletagmanager.com https://www.google-analytics.com https://www.clarity.ms https://*.clarity.ms https://mc.yandex.ru https://static.cloudflareinsights.com";
   const analyticsConnectHosts =
-    "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.clarity.ms https://c.bing.com https://mc.yandex.ru";
+    "https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com https://stats.g.doubleclick.net https://*.clarity.ms https://c.bing.com https://mc.yandex.ru https://cloudflareinsights.com";
 
   const cspDirectives = [
     "default-src 'self'",

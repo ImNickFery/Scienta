@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Clock, Eye, Bookmark, ArrowUpRight } from "lucide-react";
 import { SpotlightCard } from "@/components/animations/spotlight-card";
 import { cn, formatCount, formatDate, formatNumber, readableOn } from "@/lib/utils";
 import { useNumerals } from "@/components/i18n/numerals-provider";
 import { isArticleBookmarked, toggleArticleBookmark } from "@/lib/article-bookmarks";
+import { resolveArticleCardImage } from "@/lib/image-delivery";
 import { sanitizeUrl } from "@/lib/security";
 import type { Article } from "@/types";
 import type { Locale } from "@/lib/i18n/config";
@@ -25,6 +27,8 @@ export function ArticleCard({
   const { numerals } = useNumerals();
   const [bookmarked, setBookmarked] = useState(false);
   const coverSrc = sanitizeUrl(article.cover, { allowRelative: true, allowHash: false });
+  const cardImage = coverSrc ? resolveArticleCardImage(coverSrc, size) : null;
+  const href = `/${locale}/articles/${article.slug}`;
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrate client-only localStorage bookmark state after mount
@@ -33,11 +37,12 @@ export function ArticleCard({
 
   return (
     <SpotlightCard
-      href={`/${locale}/articles/${article.slug}`}
+      as="article"
       color={article.fieldColor}
       className={cn(
         "flex h-full flex-col overflow-hidden rounded-2xl border border-(--color-border-subtle)",
         "bg-gradient-to-b from-(--color-bg-elevated) to-(--color-bg-secondary)",
+        "focus-within:ring-2 focus-within:ring-(--color-accent-purple)/60",
         size === "compact" && "flex-row items-center gap-4 p-3"
       )}
     >
@@ -47,13 +52,18 @@ export function ArticleCard({
           size === "large" ? "aspect-[16/9]" : size === "compact" ? "h-20 w-20 shrink-0 rounded-xl" : "aspect-[16/10]"
         )}
       >
-        {coverSrc ? (
+        {cardImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={coverSrc}
+              src={cardImage.src}
+              srcSet={cardImage.srcSet}
+              sizes={cardImage.sizes}
+              width={cardImage.width}
+              height={cardImage.height}
               alt={article.title}
               loading="lazy"
+              decoding="async"
               referrerPolicy="no-referrer"
               className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
             />
@@ -105,7 +115,9 @@ export function ArticleCard({
             size === "large" ? "text-xl" : size === "compact" ? "text-sm line-clamp-2" : "text-base"
           )}
         >
-          {article.title}
+          <Link href={href} className="after:absolute after:inset-0 focus:outline-none">
+            {article.title}
+          </Link>
         </h3>
 
         {size !== "compact" && (
@@ -133,13 +145,12 @@ export function ArticleCard({
               type="button"
               aria-label={`${dict.card.bookmark}: ${article.title}`}
               aria-pressed={bookmarked}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
+              onClick={() => {
                 setBookmarked(toggleArticleBookmark(article.slug));
               }}
               className={cn(
-                "ms-auto transition-colors",
+                "relative z-10 ms-auto -me-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors",
+                "hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-(--color-accent-purple)",
                 bookmarked
                   ? "text-(--color-accent-orange)"
                   : "text-(--color-text-tertiary) hover:text-(--color-accent-orange)"

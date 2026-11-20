@@ -16,9 +16,22 @@ export async function TopicsTicker({ locale }: { locale: Locale }) {
   const fields = await getFields();
   if (fields.length === 0) return null;
 
+  const decorativeTwin = fields.map((field) => (
+    <span
+      key={field.slug}
+      className="mx-4 inline-flex shrink-0 items-center gap-2.5 text-sm text-(--color-text-tertiary)"
+    >
+      <span
+        className="h-1.5 w-1.5 shrink-0 rounded-full"
+        style={{ background: field.color }}
+      />
+      <span className="whitespace-nowrap">{field.name[locale]}</span>
+    </span>
+  ));
+
   return (
     <div className="relative overflow-hidden border-b border-(--color-border-subtle) bg-(--color-bg-deep) py-5">
-      <Marquee duration={48}>
+      <Marquee duration={48} duplicate={decorativeTwin}>
         {fields.map((field) => (
           <Link
             key={field.slug}

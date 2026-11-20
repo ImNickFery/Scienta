@@ -47,7 +47,7 @@ export function DerivationConsole({
       return;
     }
 
-    const totalMs = Math.max(800, lines.length * 360 + 400);
+    const totalMs = Math.max(600, lines.length * 140 + 200);
     const id = setTimeout(() => setDone(true), totalMs);
     return () => clearTimeout(id);
   }, [lines.length]);
@@ -91,7 +91,7 @@ export function DerivationConsole({
       {/* Body */}
       <div className="relative min-h-[19rem] space-y-3 p-5 font-[family-name:var(--font-mono)] text-[13px] leading-relaxed sm:min-h-[21rem]">
         {lines.slice(0, shown).map((line, i) => (
-          <div key={i} style={{ animation: `reveal-word 0.45s var(--ease-premium) ${i * 220}ms both` }}>
+          <div key={i} style={{ animation: `reveal-word 0.35s var(--ease-premium) ${i * 100}ms both` }}>
             {line.kind === "command" && (
               <div className="flex items-center gap-2 text-(--color-text-primary)">
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 text-(--color-accent-purple)" />

@@ -6,8 +6,10 @@ import { cn } from "@/lib/utils";
 
 interface SpotlightCardProps {
   children: React.ReactNode;
-  /** Renders as a next/link when given, otherwise a plain div. */
+  /** Renders as a next/link when given, otherwise a plain container (`div` or `article`). */
   href?: string;
+  /** Semantic tag used when `href` is omitted. */
+  as?: "div" | "article";
   /** Accent the spotlight takes on — pass the field colour to tint per card. */
   color?: string;
   /** Adds the lit 1px border ring on top of the interior glow. */
@@ -25,7 +27,14 @@ interface SpotlightCardProps {
  * every event is the difference between a smooth card and a janky one on
  * a grid of twelve of them.
  */
-export function SpotlightCard({ children, href, color, edge = true, className }: SpotlightCardProps) {
+export function SpotlightCard({
+  children,
+  href,
+  as = "div",
+  color,
+  edge = true,
+  className,
+}: SpotlightCardProps) {
   const ref = useRef<HTMLElement | null>(null);
   const frame = useRef<number | null>(null);
   const next = useRef<{ x: number; y: number } | null>(null);
@@ -63,9 +72,10 @@ export function SpotlightCard({ children, href, color, edge = true, className }:
     );
   }
 
+  const Tag = as;
   return (
-    <div className={classes} style={style} onPointerMove={handlePointerMove}>
+    <Tag className={classes} style={style} onPointerMove={handlePointerMove}>
       {children}
-    </div>
+    </Tag>
   );
 }

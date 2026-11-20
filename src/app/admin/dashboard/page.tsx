@@ -11,6 +11,7 @@ import {
   Download,
   AlertTriangle,
   CheckCircle2,
+  BarChart3,
 } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
 import { useAdminLocale } from "@/components/admin/admin-locale-context";
@@ -319,6 +320,14 @@ export default function DashboardPage() {
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
             <span>{isFa ? "بروزرسانی" : "Refresh"}</span>
           </button>
+
+          <Link
+            href="/admin/analytics"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap"
+          >
+            <BarChart3 className="h-3.5 w-3.5 text-(--color-accent-purple)" />
+            <span>{isFa ? "آمار پیشرفته" : "Deep Analytics"}</span>
+          </Link>
 
           <Link
             href="/admin/articles/new"

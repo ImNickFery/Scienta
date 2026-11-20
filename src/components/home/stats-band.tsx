@@ -2,6 +2,7 @@ import { Container } from "@/components/ui/container";
 import { CountUp } from "@/components/animations/count-up";
 import { ScrollReveal } from "@/components/animations/scroll-reveal";
 import { AnimatedGrid } from "@/components/animations/animated-grid";
+import { DeferredAmbient } from "@/components/animations/deferred-ambient";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 
@@ -34,11 +35,13 @@ export function StatsBand({
 
   return (
     <section className="seam-top relative overflow-hidden border-y border-(--color-border-subtle) bg-(--color-bg-secondary) py-14">
-      <AnimatedGrid variant="dot" size={24} opacity={0.05} fade={false} />
-      <div
-        aria-hidden="true"
-        className="animate-orb pointer-events-none absolute left-1/2 top-1/2 h-[26rem] w-[52rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-(--color-accent-purple)/[0.07] blur-[150px]"
-      />
+      <DeferredAmbient delayMs={900}>
+        <AnimatedGrid variant="dot" size={24} opacity={0.05} fade={false} />
+        <div
+          aria-hidden="true"
+          className="animate-orb pointer-events-none absolute left-1/2 top-1/2 h-[26rem] w-[52rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-(--color-accent-purple)/[0.07] blur-[150px]"
+        />
+      </DeferredAmbient>
 
       <Container className="relative z-10">
         <div className="grid grid-cols-2 gap-8 lg:grid-cols-4">

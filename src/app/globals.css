@@ -793,21 +793,17 @@ html[dir="ltr"] .prose-scientific .pull-quote {
     will-change: transform;
   }
 
-  /* --- Animated gradient text --------------------------------------- */
+  /* --- Aurora gradient text (static fill — zero non-composited repaints) --- */
   .text-gradient-flow {
     background: linear-gradient(
       110deg,
       var(--color-accent-purple) 0%,
-      var(--color-accent-orange) 30%,
-      var(--color-accent-red) 55%,
-      var(--color-accent-purple) 85%,
-      var(--color-accent-orange) 100%
+      var(--color-accent-orange) 48%,
+      var(--color-accent-red) 100%
     );
-    background-size: 250% auto;
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
-    animation: gradient-shift 9s ease-in-out infinite;
   }
 
   /* --- Spotlight surface -------------------------------------------- */
@@ -936,17 +932,19 @@ html[dir="ltr"] .prose-scientific .pull-quote {
   }
 }
 
-/* Word swap used by RotatingWord in RTL (and reduced-motion) mode. */
+/* Word swap used by RotatingWord and DerivationConsole lines.
+   Purely compositor-driven (opacity + transform only, no filter: blur) so
+   Lighthouse reports zero non-composited animations. */
 @keyframes reveal-word {
-  from { opacity: 0; transform: translateY(0.4em); filter: blur(6px); }
-  to   { opacity: 1; transform: translateY(0);     filter: blur(0); }
+  from { opacity: 0; transform: translate3d(0, 0.35em, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
-/* Above-the-fold entrance: pure CSS so hero copy and CTAs never stay hidden
-   waiting for IntersectionObserver in iframes or compact viewports. */
+/* Above-the-fold entrance: transform-only subtle settle without starting at
+   opacity: 0 so above-the-fold content and LCP paint are never delayed. */
 @keyframes hero-enter-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { transform: translate3d(0, 10px, 0); }
+  to   { transform: translate3d(0, 0, 0); }
 }
 
 .hero-enter {

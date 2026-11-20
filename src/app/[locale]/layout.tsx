@@ -9,7 +9,7 @@ import { buildBaseMetadata, organizationJsonLd, websiteJsonLd } from "@/lib/seo"
 import { safeJsonLd } from "@/lib/security";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { fontVariables } from "@/fonts";
+import { getLocaleFontVariables } from "@/fonts";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 import { NumeralsProvider } from "@/components/i18n/numerals-provider";
 import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
@@ -63,7 +63,7 @@ export default async function LocaleLayout({
       dir={dir(locale)}
       data-numerals={numerals}
       data-scroll-behavior="smooth"
-      className={fontVariables}
+      className={getLocaleFontVariables(locale)}
     >
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
         <AnalyticsScripts />

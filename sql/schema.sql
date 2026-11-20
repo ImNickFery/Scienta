@@ -388,4 +388,22 @@ CREATE TABLE IF NOT EXISTS api_idempotency_keys (
   INDEX idx_idempotency_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------
+-- PRIVACY-FIRST ARTICLE PAGEVIEW ANALYTICS
+-- ---------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics_pageviews (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  article_id CHAR(36) NULL,
+  slug VARCHAR(255) NOT NULL,
+  locale ENUM('fa','en') NOT NULL DEFAULT 'fa',
+  referrer_host VARCHAR(120) NOT NULL DEFAULT 'Direct',
+  device_type ENUM('desktop','mobile','tablet') NOT NULL DEFAULT 'desktop',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_apv_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL,
+  INDEX idx_apv_created (created_at),
+  INDEX idx_apv_locale_created (locale, created_at),
+  INDEX idx_apv_article (article_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

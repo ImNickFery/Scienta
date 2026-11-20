@@ -10,7 +10,10 @@ export const vazirmatn = localFont({
   ],
   variable: "--font-vazirmatn",
   display: "swap",
-  preload: true,
+  // With experimental.inlineCss enabled, @font-face rules arrive inline in the
+  // initial HTML. Keeping preload: false prevents `/en` from downloading the
+  // 109 KB Persian font and `/fa` from downloading the 344 KB English font.
+  preload: false,
   fallback: ["Tahoma", "system-ui", "sans-serif"],
 });
 
@@ -24,7 +27,7 @@ export const inter = localFont({
   ],
   variable: "--font-inter",
   display: "swap",
-  preload: true,
+  preload: false,
   fallback: ["system-ui", "-apple-system", "Segoe UI", "sans-serif"],
 });
 
@@ -38,7 +41,10 @@ export const jetbrainsMono = localFont({
   ],
   variable: "--font-jetbrains-mono",
   display: "swap",
-  preload: true,
+  // Monospace is secondary (console/code blocks), never the LCP headline — skip
+  // <link rel="preload"> so it doesn't compete with the primary display font on
+  // slow mobile connections.
+  preload: false,
   // No fallback chain here on purpose: --font-mono in globals.css needs to
   // slot Vazirmatn in for Persian *before* any generic monospace, and a
   // fallback list baked into this variable would sit in front of it.
@@ -50,5 +56,16 @@ export const jetbrainsMono = localFont({
   // the stack never reached Vazirmatn.
   adjustFontFallback: false,
 });
+
+/**
+ * Only attach the active locale's primary font variable on public routes so
+ * `/en` does not preload Vazirmatn (109 KB) and `/fa` does not preload Inter
+ * (344 KB). Admin routes continue using `fontVariables` with both locales.
+ */
+export function getLocaleFontVariables(locale: "fa" | "en"): string {
+  return locale === "fa"
+    ? `${vazirmatn.variable} ${jetbrainsMono.variable}`
+    : `${inter.variable} ${jetbrainsMono.variable}`;
+}
 
 export const fontVariables = `${vazirmatn.variable} ${inter.variable} ${jetbrainsMono.variable}`;

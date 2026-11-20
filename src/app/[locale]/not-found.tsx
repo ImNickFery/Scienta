@@ -1,25 +1,47 @@
-import { Container } from "@/components/ui/container";
-import { Button } from "@/components/ui/button";
-import { AuroraBackground } from "@/components/animations/aurora-background";
-import { Starfield } from "@/components/animations/starfield";
+import type { Metadata } from "next";
+import { getAllArticles } from "@/lib/content";
+import { getFields, type FieldRecord } from "@/lib/taxonomy";
+import { NotFoundView, type NotFoundArticleSummary } from "@/components/not-found/not-found-view";
+import type { Article } from "@/types";
 
-export default function NotFound() {
+export const metadata: Metadata = {
+  title: "404",
+  robots: { index: false, follow: true },
+};
+
+function toSummary(article: Article): NotFoundArticleSummary {
+  return {
+    slug: article.slug,
+    title: article.title,
+    excerpt: article.excerpt,
+    field: article.field,
+    fieldColor: article.fieldColor,
+    readingTimeMinutes: article.readingTimeMinutes,
+  };
+}
+
+export default async function NotFound() {
+  let faArticles: NotFoundArticleSummary[] = [];
+  let enArticles: NotFoundArticleSummary[] = [];
+  let fields: FieldRecord[] = [];
+
+  try {
+    const [faAll, enAll, allFields] = await Promise.all([
+      getAllArticles("fa"),
+      getAllArticles("en"),
+      getFields(),
+    ]);
+    faArticles = faAll.slice(0, 3).map(toSummary);
+    enArticles = enAll.slice(0, 3).map(toSummary);
+    fields = allFields;
+  } catch {
+    // Keep 404 resilient even if the database is temporarily unreachable.
+  }
+
   return (
-    <section className="relative flex min-h-[70dvh] items-center overflow-hidden">
-      <AuroraBackground />
-      <Starfield density={60} />
-      <Container className="relative text-center" size="narrow">
-        <p className="font-[family-name:var(--font-display)] text-8xl font-black text-gradient-aurora">404</p>
-        <h1 className="mt-4 text-2xl font-bold text-(--color-text-primary)">
-          این صفحه در فضازمان ما یافت نشد — This page doesn&rsquo;t exist in our spacetime
-        </h1>
-        <p className="mt-3 text-(--color-text-secondary)">
-          شاید به سیاه‌چاله‌ای سقوط کرده — Perhaps it fell into a black hole.
-        </p>
-        <div className="mt-8">
-          <Button href="/fa">بازگشت به خانه / Back Home</Button>
-        </div>
-      </Container>
-    </section>
+    <NotFoundView
+      articlesByLocale={{ fa: faArticles, en: enArticles }}
+      fields={fields}
+    />
   );
 }
