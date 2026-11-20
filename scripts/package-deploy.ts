@@ -321,6 +321,16 @@ export async function assembleDeployDir(rootDir = process.cwd(), outDir = join(r
     }
   }
 
+  const dotNextNodeModules = join(standaloneDest, '.next', 'node_modules');
+  if (existsSync(dotNextNodeModules)) {
+    const linkEntries = await readdir(dotNextNodeModules, { withFileTypes: true });
+    for (const entry of linkEntries) {
+      if (entry.name === 'sharp' || entry.name.startsWith('sharp-')) {
+        await rm(join(dotNextNodeModules, entry.name), { recursive: true, force: true });
+      }
+    }
+  }
+
   const shikiStats = await pruneShikiAssets(standaloneNodeModules);
   savedBytes += shikiStats.savedBytes;
   savedBytes += await stripUnneededFiles(standaloneDest);

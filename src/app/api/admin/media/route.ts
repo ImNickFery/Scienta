@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { v4 as uuid } from "uuid";
 import path from "node:path";
 import fs from "node:fs/promises";
-import sharp from "sharp";
+import { loadSharp } from "@/lib/sharp-loader";
 import { query, queryOne, execute } from "@/lib/db";
 import { requireApiAuth, requireAdminMutation, badRequest } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
@@ -59,44 +59,50 @@ export async function POST(req: Request) {
   const filename = `${id}.${detected.ext}`;
   const thumbFilename = `${id}_thumb.webp`;
 
-  let safeImageBuffer: Buffer;
-  let thumbBuffer: Buffer;
-  try {
-    // Guard against decompression bombs (pixel-flood attacks) with a 25 MP ceiling.
-    const sharpOpts = { limitInputPixels: 25_000_000, failOn: "error" as const };
-    const image = sharp(buffer, sharpOpts);
-    const meta = await image.metadata();
-    width = meta.width ?? null;
-    height = meta.height ?? null;
+  let safeImageBuffer: Buffer = buffer;
+  let thumbBuffer: Buffer | null = null;
+  const sharp = loadSharp();
+  if (sharp) {
+    try {
+      // Guard against decompression bombs (pixel-flood attacks) with a 25 MP ceiling.
+      const sharpOpts = { limitInputPixels: 25_000_000, failOn: "error" as const };
+      const image = sharp(buffer, sharpOpts);
+      const meta = await image.metadata();
+      width = meta.width ?? null;
+      height = meta.height ?? null;
 
-    // Re-encode static formats (JPEG/PNG/WebP) to strip EXIF/GPS metadata and neutralize
-    // polyglot trailing payloads; keep animated GIFs verified after metadata validation.
-    if (detected.ext === "jpg") {
-      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
-    } else if (detected.ext === "png") {
-      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().png({ compressionLevel: 8 }).toBuffer();
-    } else if (detected.ext === "webp") {
-      safeImageBuffer = await sharp(buffer, sharpOpts).rotate().webp({ quality: 86 }).toBuffer();
-    } else {
-      safeImageBuffer = buffer;
+      // Re-encode static formats (JPEG/PNG/WebP) to strip EXIF/GPS metadata and neutralize
+      // polyglot trailing payloads; keep animated GIFs verified after metadata validation.
+      if (detected.ext === "jpg") {
+        safeImageBuffer = await sharp(buffer, sharpOpts).rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
+      } else if (detected.ext === "png") {
+        safeImageBuffer = await sharp(buffer, sharpOpts).rotate().png({ compressionLevel: 8 }).toBuffer();
+      } else if (detected.ext === "webp") {
+        safeImageBuffer = await sharp(buffer, sharpOpts).rotate().webp({ quality: 86 }).toBuffer();
+      } else {
+        safeImageBuffer = buffer;
+      }
+
+      thumbBuffer = await sharp(buffer, sharpOpts)
+        .rotate()
+        .resize(480, 480, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+    } catch {
+      return badRequest("Corrupted, oversized, or unreadable image file.");
     }
-
-    thumbBuffer = await sharp(buffer, sharpOpts)
-      .rotate()
-      .resize(480, 480, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-  } catch {
-    return badRequest("Corrupted, oversized, or unreadable image file.");
   }
 
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  await fs.mkdir(THUMB_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, filename), safeImageBuffer);
-  await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
 
   const publicPath = `/uploads/media/${filename}`;
-  const thumbnailPublicPath = `/uploads/thumbnails/${thumbFilename}`;
+  let thumbnailPublicPath = publicPath;
+  if (thumbBuffer) {
+    await fs.mkdir(THUMB_DIR, { recursive: true });
+    await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
+    thumbnailPublicPath = `/uploads/thumbnails/${thumbFilename}`;
+  }
   const safeOriginalName = stripHtml(file.name).slice(0, 255) || filename;
 
   await execute(

@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import dns from "node:dns/promises";
 import net from "node:net";
-import sharp from "sharp";
+import { loadSharp } from "./sharp-loader";
 import { v4 as uuid } from "uuid";
 import { execute } from "./db";
 import { detectImageFormat } from "./media-validation";
@@ -263,41 +263,47 @@ export async function ingestImageBuffer(params: {
   const filename = `${id}.${detected.ext}`;
   const thumbFilename = `${id}_thumb.webp`;
 
-  let safeImageBuffer: Buffer;
-  let thumbBuffer: Buffer;
-  try {
-    const sharpOpts = { limitInputPixels: 25_000_000, failOn: "error" as const };
-    const image = sharp(params.buffer, sharpOpts);
-    const meta = await image.metadata();
-    width = meta.width ?? null;
-    height = meta.height ?? null;
+  let safeImageBuffer: Buffer = params.buffer;
+  let thumbBuffer: Buffer | null = null;
+  const sharp = loadSharp();
+  if (sharp) {
+    try {
+      const sharpOpts = { limitInputPixels: 25_000_000, failOn: "error" as const };
+      const image = sharp(params.buffer, sharpOpts);
+      const meta = await image.metadata();
+      width = meta.width ?? null;
+      height = meta.height ?? null;
 
-    if (detected.ext === "jpg") {
-      safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
-    } else if (detected.ext === "png") {
-      safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().png({ compressionLevel: 8 }).toBuffer();
-    } else if (detected.ext === "webp") {
-      safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().webp({ quality: 86 }).toBuffer();
-    } else {
-      safeImageBuffer = params.buffer;
+      if (detected.ext === "jpg") {
+        safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().jpeg({ quality: 88, mozjpeg: true }).toBuffer();
+      } else if (detected.ext === "png") {
+        safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().png({ compressionLevel: 8 }).toBuffer();
+      } else if (detected.ext === "webp") {
+        safeImageBuffer = await sharp(params.buffer, sharpOpts).rotate().webp({ quality: 86 }).toBuffer();
+      } else {
+        safeImageBuffer = params.buffer;
+      }
+
+      thumbBuffer = await sharp(params.buffer, sharpOpts)
+        .rotate()
+        .resize(480, 480, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 82 })
+        .toBuffer();
+    } catch {
+      throw new Error("Corrupted, oversized, or unreadable image file.");
     }
-
-    thumbBuffer = await sharp(params.buffer, sharpOpts)
-      .rotate()
-      .resize(480, 480, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-  } catch {
-    throw new Error("Corrupted, oversized, or unreadable image file.");
   }
 
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  await fs.mkdir(THUMB_DIR, { recursive: true });
   await fs.writeFile(path.join(UPLOAD_DIR, filename), safeImageBuffer);
-  await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
 
   const publicPath = `/uploads/media/${filename}`;
-  const thumbnailPath = `/uploads/thumbnails/${thumbFilename}`;
+  let thumbnailPath = publicPath;
+  if (thumbBuffer) {
+    await fs.mkdir(THUMB_DIR, { recursive: true });
+    await fs.writeFile(path.join(THUMB_DIR, thumbFilename), thumbBuffer);
+    thumbnailPath = `/uploads/thumbnails/${thumbFilename}`;
+  }
   const safeOriginalName = stripHtml(params.originalName).slice(0, 255) || filename;
   const safeAlt = stripHtml(params.altText ?? "").slice(0, 255);
 
