@@ -219,3 +219,36 @@ test('assembleDeployDir packages Next.js standalone, strips bloat/sharp, prunes 
     await fs.rm(tmpRoot, { recursive: true, force: true });
   }
 });
+
+test('app.cjs guards broken LiteSpeed lsnode process.stdin so ESM import("node:process") succeeds', async () => {
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'scienta-lsnode-test-'));
+  try {
+    await fs.cp(path.resolve(process.cwd(), 'app.cjs'), path.join(tmpRoot, 'app.cjs'));
+    await fs.mkdir(path.join(tmpRoot, 'standalone'), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpRoot, 'standalone', 'server.js'),
+      `import('node:process').then((m) => {
+        if (typeof m.default.stdin.read !== 'function') process.exit(2);
+        console.log('ESM_NODE_PROCESS_OK');
+      }).catch((err) => {
+        console.error(err);
+        process.exit(1);
+      });\n`,
+      'utf8'
+    );
+
+    const output = execFileSync(
+      process.execPath,
+      [
+        '-e',
+        `Object.defineProperty(process, 'stdin', { get() { throw new Error('open EEXIST'); }, enumerable: true, configurable: true }); require(${JSON.stringify(
+          path.join(tmpRoot, 'app.cjs')
+        )});`,
+      ],
+      { encoding: 'utf8' }
+    );
+    assert.match(output, /ESM_NODE_PROCESS_OK/);
+  } finally {
+    await fs.rm(tmpRoot, { recursive: true, force: true });
+  }
+});

@@ -242,14 +242,20 @@ CREATE TABLE IF NOT EXISTS comments (
   id CHAR(36) NOT NULL PRIMARY KEY,
   article_id CHAR(36) NOT NULL,
   parent_id CHAR(36) NULL,
+  locale VARCHAR(8) NOT NULL DEFAULT 'fa',
   name VARCHAR(120) NOT NULL,
   email VARCHAR(190) NOT NULL,
   content TEXT NOT NULL,
-  status ENUM('pending','approved','spam') NOT NULL DEFAULT 'pending',
+  is_question TINYINT(1) NOT NULL DEFAULT 0,
+  admin_reply TEXT NULL,
+  replied_at DATETIME NULL,
+  ip_address VARCHAR(64) NULL,
+  status ENUM('pending','approved','rejected','spam') NOT NULL DEFAULT 'pending',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_comments_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
   CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE,
-  INDEX idx_comments_status (status)
+  INDEX idx_comments_status (status),
+  INDEX idx_comments_article_locale (article_id, locale, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------

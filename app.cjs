@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
+const { Readable, Writable } = require('node:stream');
 
 // Entry point for cPanel "Setup Node.js App" (Phusion Passenger / LiteSpeed lsnode).
 // Keeps relative paths (.env, data/, tmp/, uploads/, standalone/) rooted here and
@@ -11,6 +12,31 @@ const Module = require('node:module');
 const APP_ROOT = __dirname;
 process.chdir(APP_ROOT);
 process.env.NODE_ENV = 'production';
+
+// Under LiteSpeed `lsnode`, FD 0 (stdin) is already bound to LiteSpeed's LSAPI
+// listening socket. When ESM dependencies such as `vfile` (used by `next-mdx-remote`)
+// run `import process from 'node:process'`, Node evaluates the lazy `process.stdin`
+// getter and libuv throws `Error: open EEXIST`. Probe each stdio descriptor once at
+// boot and replace only broken descriptors with a harmless no-op stream.
+(function guardBrokenStdio() {
+  const fallbacks = {
+    stdin: () => new Readable({ read() { this.push(null); } }),
+    stdout: () => new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+    stderr: () => new Writable({ write(_chunk, _enc, cb) { cb(); } }),
+  };
+  for (const key of ['stdin', 'stdout', 'stderr']) {
+    try {
+      void process[key];
+    } catch {
+      Object.defineProperty(process, key, {
+        value: fallbacks[key](),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    }
+  }
+})();
 
 function loadDotEnv(filePath) {
   if (!fs.existsSync(filePath)) return;
