@@ -126,7 +126,27 @@ test('assembleDeployDir packages Next.js standalone, strips bloat/sharp, prunes 
     await fs.writeFile(path.join(tmpRoot, 'public', '__dir-preview.html'), '<html>debug</html>');
     await fs.writeFile(path.join(tmpRoot, 'public', 'uploads', 'media', 'test.png'), 'img');
 
+    await fs.mkdir(path.join(tmpRoot, '.next', 'standalone', '.next', 'node_modules'), { recursive: true });
+    await fs.mkdir(path.join(tmpRoot, '.next', 'standalone', 'node_modules', 'postcss'), { recursive: true });
+    await fs.writeFile(
+      path.join(tmpRoot, '.next', 'standalone', 'node_modules', 'postcss', 'package.json'),
+      '{"name":"postcss"}'
+    );
+    await fs.symlink(
+      '../../node_modules/postcss',
+      path.join(tmpRoot, '.next', 'standalone', '.next', 'node_modules', 'postcss-9745a0d11e3197ae')
+    );
+
     const res = await assembleDeployDir(tmpRoot);
+    // Delete the original build tree to prove deploy/ has zero absolute links back to CI runner paths
+    await fs.rm(path.join(tmpRoot, '.next'), { recursive: true, force: true });
+    const postcssLink = path.join(res.outDir, 'standalone', '.next', 'node_modules', 'postcss-9745a0d11e3197ae');
+    const postcssTarget = await fs.readlink(postcssLink);
+    assert.equal(path.isAbsolute(postcssTarget), false, `Expected relative symlink, got: ${postcssTarget}`);
+    assert.equal(postcssTarget, '../../node_modules/postcss');
+    const resolvedPostcssPkg = await fs.readFile(path.join(postcssLink, 'package.json'), 'utf8');
+    assert.match(resolvedPostcssPkg, /"postcss"/);
+
     const outFiles = await fs.readdir(res.outDir);
 
     assert.ok(outFiles.includes('app.cjs'));

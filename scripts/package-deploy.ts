@@ -1,7 +1,7 @@
-import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join, posix } from 'node:path';
+import { dirname, isAbsolute, join, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const DEPLOY_OUT_DIR = 'deploy';
@@ -251,6 +251,46 @@ async function copyPublicClean(srcPublic: string, destPublic: string): Promise<v
   }
 }
 
+async function normalizeStandaloneSymlinks(
+  standaloneSrcAbs: string,
+  standaloneDestAbs: string,
+  currentDir = standaloneDestAbs
+): Promise<void> {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(currentDir, entry.name);
+    if (entry.isSymbolicLink()) {
+      const rawTarget = await readlink(fullPath);
+      let finalTarget = rawTarget;
+
+      if (isAbsolute(rawTarget)) {
+        let mappedAbs = rawTarget;
+        if (rawTarget.startsWith(`${standaloneSrcAbs}/`) || rawTarget === standaloneSrcAbs) {
+          mappedAbs = join(standaloneDestAbs, relative(standaloneSrcAbs, rawTarget));
+        }
+        if (mappedAbs.startsWith(`${standaloneDestAbs}/`) || mappedAbs === standaloneDestAbs) {
+          finalTarget = relative(dirname(fullPath), mappedAbs);
+          await rm(fullPath, { force: true });
+          await symlink(finalTarget, fullPath);
+        } else {
+          throw new Error(
+            `Portable deploy violation: absolute symlink ${relative(standaloneDestAbs, fullPath)} -> ${rawTarget}`
+          );
+        }
+      }
+
+      const resolvedTarget = resolve(dirname(fullPath), finalTarget);
+      if (!existsSync(resolvedTarget)) {
+        throw new Error(
+          `Dangling symlink in deploy bundle: ${relative(standaloneDestAbs, fullPath)} -> ${finalTarget}`
+        );
+      }
+    } else if (entry.isDirectory()) {
+      await normalizeStandaloneSymlinks(standaloneSrcAbs, standaloneDestAbs, fullPath);
+    }
+  }
+}
+
 export async function assembleDeployDir(rootDir = process.cwd(), outDir = join(rootDir, DEPLOY_OUT_DIR)) {
   const standaloneSrc = join(rootDir, '.next', 'standalone');
   const staticSrc = join(rootDir, '.next', 'static');
@@ -303,8 +343,10 @@ export async function assembleDeployDir(rootDir = process.cwd(), outDir = join(r
   }
 
   // 3. Copy Next.js standalone runtime, static assets, and clean public/
+  // verbatimSymlinks: true is critical so Node's fs.cp() does NOT rewrite relative
+  // Turbopack symlinks (e.g. ../../node_modules/postcss) into absolute CI runner paths.
   const standaloneDest = join(outDir, 'standalone');
-  await cp(standaloneSrc, standaloneDest, { recursive: true });
+  await cp(standaloneSrc, standaloneDest, { recursive: true, verbatimSymlinks: true });
   await rm(join(standaloneDest, '.next', 'cache'), { recursive: true, force: true });
   await cp(staticSrc, join(standaloneDest, '.next', 'static'), { recursive: true });
   await rm(join(standaloneDest, 'public'), { recursive: true, force: true });
@@ -330,6 +372,9 @@ export async function assembleDeployDir(rootDir = process.cwd(), outDir = join(r
       }
     }
   }
+
+  // Ensure every remaining symlink inside standalone/ is strictly relative and resolves cleanly
+  await normalizeStandaloneSymlinks(resolve(standaloneSrc), resolve(standaloneDest));
 
   const shikiStats = await pruneShikiAssets(standaloneNodeModules);
   savedBytes += shikiStats.savedBytes;
