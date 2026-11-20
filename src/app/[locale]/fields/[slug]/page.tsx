@@ -4,7 +4,8 @@ import { isValidLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getArticlesByField } from "@/lib/content";
 import { getFieldBySlug } from "@/lib/taxonomy";
-import { buildBaseMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, buildPageMetadata, collectionPageJsonLd, SITE_URL } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { ArticleCard } from "@/components/article/article-card";
 import { Newspaper } from "lucide-react";
@@ -20,8 +21,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { locale, slug } = await params;
   if (!isValidLocale(locale)) return {};
   const field = await getFieldBySlug(slug);
-  const base = buildBaseMetadata(locale, `/fields/${slug}`);
-  return { ...base, title: field?.name[locale] ?? slug };
+  const name = field?.name[locale] ?? slug;
+  return buildPageMetadata(locale, `/fields/${slug}`, {
+    title: locale === "fa" ? `مقالات ${name}` : `${name} Articles`,
+    description:
+      locale === "fa"
+        ? `مجموعه مقالات تخصصی و تحلیلی حوزه ${name} در ساینتا؛ روایت‌های عمیق علمی همراه با معادلات، نمودارها و منابع معتبر.`
+        : `Explore deep scientific articles, analyses, and interactive equations in ${name} on Scienta.`,
+  });
 }
 
 export default async function FieldDetailPage({ params }: PageProps) {
@@ -35,9 +42,29 @@ export default async function FieldDetailPage({ params }: PageProps) {
   if (!field) notFound();
 
   const articles = await getArticlesByField(locale, fieldSlug);
+  const pageUrl = `${SITE_URL}/${locale}/fields/${slug}`;
+  const breadcrumb = breadcrumbJsonLd([
+    { name: dict.nav.home, url: `${SITE_URL}/${locale}` },
+    { name: dict.sections.fields, url: `${SITE_URL}/${locale}/fields` },
+    { name: field.name[locale], url: pageUrl },
+  ]);
+  const collection = collectionPageJsonLd(locale, {
+    name: field.name[locale],
+    description:
+      locale === "fa"
+        ? `مقالات علمی منتشرشده در حوزه ${field.name.fa} در ساینتا.`
+        : `Published scientific articles in ${field.name.en} on Scienta.`,
+    url: pageUrl,
+    items: articles.map((a) => ({
+      name: a.title,
+      url: `${SITE_URL}/${locale}/articles/${a.slug}`,
+    })),
+  });
 
   return (
     <Container className="py-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(collection) }} />
       <header className="mb-12 max-w-2xl">
         <span
           className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl text-2xl font-bold"

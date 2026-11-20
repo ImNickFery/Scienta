@@ -5,7 +5,8 @@ import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAllArticles, stripArticleContent } from "@/lib/content";
 import { getFields } from "@/lib/taxonomy";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, collectionPageJsonLd, SITE_URL } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { ArticleCard } from "@/components/article/article-card";
 import { formatCount } from "@/lib/utils";
@@ -24,8 +25,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/articles");
-  return { ...base, title: locale === "fa" ? "مقالات" : "Articles" };
+  return buildPageMetadata(locale, "/articles", {
+    title: locale === "fa" ? "مقالات علمی" : "Scientific Articles",
+    description:
+      locale === "fa"
+        ? "آرشیو کامل مقالات تحلیلی و عمیق ساینتا در حوزه‌های فیزیک، نجوم، فضا، هوش مصنوعی، کوانتوم و ریاضیات با قابلیت فیلتر و مرتب‌سازی."
+        : "Browse the complete library of deep scientific essays on physics, astronomy, space, AI, quantum mechanics, and mathematics on Scienta.",
+  });
 }
 
 export default async function ArticlesPage({
@@ -66,8 +72,28 @@ export default async function ArticlesPage({
     return `/${locale}/articles${queryStr ? `?${queryStr}` : ""}`;
   };
 
+  const pageUrl = `${SITE_URL}/${locale}/articles`;
+  const breadcrumb = breadcrumbJsonLd([
+    { name: dict.nav.home, url: `${SITE_URL}/${locale}` },
+    { name: dict.nav.articles, url: pageUrl },
+  ]);
+  const collection = collectionPageJsonLd(locale, {
+    name: locale === "fa" ? "مقالات علمی ساینتا" : "Scienta Scientific Articles",
+    description:
+      locale === "fa"
+        ? "آرشیو مقالات علمی ساینتا در فیزیک، فضا، هوش مصنوعی و ریاضیات."
+        : "Complete collection of peer-reviewed scientific essays on Scienta.",
+    url: pageUrl,
+    items: summaries.map((a) => ({
+      name: a.title,
+      url: `${SITE_URL}/${locale}/articles/${a.slug}`,
+    })),
+  });
+
   return (
     <Container className="py-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(collection) }} />
       <header className="mb-10 max-w-2xl">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-(--color-accent-orange)">
           {locale === "fa" ? "کتابخانه" : "Library"}

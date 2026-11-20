@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAllTags, searchArticles, stripArticleContent } from "@/lib/content";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 import { SearchClient } from "@/components/search/search-client";
 
@@ -21,8 +21,11 @@ export async function generateMetadata({
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
   const dict = await getDictionary(locale);
-  const base = buildBaseMetadata(locale, "/search");
-  return { ...base, title: dict.search.title };
+  return buildPageMetadata(locale, "/search", {
+    title: dict.search.title,
+    description: dict.search.subtitle,
+    noIndex: true,
+  });
 }
 
 export default async function SearchPage({

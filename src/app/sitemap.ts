@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { locales } from "@/lib/i18n/config";
-import { getAllArticles, getAllTagRecords, getAllTags } from "@/lib/content";
+import { locales, type Locale } from "@/lib/i18n/config";
+import { getAllArticles, getAllTagRecords } from "@/lib/content";
 import { getFields, getAuthors } from "@/lib/taxonomy";
 import { SITE_URL } from "@/lib/seo";
 
@@ -9,48 +9,117 @@ import { SITE_URL } from "@/lib/seo";
 // regeneration after publishing" on a traditional (non-serverless) Node host.
 export const revalidate = 300;
 
+function buildPathAlternates(pathname: string): { languages: Record<string, string> } {
+  return {
+    languages: {
+      fa: `${SITE_URL}/fa${pathname}`,
+      en: `${SITE_URL}/en${pathname}`,
+      "x-default": `${SITE_URL}/fa${pathname}`,
+    },
+  };
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ["", "/articles", "/categories", "/tags", "/fields", "/search", "/about", "/contact", "/authors", "/privacy", "/terms"];
+  // Exclude utility/non-indexable paths (/search, /saved) and duplicate localized
+  // category-name archives (/categories/[name]) in favor of canonical /tags/[slug].
+  const staticPaths = [
+    "",
+    "/articles",
+    "/fields",
+    "/tags",
+    "/categories",
+    "/authors",
+    "/about",
+    "/contact",
+    "/privacy",
+    "/terms",
+  ];
+
+  const [fields, authors, tagRecords, faArticles, enArticles] = await Promise.all([
+    getFields(),
+    getAuthors(),
+    getAllTagRecords(),
+    getAllArticles("fa"),
+    getAllArticles("en"),
+  ]);
+
+  const articlesByLocale: Record<Locale, typeof faArticles> = {
+    fa: faArticles,
+    en: enArticles,
+  };
+
+  // Map article.id -> per-locale slugs so XML sitemap emits accurate xhtml:link hreflang pairs
+  const slugsByArticleId = new Map<string, Partial<Record<Locale, string>>>();
+  for (const locale of locales) {
+    for (const article of articlesByLocale[locale]) {
+      const existing = slugsByArticleId.get(article.id) ?? {};
+      existing[locale] = article.slug;
+      slugsByArticleId.set(article.id, existing);
+    }
+  }
+
+  const latestArticleDate =
+    [...faArticles, ...enArticles]
+      .map((a) => a.updatedAt || a.publishedAt)
+      .filter(Boolean)
+      .sort()
+      .at(-1) ?? undefined;
 
   const entries: MetadataRoute.Sitemap = [];
-  const fields = await getFields();
-  const authors = await getAuthors();
-  const tagRecords = await getAllTagRecords();
 
   for (const locale of locales) {
     for (const p of staticPaths) {
       entries.push({
         url: `${SITE_URL}/${locale}${p}`,
-        changeFrequency: p === "" ? "daily" : "weekly",
-        priority: p === "" ? 1 : 0.7,
+        ...(p === "" || p === "/articles" ? (latestArticleDate ? { lastModified: latestArticleDate } : {}) : {}),
+        changeFrequency: p === "" || p === "/articles" ? "daily" : "weekly",
+        priority: p === "" ? 1.0 : p === "/articles" ? 0.9 : 0.7,
+        alternates: buildPathAlternates(p),
       });
     }
 
-    const articles = await getAllArticles(locale);
-    for (const article of articles) {
+    for (const article of articlesByLocale[locale]) {
+      const pair = slugsByArticleId.get(article.id) ?? { [locale]: article.slug };
+      const languages: Record<string, string> = {};
+      if (pair.fa) languages.fa = `${SITE_URL}/fa/articles/${pair.fa}`;
+      if (pair.en) languages.en = `${SITE_URL}/en/articles/${pair.en}`;
+      languages["x-default"] = languages.fa ?? languages.en ?? `${SITE_URL}/${locale}/articles/${article.slug}`;
+
       entries.push({
         url: `${SITE_URL}/${locale}/articles/${article.slug}`,
-        lastModified: article.publishedAt,
-        changeFrequency: "monthly",
-        priority: 0.9,
+        lastModified: article.updatedAt || article.publishedAt,
+        changeFrequency: "weekly",
+        priority: article.featured ? 0.95 : 0.9,
+        alternates: { languages },
       });
     }
 
     for (const field of fields) {
-      entries.push({ url: `${SITE_URL}/${locale}/fields/${field.slug}`, priority: 0.6 });
+      entries.push({
+        url: `${SITE_URL}/${locale}/fields/${field.slug}`,
+        changeFrequency: "weekly",
+        priority: 0.75,
+        alternates: buildPathAlternates(`/fields/${field.slug}`),
+      });
     }
 
     for (const tag of tagRecords) {
-      entries.push({ url: `${SITE_URL}/${locale}/tags/${tag.slug}`, priority: 0.6 });
-    }
-
-    const tags = await getAllTags(locale);
-    for (const { tag } of tags) {
-      entries.push({ url: `${SITE_URL}/${locale}/categories/${encodeURIComponent(tag)}`, priority: 0.5 });
+      if (tag.count <= 0) continue;
+      entries.push({
+        url: `${SITE_URL}/${locale}/tags/${tag.slug}`,
+        changeFrequency: "weekly",
+        priority: 0.65,
+        alternates: buildPathAlternates(`/tags/${tag.slug}`),
+      });
     }
 
     for (const author of authors) {
-      entries.push({ url: `${SITE_URL}/${locale}/authors/${author.slug}`, priority: 0.5 });
+      entries.push({
+        url: `${SITE_URL}/${locale}/authors/${author.slug}`,
+        changeFrequency: "monthly",
+        priority: 0.6,
+        alternates: buildPathAlternates(`/authors/${author.slug}`),
+      });
     }
   }
 

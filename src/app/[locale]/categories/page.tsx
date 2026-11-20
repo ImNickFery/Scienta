@@ -5,7 +5,7 @@ import { Tag, Tags } from "lucide-react";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAllTags } from "@/lib/content";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 import { ScrollReveal } from "@/components/animations/scroll-reveal";
 
@@ -22,8 +22,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/categories");
-  return { ...base, title: locale === "fa" ? "دسته‌بندی‌ها" : "Categories" };
+  return buildPageMetadata(locale, "/categories", {
+    title: locale === "fa" ? "موضوعات و دسته‌بندی‌ها" : "Topics & Categories",
+    description:
+      locale === "fa"
+        ? "مرور موضوعات، کلیدواژه‌ها و دسته‌بندی‌های علمی ساینتا در فیزیک، نجوم، کوانتوم، هوش مصنوعی و ریاضیات."
+        : "Browse scientific topics and categories across physics, astronomy, quantum computing, AI, and mathematics on Scienta.",
+  });
 }
 
 const ACCENTS = [

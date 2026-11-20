@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Microscope, Sparkles as SparklesIcon, Globe2 } from "lucide-react";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
-import { buildBaseMetadata } from "@/lib/seo";
+import { aboutPageJsonLd, breadcrumbJsonLd, buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { formatCount } from "@/lib/utils";
 import { getNumerals } from "@/lib/i18n/numerals-server";
@@ -19,6 +20,11 @@ export function generateStaticParams() {
 
 export const revalidate = 60;
 
+const ABOUT_DESC = {
+  fa: "درباره ساینتا (Scienta)؛ پلتفرم علمی دوزبانه برای روایت دقیق و بصری فیزیک، نجوم، فضا، هوش مصنوعی و ریاضیات.",
+  en: "Learn about Scienta, a bilingual scientific publication pairing academic rigor with cinematic visual storytelling across physics, space, AI, and math.",
+};
+
 export async function generateMetadata({
   params,
 }: {
@@ -26,8 +32,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/about");
-  return { ...base, title: locale === "fa" ? "درباره ما" : "About" };
+  return buildPageMetadata(locale, "/about", {
+    title: locale === "fa" ? "درباره ما" : "About",
+    description: ABOUT_DESC[locale],
+  });
 }
 
 const values = {
@@ -56,8 +64,16 @@ export default async function AboutPage({ params }: { params: Promise<{ locale: 
     { value: authors.length, label: locale === "fa" ? "نویسنده" : "Contributing authors" },
   ];
 
+  const aboutSchema = aboutPageJsonLd(locale, ABOUT_DESC[locale]);
+  const breadcrumb = breadcrumbJsonLd([
+    { name: locale === "fa" ? "خانه" : "Home", url: `${SITE_URL}/${locale}` },
+    { name: locale === "fa" ? "درباره ما" : "About", url: `${SITE_URL}/${locale}/about` },
+  ]);
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(aboutSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
       <section className="relative overflow-hidden border-b border-(--color-border-subtle) py-24">
         <AuroraBackground />
         <Starfield density={70} />

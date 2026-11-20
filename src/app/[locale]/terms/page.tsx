@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 
 export function generateStaticParams() {
@@ -17,8 +17,13 @@ export async function generateMetadata({
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
   const dict = await getDictionary(locale);
-  const base = buildBaseMetadata(locale, "/terms");
-  return { ...base, title: dict.footer.terms };
+  return buildPageMetadata(locale, "/terms", {
+    title: dict.footer.terms,
+    description:
+      locale === "fa"
+        ? "شرایط استفاده و قوانین بازنشر مقالات علمی، تصاویر و محتوای آموزشی پلتفرم ساینتا."
+        : "Terms of Use governing scientific articles, educational illustrations, and attribution guidelines on Scienta.",
+  });
 }
 
 const content = {

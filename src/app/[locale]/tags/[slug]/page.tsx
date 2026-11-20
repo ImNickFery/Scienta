@@ -5,7 +5,7 @@ import { Hash, Newspaper } from "lucide-react";
 import { isValidLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAllTagRecords, getArticlesByTagSlug, getTagBySlug } from "@/lib/content";
-import { buildBaseMetadata, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, collectionPageJsonLd, SITE_URL } from "@/lib/seo";
 import { safeJsonLd } from "@/lib/security";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 import { formatCount } from "@/lib/utils";
@@ -23,16 +23,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!isValidLocale(locale)) return {};
   const tag = await getTagBySlug(slug);
   if (!tag) return {};
-  const base = buildBaseMetadata(locale, `/tags/${slug}`);
-  const title =
-    locale === "fa"
-      ? `برچسب: ${tag.name.fa}`
-      : `Tag: ${tag.name.en}`;
-  const description =
-    locale === "fa"
-      ? `مجموعه مقالات علمی با برچسب ${tag.name.fa} در ساینتا.`
-      : `Scientific articles tagged with ${tag.name.en} on Scienta.`;
-  return { ...base, title, description };
+  return buildPageMetadata(locale, `/tags/${slug}`, {
+    title: locale === "fa" ? `مقالات ${tag.name.fa}` : `${tag.name.en} Articles`,
+    description:
+      locale === "fa"
+        ? `مجموعه مقالات علمی و تحلیلی با برچسب ${tag.name.fa} در پلتفرم علمی ساینتا همراه با معادلات و منابع تخصصی.`
+        : `Explore scientific essays and deep dives tagged with ${tag.name.en} on Scienta.`,
+    noIndex: tag.count <= 0,
+  });
 }
 
 export default async function TagDetailPage({ params }: PageProps) {
@@ -52,17 +50,34 @@ export default async function TagDetailPage({ params }: PageProps) {
 
   const otherTags = allTags.filter((t) => t.slug !== slug && t.count > 0).slice(0, 12);
 
+  const pageUrl = `${SITE_URL}/${locale}/tags/${slug}`;
   const breadcrumb = breadcrumbJsonLd([
     { name: dict.nav.home, url: `${SITE_URL}/${locale}` },
     { name: locale === "fa" ? "برچسب‌ها" : "Tags", url: `${SITE_URL}/${locale}/tags` },
-    { name: tag.name[locale], url: `${SITE_URL}/${locale}/tags/${slug}` },
+    { name: tag.name[locale], url: pageUrl },
   ]);
+  const collection = collectionPageJsonLd(locale, {
+    name: tag.name[locale],
+    description:
+      locale === "fa"
+        ? `مقالات علمی با برچسب ${tag.name.fa} در ساینتا.`
+        : `Scientific articles tagged with ${tag.name.en} on Scienta.`,
+    url: pageUrl,
+    items: articles.map((a) => ({
+      name: a.title,
+      url: `${SITE_URL}/${locale}/articles/${a.slug}`,
+    })),
+  });
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(collection) }}
       />
 
       <Container className="py-20">

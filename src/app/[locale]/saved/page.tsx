@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getAllArticles, stripArticleContent } from "@/lib/content";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 import { SavedLibraryClient } from "@/components/saved/saved-library-client";
 
@@ -20,11 +20,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/saved");
-  return {
-    ...base,
+  return buildPageMetadata(locale, "/saved", {
     title: locale === "fa" ? "کتابخانه ذخیره‌شده" : "Saved Library",
-  };
+    description:
+      locale === "fa"
+        ? "مقالات و معادلات نشان‌شده شما در ساینتا که به‌صورت محلی در مرورگر ذخیره می‌شوند."
+        : "Your bookmarked articles and equations on Scienta, stored locally in your browser.",
+    noIndex: true,
+  });
 }
 
 export default async function SavedPage({

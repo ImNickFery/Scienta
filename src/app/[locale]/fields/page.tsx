@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { buildBaseMetadata } from "@/lib/seo";
+import { breadcrumbJsonLd, buildPageMetadata, SITE_URL } from "@/lib/seo";
+import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { getFields } from "@/lib/taxonomy";
 
@@ -28,8 +29,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/fields");
-  return { ...base, title: locale === "fa" ? "حوزه‌های علمی" : "Scientific Fields" };
+  return buildPageMetadata(locale, "/fields", {
+    title: locale === "fa" ? "حوزه‌های علمی" : "Scientific Fields",
+    description:
+      locale === "fa"
+        ? "کاوش در حوزه‌های علمی ساینتا شامل فیزیک، نجوم، فضا، مکانیک کوانتومی، هوش مصنوعی، ریاضیات، زیست‌شناسی و فناوری."
+        : "Explore scientific disciplines on Scienta including physics, astronomy, space, quantum mechanics, AI, mathematics, biology, and engineering.",
+  });
 }
 
 export default async function FieldsPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -38,9 +44,14 @@ export default async function FieldsPage({ params }: { params: Promise<{ locale:
   const locale = rawLocale as Locale;
   const dict = await getDictionary(locale);
   const fields = await getFields();
+  const breadcrumb = breadcrumbJsonLd([
+    { name: dict.nav.home, url: `${SITE_URL}/${locale}` },
+    { name: dict.sections.fields, url: `${SITE_URL}/${locale}/fields` },
+  ]);
 
   return (
     <Container className="py-20">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }} />
       <header className="mb-12 max-w-2xl">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-(--color-accent-orange)">
           {locale === "fa" ? "کاوش کنید" : "Explore"}

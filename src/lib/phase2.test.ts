@@ -88,6 +88,7 @@ test("buildArticleMetadata honors custom SEO fields and emits bilingual hreflang
   assert.deepEqual(meta.alternates?.languages, {
     en: "https://scienta.ir/en/articles/black-holes",
     fa: "https://scienta.ir/fa/articles/سیاهچاله-ها",
+    "x-default": "https://scienta.ir/fa/articles/سیاهچاله-ها",
   });
 });
 

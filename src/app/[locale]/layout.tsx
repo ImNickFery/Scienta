@@ -5,7 +5,7 @@ import "../globals.css";
 import { locales, isValidLocale, dir, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
 import { getFields } from "@/lib/taxonomy";
-import { buildBaseMetadata, organizationJsonLd } from "@/lib/seo";
+import { buildBaseMetadata, organizationJsonLd, websiteJsonLd } from "@/lib/seo";
 import { safeJsonLd } from "@/lib/security";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -67,7 +67,11 @@ export default async function LocaleLayout({
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd(locale)) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(websiteJsonLd(locale)) }}
         />
         <a
           href="#main-content"

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
-import { buildBaseMetadata } from "@/lib/seo";
+import { buildPageMetadata } from "@/lib/seo";
 import { Container } from "@/components/ui/container";
 
 export function generateStaticParams() {
@@ -17,8 +17,13 @@ export async function generateMetadata({
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
   const dict = await getDictionary(locale);
-  const base = buildBaseMetadata(locale, "/privacy");
-  return { ...base, title: dict.footer.privacy };
+  return buildPageMetadata(locale, "/privacy", {
+    title: dict.footer.privacy,
+    description:
+      locale === "fa"
+        ? "سیاست حفظ حریم خصوصی ساینتا؛ نحوه نگهداری تنظیمات مطالعه، کوکی‌های ضروری و حفاظت از داده‌های کاربران."
+        : "Scienta Privacy Policy detailing how reading preferences, essential cookies, and user privacy are protected.",
+  });
 }
 
 const content = {

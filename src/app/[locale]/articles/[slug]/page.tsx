@@ -57,8 +57,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!isValidLocale(rawLocale)) return {};
   const article = await getArticle(rawLocale, slug);
   if (!article) return {};
-  const alternateSlugs = await getArticleLocaleSlugs(article.id);
-  return buildArticleMetadata(rawLocale, article, alternateSlugs);
+  const [alternateSlugs, field] = await Promise.all([
+    getArticleLocaleSlugs(article.id),
+    getFieldBySlug(article.field),
+  ]);
+  return buildArticleMetadata(rawLocale, article, alternateSlugs, field?.name[rawLocale]);
 }
 
 export default async function ArticlePage({ params }: PageProps) {
@@ -83,18 +86,18 @@ export default async function ArticlePage({ params }: PageProps) {
 
   const { prev: prevArticle, next: nextArticle } = await getAdjacentArticles(locale, article.id);
 
+  const fieldColor = field?.color ?? article.fieldColor;
+  const fieldLabel = field?.name[locale] ?? dict.fields[article.field as keyof typeof dict.fields];
   const url = `${SITE_URL}/${locale}/articles/${article.slug}`;
-  const jsonLd = articleJsonLd(locale, article, author ?? undefined);
+  const jsonLd = articleJsonLd(locale, article, author ?? undefined, fieldLabel);
   const breadcrumb = breadcrumbJsonLd([
     { name: dict.nav.home, url: `${SITE_URL}/${locale}` },
-    { name: dict.nav.articles, url: `${SITE_URL}/${locale}/articles` },
+    { name: fieldLabel, url: `${SITE_URL}/${locale}/fields/${article.field}` },
     { name: article.title, url },
   ]);
 
   const NextIcon = locale === "fa" ? ArrowLeft : ArrowRight;
   const PrevIcon = locale === "fa" ? ArrowRight : ArrowLeft;
-  const fieldColor = field?.color ?? article.fieldColor;
-  const fieldLabel = field?.name[locale] ?? dict.fields[article.field as keyof typeof dict.fields];
   const coverSrc = sanitizeUrl(article.cover, { allowRelative: true, allowHash: false });
 
   return (

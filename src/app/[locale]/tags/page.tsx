@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Hash, Tags } from "lucide-react";
 import { isValidLocale, locales, type Locale } from "@/lib/i18n/config";
 import { getAllTagRecords } from "@/lib/content";
-import { buildBaseMetadata, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
+import { buildPageMetadata, breadcrumbJsonLd, SITE_URL } from "@/lib/seo";
 import { safeJsonLd } from "@/lib/security";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 import { formatCount } from "@/lib/utils";
@@ -24,15 +24,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!isValidLocale(locale)) return {};
-  const base = buildBaseMetadata(locale, "/tags");
-  return {
-    ...base,
+  return buildPageMetadata(locale, "/tags", {
     title: locale === "fa" ? "برچسب‌های علمی" : "Scientific Tags",
     description:
       locale === "fa"
-        ? "مرور مقالات علمی ساینتا بر اساس کلیدواژه‌ها و برچسب‌های تخصصی."
-        : "Browse Scienta scientific articles by specialized keywords and tags.",
-  };
+        ? "مرور و کشف مقالات علمی ساینتا بر اساس کلیدواژه‌ها، مفاهیم و برچسب‌های تخصصی در فیزیک، نجوم، هوش مصنوعی و ریاضیات."
+        : "Browse and discover Scienta scientific articles by specialized keywords, concepts, and research tags across physics, space, AI, and math.",
+  });
 }
 
 const ACCENTS = ["#7B3FFB", "#FF7A00", "#FF3C5A", "#38BDF8", "#10B981"];
