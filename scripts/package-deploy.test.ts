@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,15 +17,15 @@ test('formatBytesMb formats byte counts cleanly', () => {
   assert.equal(formatBytesMb(1572864), '1.50 MB');
 });
 
-test('buildDeployGitignore preserves .env, data, tmp, uploads, and node_modules across git reset', () => {
+test('buildDeployGitignore anchors root runtime dirs so standalone/node_modules is never ignored', () => {
   const ignore = buildDeployGitignore();
-  assert.match(ignore, /^node_modules\/$/m);
-  assert.match(ignore, /^data\/$/m);
-  assert.match(ignore, /^tmp\/$/m);
-  assert.match(ignore, /^uploads\/$/m);
-  assert.match(ignore, /^standalone\/public\/uploads$/m);
-  assert.match(ignore, /^\.env\*$/m);
-  assert.match(ignore, /^!\.env\.example$/m);
+  assert.match(ignore, /^\/node_modules\/$/m);
+  assert.match(ignore, /^\/data\/$/m);
+  assert.match(ignore, /^\/tmp\/$/m);
+  assert.match(ignore, /^\/uploads\/$/m);
+  assert.match(ignore, /^\/standalone\/public\/uploads$/m);
+  assert.match(ignore, /^\/\.env\*$/m);
+  assert.match(ignore, /^!\/\.env\.example$/m);
 });
 
 test('shouldStripStandaloneFile identifies sourcemaps, type defs, env leaks, and node_modules docs', () => {
@@ -176,6 +177,24 @@ test('assembleDeployDir packages Next.js standalone, strips bloat/sharp, prunes 
     assert.equal(res.shikiStats.removedThemes, 1);
     assert.equal(res.shikiStats.removedLangs, 1);
     assert.ok(res.savedBytes > 1024);
+
+    // Verify git add -A actually tracks standalone/node_modules while ignoring root runtime dirs
+    await fs.writeFile(
+      path.join(res.outDir, 'standalone', 'node_modules', 'next', 'package.json'),
+      '{"name":"next"}'
+    );
+    await fs.mkdir(path.join(res.outDir, 'node_modules', 'sharp'), { recursive: true });
+    await fs.writeFile(path.join(res.outDir, 'node_modules', 'sharp', 'index.js'), '');
+    await fs.writeFile(path.join(res.outDir, '.env'), 'JWT_SECRET=secret\n');
+    execFileSync('git', ['init', '-q'], { cwd: res.outDir });
+    execFileSync('git', ['add', '-A'], { cwd: res.outDir });
+    const staged = execFileSync('git', ['ls-files'], { cwd: res.outDir, encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+    assert.ok(staged.includes('standalone/node_modules/next/package.json'));
+    assert.ok(staged.includes('.env.example'));
+    assert.ok(!staged.includes('node_modules/sharp/index.js'));
+    assert.ok(!staged.includes('.env'));
   } finally {
     await fs.rm(tmpRoot, { recursive: true, force: true });
   }

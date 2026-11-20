@@ -88,14 +88,14 @@ export function formatBytesMb(bytes: number): string {
 
 export function buildDeployGitignore(): string {
   return [
-    'node_modules/',
-    'data/',
-    'tmp/',
-    'uploads/',
-    'standalone/public/uploads',
+    '/node_modules/',
+    '/data/',
+    '/tmp/',
+    '/uploads/',
+    '/standalone/public/uploads',
     '*.log',
-    '.env*',
-    '!.env.example',
+    '/.env*',
+    '!/.env.example',
     '',
   ].join('\n');
 }

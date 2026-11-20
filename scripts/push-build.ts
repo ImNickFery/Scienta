@@ -103,7 +103,14 @@ git(
   DEPLOY_DIR
 );
 
-const fileCount = git(['ls-files'], DEPLOY_DIR).split('\n').filter(Boolean).length;
+const trackedFiles = git(['ls-files'], DEPLOY_DIR).split('\n').filter(Boolean);
+if (!trackedFiles.includes('standalone/node_modules/next/package.json')) {
+  console.error(
+    'ERROR: standalone/node_modules/next/package.json is missing from staged deploy files (check deploy/.gitignore).'
+  );
+  process.exit(1);
+}
+const fileCount = trackedFiles.length;
 console.log(`pushing ${fileCount} slim runtime files to origin/${BRANCH}...`);
 
 execFileSync('git', ['push', '--force', 'origin', `${BRANCH}:${BRANCH}`], {
