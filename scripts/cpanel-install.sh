@@ -195,7 +195,9 @@ activate_node_env() {
     "$HOME"/nodevenv/*/bin/activate; do
     if [ -f "$venv_activate" ]; then
       # shellcheck disable=SC1090
+      set +u
       source "$venv_activate"
+      set -u
       if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
         return 0
       fi
@@ -204,7 +206,9 @@ activate_node_env() {
   export PATH="/usr/local/bin:/opt/cpanel/ea-nodejs24/bin:/opt/cpanel/ea-nodejs22/bin:/opt/cpanel/ea-nodejs20/bin:$PATH"
   if [ -s "$HOME/.nvm/nvm.sh" ]; then
     # shellcheck disable=SC1091
+    set +u
     source "$HOME/.nvm/nvm.sh"
+    set -u
   fi
   command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1
 }
