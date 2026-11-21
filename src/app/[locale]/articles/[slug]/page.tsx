@@ -110,7 +110,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
       {/* Hero */}
       <section className="article-hero relative overflow-hidden border-b border-(--color-border-subtle) transition-opacity duration-300">
-        <div className="absolute inset-0">
+        <div className="article-hero-ambient absolute inset-0">
           {coverSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -124,9 +124,9 @@ export default async function ArticlePage({ params }: PageProps) {
             <SciIllustration variant={HERO_ILLUSTRATION[article.field] ?? "orbit"} palette="aurora" className="h-full w-full opacity-70" />
           )}
         </div>
-        <div className="absolute inset-0 bg-gradient-to-t from-(--color-bg-deep) via-(--color-bg-deep)/75 to-(--color-bg-deep)/40" />
+        <div className="article-hero-ambient absolute inset-0 bg-gradient-to-t from-(--color-bg-deep) via-(--color-bg-deep)/75 to-(--color-bg-deep)/40" />
         <div
-          className="absolute inset-0 opacity-60"
+          className="article-hero-ambient absolute inset-0 opacity-60"
           style={{
             background: `radial-gradient(60% 60% at 20% 0%, ${fieldColor}33, transparent 60%), radial-gradient(50% 50% at 90% 30%, ${fieldColor}22, transparent 60%)`,
           }}
@@ -167,7 +167,7 @@ export default async function ArticlePage({ params }: PageProps) {
 
             {coverSrc && (
               <div
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-(--color-bg-elevated) shadow-2xl"
+                className="article-hero-cover relative overflow-hidden rounded-2xl border border-white/10 bg-(--color-bg-elevated) shadow-2xl"
                 style={{ boxShadow: `0 24px 64px -20px ${fieldColor}44, 0 12px 32px -12px rgba(0,0,0,0.75)` }}
               >
                 <div className="aspect-[16/9] w-full overflow-hidden">

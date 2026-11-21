@@ -91,7 +91,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
         aria-expanded={open}
         aria-label={currentLocale === "fa" ? "تغییر زبان و شکل اعداد" : "Change language"}
         className={cn(
-          "flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-colors",
+          "language-switcher-trigger flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-colors",
           open
             ? "border-(--color-accent-purple)/60 bg-(--color-accent-purple)/10 text-(--color-text-primary)"
             : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
@@ -111,7 +111,7 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
       {open && (
         <div
           role="menu"
-          className="absolute end-0 top-full z-50 mt-2 min-w-[12.5rem] rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated)/95 p-1.5 shadow-2xl backdrop-blur-xl"
+          className="language-switcher-menu absolute end-0 top-full z-50 mt-2 min-w-[12.5rem] rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated)/95 p-1.5 shadow-2xl backdrop-blur-xl"
         >
           {locales.map((locale) => {
             const active = locale === currentLocale;

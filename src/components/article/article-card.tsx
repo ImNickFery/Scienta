@@ -40,7 +40,7 @@ export function ArticleCard({
       as="article"
       color={article.fieldColor}
       className={cn(
-        "flex h-full flex-col overflow-hidden rounded-2xl border border-(--color-border-subtle)",
+        "article-card-shell flex h-full flex-col overflow-hidden rounded-2xl border border-(--color-border-subtle)",
         "bg-gradient-to-b from-(--color-bg-elevated) to-(--color-bg-secondary)",
         "focus-within:ring-2 focus-within:ring-(--color-accent-purple)/60",
         size === "compact" && "flex-row items-center gap-4 p-3"
@@ -65,11 +65,11 @@ export function ArticleCard({
               loading="lazy"
               decoding="async"
               referrerPolicy="no-referrer"
-              className="h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
+              className="article-card-img h-full w-full object-cover transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-105"
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
+              className="article-card-cover-scrim pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/15"
             />
           </>
         ) : (
@@ -93,11 +93,11 @@ export function ArticleCard({
         {/* Shine that sweeps across the cover as the pointer arrives. */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-full"
+          className="article-card-cover-shine pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-full"
         />
         {size !== "compact" && (
           <span
-            className="absolute top-3 start-3 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-sm"
+            className="article-card-cover-chip absolute top-3 start-3 rounded-full px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-sm"
             // Opaque fill, and ink picked from the fill's luminance: at CC alpha
             // the chip sat over whatever the cover art happened to be, so its
             // contrast was never actually knowable.

@@ -46,7 +46,7 @@ export function SectionHeading({
     >
       <div className={cn(centered && "flex flex-col items-center")}>
         {eyebrow && (
-          <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-(--color-text-secondary) backdrop-blur-sm">
+          <span className="section-eyebrow-pill mb-4 inline-flex items-center gap-2 rounded-full border border-(--color-border-subtle) bg-white/[0.03] px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-(--color-text-secondary) backdrop-blur-sm">
             <span className="pulse-ring relative h-1.5 w-1.5 rounded-full bg-(--color-accent-orange) text-(--color-accent-orange)" />
             {eyebrow}
           </span>
@@ -77,7 +77,7 @@ export function SectionHeading({
       {viewAllHref && (
         <Link
           href={viewAllHref}
-          className="group inline-flex items-center gap-1.5 rounded-full border border-(--color-border-subtle) bg-white/[0.02] px-4 py-2 text-sm font-medium text-(--color-text-secondary) transition-all duration-300 hover:border-(--color-accent-orange)/40 hover:bg-(--color-accent-orange)/[0.06] hover:text-(--color-accent-orange)"
+          className="section-view-all-link group inline-flex items-center gap-1.5 rounded-full border border-(--color-border-subtle) bg-white/[0.02] px-4 py-2 text-sm font-medium text-(--color-text-secondary) transition-all duration-300 hover:border-(--color-accent-orange)/40 hover:bg-(--color-accent-orange)/[0.06] hover:text-(--color-accent-orange)"
         >
           {viewAllLabel}
           <Arrow className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1 rtl:group-hover:-translate-x-1" />

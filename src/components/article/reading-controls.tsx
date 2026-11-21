@@ -160,7 +160,7 @@ export function ReadingControls({
         aria-label={isFa ? "تنظیمات مطالعه مقاله" : "Article reading controls"}
         data-reading-width={prefs.width}
         data-reading-scale={fontScale}
-        className={`mx-auto mb-8 flex w-full flex-wrap items-center gap-2 transition-all duration-300 print:hidden ${
+        className={`reading-controls-bar mx-auto mb-8 flex w-full flex-wrap items-center gap-2 transition-all duration-300 print:hidden ${
           focusMode
             ? "sticky top-4 z-40 justify-center rounded-2xl border border-(--color-border-strong) bg-(--color-bg-secondary)/90 p-2 shadow-[0_18px_50px_-15px_rgba(0,0,0,0.85)] backdrop-blur-xl"
             : ""

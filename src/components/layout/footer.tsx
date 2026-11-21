@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Sparkles, Rss } from "lucide-react";
+import { Rss } from "lucide-react";
+import { BrandMark } from "./brand-mark";
 import { Container } from "@/components/ui/container";
 import { formatCount } from "@/lib/utils";
 import type { FieldRecord } from "@/lib/taxonomy";
@@ -7,34 +8,39 @@ import { NewsletterForm } from "@/components/forms/newsletter-form";
 import type { Locale } from "@/lib/i18n/config";
 import { DEFAULT_NUMERALS, type Numerals } from "@/lib/i18n/numerals";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
+import { isUnslopStyle, type DesignMode } from "@/lib/site-modes";
 
 export function Footer({
   locale,
   dict,
   fields,
   numerals = DEFAULT_NUMERALS,
+  designMode = "classic",
 }: {
   locale: Locale;
   dict: Dictionary;
   fields: FieldRecord[];
   numerals?: Numerals;
+  designMode?: DesignMode;
 }) {
   const year = formatCount(new Date().getFullYear(), locale, numerals);
+  const isUnslop = isUnslopStyle(designMode);
 
   return (
-    <footer className="relative mt-32 border-t border-(--color-border-subtle) bg-(--color-bg-secondary)">
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-(--color-accent-purple)/40 to-transparent" />
+    <footer
+      className={
+        isUnslop
+          ? "relative mt-24 border-t border-(--color-border-subtle) bg-(--color-bg-secondary)"
+          : "relative mt-32 border-t border-(--color-border-subtle) bg-(--color-bg-secondary)"
+      }
+    >
+      {!isUnslop && (
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-(--color-accent-purple)/40 to-transparent" />
+      )}
       <Container className="py-16">
         <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
           <div>
-            <Link href={`/${locale}`} className="group flex items-center gap-2 font-[family-name:var(--font-display)] text-lg font-bold">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-aurora-3) transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
-                <Sparkles className="h-4 w-4 text-white" />
-              </span>
-              <span className="text-gradient-aurora">
-                Scienta
-              </span>
-            </Link>
+            <BrandMark locale={locale} designMode={designMode} />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-(--color-text-tertiary)">
               {dict.footer.tagline}
             </p>

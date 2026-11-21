@@ -9,6 +9,7 @@ import { buildBaseMetadata, organizationJsonLd, websiteJsonLd } from "@/lib/seo"
 import { safeJsonLd } from "@/lib/security";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { KineticScrollRuler } from "@/components/layout/kinetic-scroll-ruler";
 import { getLocaleFontVariables } from "@/fonts";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 import { getSiteModes } from "@/lib/site-modes-server";
@@ -68,6 +69,8 @@ export default async function LocaleLayout({
       lang={locale}
       dir={dir(locale)}
       data-numerals={numerals}
+      data-design-mode={siteModes.designMode}
+      data-color-scheme={siteModes.colorScheme}
       data-site-theme={siteModes.theme}
       data-ambient-mode={siteModes.ambientMode}
       data-contrast-mode={siteModes.contrastMode}
@@ -91,9 +94,10 @@ export default async function LocaleLayout({
           {locale === "fa" ? "رفتن به محتوای اصلی" : "Skip to main content"}
         </a>
         <NumeralsProvider initial={numerals}>
-          <Navbar locale={locale} dict={dict} fields={fields} />
+          {siteModes.designMode === "unslop-kinetic" && <KineticScrollRuler />}
+          <Navbar locale={locale} dict={dict} fields={fields} designMode={siteModes.designMode} />
           <main id="main-content" className="overflow-x-clip">{children}</main>
-          <Footer locale={locale} dict={dict} fields={fields} numerals={numerals} />
+          <Footer locale={locale} dict={dict} fields={fields} numerals={numerals} designMode={siteModes.designMode} />
         </NumeralsProvider>
       </body>
     </html>

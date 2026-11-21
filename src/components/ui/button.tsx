@@ -4,14 +4,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-(--color-text-primary) disabled:pointer-events-none disabled:opacity-50",
+  "scienta-btn relative inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-medium transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-(--color-text-primary) disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         primary:
-          "bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) text-white shadow-[0_8px_30px_-8px_rgba(var(--color-accent-glow-rgb),0.6)] hover:shadow-[0_12px_40px_-8px_rgba(var(--color-accent-glow-rgb),0.8)] hover:scale-[1.03] active:scale-[0.98]",
+          "scienta-btn-primary bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) text-white shadow-[0_8px_30px_-8px_rgba(var(--color-accent-glow-rgb),0.6)] hover:shadow-[0_12px_40px_-8px_rgba(var(--color-accent-glow-rgb),0.8)] hover:scale-[1.03] active:scale-[0.98]",
         secondary:
-          "glass-panel text-(--color-text-primary) hover:border-(--color-border-strong) hover:scale-[1.02]",
+          "scienta-btn-secondary glass-panel text-(--color-text-primary) hover:border-(--color-border-strong) hover:scale-[1.02]",
         ghost:
           "text-(--color-text-secondary) hover:text-(--color-text-primary) hover:bg-white/5",
         outline:

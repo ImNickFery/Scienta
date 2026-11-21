@@ -1,5 +1,7 @@
 import { isValidLocale, type Locale } from "@/lib/i18n/config";
 import { getDictionary } from "@/lib/i18n/get-dictionary";
+import { getNumerals } from "@/lib/i18n/numerals-server";
+import { getSiteModes } from "@/lib/site-modes-server";
 import {
   getAllArticles,
   getFeaturedArticles,
@@ -14,6 +16,8 @@ import { StatsBand } from "@/components/home/stats-band";
 import { ArticleSection } from "@/components/home/article-section";
 import { FieldGrid } from "@/components/home/field-grid";
 import { ReadingJourney } from "@/components/home/reading-journey";
+import { UnslopHome } from "@/components/home/unslop-home";
+import { UnslopKineticHome } from "@/components/home/unslop-kinetic-home";
 import { notFound } from "next/navigation";
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
@@ -21,8 +25,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   if (!isValidLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
 
-  const [dict, all, featured, trending, mostViewed, fields] = await Promise.all([
+  const [dict, numerals, siteModes, all, featured, trending, mostViewed, fields] = await Promise.all([
     getDictionary(locale),
+    getNumerals(),
+    getSiteModes(),
     getAllArticles(locale),
     getFeaturedArticles(locale),
     getTrendingArticles(locale),
@@ -39,6 +45,38 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const allSummaries = all.map(stripArticleContent);
   const featuredSummaries = featured.map(stripArticleContent);
   const trendingSummaries = (trending.length ? trending : mostViewed).map(stripArticleContent);
+
+  if (siteModes.designMode === "unslop") {
+    return (
+      <UnslopHome
+        locale={locale}
+        dict={dict}
+        numerals={numerals}
+        allArticles={allSummaries}
+        featured={featuredSummaries}
+        trending={trendingSummaries}
+        fields={fields}
+        equationCount={equationCount}
+        readerCount={readerCount}
+      />
+    );
+  }
+
+  if (siteModes.designMode === "unslop-kinetic") {
+    return (
+      <UnslopKineticHome
+        locale={locale}
+        dict={dict}
+        numerals={numerals}
+        colorScheme={siteModes.colorScheme}
+        allArticles={allSummaries}
+        trending={trendingSummaries}
+        fields={fields}
+        equationCount={equationCount}
+        readerCount={readerCount}
+      />
+    );
+  }
 
   return (
     <>

@@ -7,7 +7,6 @@ import {
   Menu,
   X,
   Search,
-  Sparkles,
   Bookmark,
   ChevronDown,
   Hash,
@@ -15,6 +14,7 @@ import {
   ArrowUpLeft,
   ArrowUpRight,
 } from "lucide-react";
+import { BrandMark } from "./brand-mark";
 import { LanguageSwitcher } from "./language-switcher";
 import { MobileNavDrawer } from "./mobile-nav-drawer";
 import { CommandPalette } from "./command-palette";
@@ -26,16 +26,20 @@ import { getBookmarkedEquationKeys } from "@/lib/equation-bookmarks";
 import type { Locale } from "@/lib/i18n/config";
 import type { Dictionary } from "@/lib/i18n/get-dictionary";
 import type { FieldRecord } from "@/lib/taxonomy";
+import { isUnslopStyle, type DesignMode } from "@/lib/site-modes";
 
 export function Navbar({
   locale,
   dict,
   fields,
+  designMode = "classic",
 }: {
   locale: Locale;
   dict: Dictionary;
   fields: FieldRecord[];
+  designMode?: DesignMode;
 }) {
+  const isUnslop = isUnslopStyle(designMode);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [fieldsOpen, setFieldsOpen] = useState(false);
@@ -105,10 +109,14 @@ export function Navbar({
     <>
       <header
         className={cn(
-          "safe-top sticky top-0 z-50 border-b transition-all duration-300",
-          scrolled
-            ? "glass-panel border-(--color-border-subtle) shadow-[0_12px_40px_-16px_rgba(0,0,0,0.65)]"
-            : "border-transparent bg-(--color-bg-deep)/60 backdrop-blur-md"
+          "safe-top sticky top-0 z-50 border-b transition-[background-color,border-color] duration-200",
+          isUnslop
+            ? scrolled
+              ? "border-(--color-border-strong) bg-(--color-bg-deep)/95 backdrop-blur-sm"
+              : "border-(--color-border-subtle) bg-(--color-bg-deep)/95"
+            : scrolled
+              ? "glass-panel border-(--color-border-subtle) shadow-[0_12px_40px_-16px_rgba(0,0,0,0.65)]"
+              : "border-transparent bg-(--color-bg-deep)/60 backdrop-blur-md"
         )}
       >
         <nav
@@ -116,15 +124,7 @@ export function Navbar({
           className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8 lg:h-16 lg:gap-8 lg:px-10"
         >
           {/* Zone 1: Brand wordmark */}
-          <Link
-            href={`/${locale}`}
-            className="group flex shrink-0 items-center gap-2 whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold"
-          >
-            <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-aurora-3) transition-transform duration-300 group-hover:scale-105">
-              <Sparkles className="h-4 w-4 text-white" />
-            </span>
-            <span className="text-gradient-aurora">Scienta</span>
-          </Link>
+          <BrandMark locale={locale} designMode={designMode} />
 
           {/* Zone 2: Clean single-line desktop nav links */}
           <div className="hidden items-center gap-1 lg:flex">
@@ -132,6 +132,7 @@ export function Navbar({
               href={`/${locale}/articles`}
               label={dict.nav.articles}
               active={isNavLinkActive(pathname, `/${locale}/articles`)}
+              isUnslop={isUnslop}
             />
 
             {/* Scientific Fields + Discovery dropdown */}
@@ -157,7 +158,10 @@ export function Navbar({
                 />
                 <span
                   className={cn(
-                    "absolute inset-x-3.5 bottom-0 h-px origin-center scale-x-0 bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) transition-transform duration-200 group-hover:scale-x-100",
+                    "absolute inset-x-3.5 bottom-0 h-px origin-center scale-x-0 transition-transform duration-200 group-hover:scale-x-100",
+                    isUnslop
+                      ? "bg-(--color-text-primary)"
+                      : "bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange)",
                     (fieldsActive || fieldsOpen) && "scale-x-100"
                   )}
                 />
@@ -167,7 +171,12 @@ export function Navbar({
                 <div
                   role="menu"
                   aria-label={dict.nav.fields}
-                  className="absolute start-0 top-full z-50 mt-3 w-[440px] rounded-2xl border border-(--color-border-strong) bg-(--color-bg-elevated)/98 p-4 shadow-2xl backdrop-blur-xl"
+                  className={cn(
+                    "absolute start-0 top-full z-50 mt-3 w-[440px] border border-(--color-border-strong) p-4",
+                    isUnslop
+                      ? "rounded-xl bg-(--color-bg-elevated) shadow-[0_12px_32px_rgba(24,22,19,0.1)]"
+                      : "rounded-2xl bg-(--color-bg-elevated)/98 shadow-2xl backdrop-blur-xl"
+                  )}
                 >
                   <div className="mb-3 flex items-center justify-between px-1">
                     <span className="text-xs font-semibold text-(--color-text-tertiary)">
@@ -239,16 +248,19 @@ export function Navbar({
               href={`/${locale}/categories`}
               label={dict.nav.categories}
               active={isNavLinkActive(pathname, `/${locale}/categories`)}
+              isUnslop={isUnslop}
             />
             <DesktopNavLink
               href={`/${locale}/about`}
               label={dict.nav.about}
               active={isNavLinkActive(pathname, `/${locale}/about`)}
+              isUnslop={isUnslop}
             />
             <DesktopNavLink
               href={`/${locale}/contact`}
               label={dict.nav.contact}
               active={isNavLinkActive(pathname, `/${locale}/contact`)}
+              isUnslop={isUnslop}
             />
           </div>
 
@@ -258,17 +270,23 @@ export function Navbar({
               href={`/${locale}/saved`}
               aria-label={isFa ? "مقالات و معادلات ذخیره‌شده" : "Saved library"}
               className={cn(
-                "relative flex h-11 w-11 items-center justify-center rounded-full border transition-colors lg:h-10 lg:w-10",
+                "relative flex h-11 w-11 items-center justify-center border transition-colors lg:h-9 lg:w-9",
+                isUnslop ? "rounded-lg bg-(--color-bg-elevated)" : "rounded-full lg:h-10 lg:w-10",
                 isNavLinkActive(pathname, `/${locale}/saved`)
                   ? "border-(--color-accent-orange)/60 bg-(--color-accent-orange)/10 text-(--color-accent-orange)"
                   : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
               )}
             >
-              <Bookmark className="h-4 w-4" />
+              <Bookmark className="h-4 w-4" strokeWidth={1.5} />
               {savedCount > 0 && (
                 <span
                   dir="ltr"
-                  className="absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-(--color-accent-orange) px-1 font-[family-name:var(--font-mono)] text-[10px] font-bold tabular-nums text-black"
+                  className={cn(
+                    "absolute -end-1 -top-1 flex h-4 min-w-4 items-center justify-center px-1 font-[family-name:var(--font-mono)] text-[10px] font-semibold tabular-nums",
+                    isUnslop
+                      ? "rounded bg-(--color-text-primary) text-(--color-bg-elevated)"
+                      : "rounded-full bg-(--color-accent-orange) font-bold text-black"
+                  )}
                 >
                   {savedCount > 99 ? "99+" : savedCount}
                 </span>
@@ -280,13 +298,16 @@ export function Navbar({
               onClick={openCommandPalette}
               aria-label={isFa ? "جستجوی سریع (Ctrl+K)" : "Quick search (Ctrl+K)"}
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full border transition-colors lg:h-10 lg:w-auto lg:gap-2 lg:px-3.5",
+                "flex h-11 w-11 items-center justify-center border transition-colors lg:w-auto lg:gap-2 lg:px-3",
+                isUnslop
+                  ? "rounded-lg bg-(--color-bg-elevated) lg:h-9"
+                  : "rounded-full lg:h-10 lg:px-3.5",
                 isNavLinkActive(pathname, `/${locale}/search`)
                   ? "border-(--color-accent-purple)/60 bg-(--color-accent-purple)/10 text-(--color-accent-purple)"
                   : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
               )}
             >
-              <Search className="h-4 w-4 shrink-0" />
+              <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} />
               <span className="hidden whitespace-nowrap text-xs font-medium lg:inline">
                 {dict.nav.search}
               </span>
@@ -307,7 +328,10 @@ export function Navbar({
               onClick={() => setMobileOpen((v) => !v)}
               aria-label={mobileOpen ? (isFa ? "بستن منو" : "Close menu") : (isFa ? "باز کردن منو" : "Open menu")}
               aria-expanded={mobileOpen}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-(--color-border-subtle) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) lg:hidden"
+              className={cn(
+                "flex h-11 w-11 items-center justify-center border border-(--color-border-subtle) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) lg:hidden",
+                isUnslop ? "rounded-lg bg-(--color-bg-elevated)" : "rounded-full"
+              )}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -334,10 +358,12 @@ function DesktopNavLink({
   href,
   label,
   active,
+  isUnslop = false,
 }: {
   href: string;
   label: string;
   active: boolean;
+  isUnslop?: boolean;
 }) {
   return (
     <Link
@@ -352,7 +378,10 @@ function DesktopNavLink({
       {label}
       <span
         className={cn(
-          "absolute inset-x-3.5 bottom-0 h-px origin-center scale-x-0 bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange) transition-transform duration-200 group-hover:scale-x-100",
+          "absolute inset-x-3.5 bottom-0 h-px origin-center scale-x-0 transition-transform duration-200 group-hover:scale-x-100",
+          isUnslop
+            ? "bg-(--color-text-primary)"
+            : "bg-gradient-to-r from-(--color-accent-purple) to-(--color-accent-orange)",
           active && "scale-x-100"
         )}
       />
