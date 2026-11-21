@@ -1,0 +1,12 @@
+User-Agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /fa/saved
+Disallow: /en/saved
+Disallow: /fa/search
+Disallow: /en/search
+
+Host: https://scienta.ir
+Sitemap: https://scienta.ir/sitemap.xml

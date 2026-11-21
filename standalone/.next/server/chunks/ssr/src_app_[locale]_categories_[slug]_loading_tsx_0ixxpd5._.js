@@ -1,0 +1,3 @@
+module.exports=[95032,a=>{"use strict";var b=a.i(907997),c=a.i(887122),d=a.i(765857);a.s(["default",0,function(){return(0,b.jsxs)(c.Container,{className:"py-20",children:[(0,b.jsxs)("div",{className:"mb-12 max-w-2xl space-y-3",children:[(0,b.jsx)(d.Skeleton,{className:"h-3 w-24"}),(0,b.jsx)(d.Skeleton,{className:"h-10 w-56"})]}),(0,b.jsx)(d.ArticleGridSkeleton,{count:6,size:"large"})]})}])},900822,a=>{a.n(a.i(95032))}];
+
+//# sourceMappingURL=src_app_%5Blocale%5D_categories_%5Bslug%5D_loading_tsx_0ixxpd5._.js.map
