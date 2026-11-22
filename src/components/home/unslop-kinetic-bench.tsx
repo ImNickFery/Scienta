@@ -15,13 +15,16 @@ import {
   Waves,
 } from "lucide-react";
 import {
+  CRITICAL_IMPACT_RS,
   computeDoubleSlit,
   computeHorizonCurvature,
   computeKeplerOrbit,
-  computePhotonDeflection,
+  computeQuantumObservables,
   computeQuantumWellMetrics,
-  doubleSlitIntensity,
+  probeDoubleSlitExact,
   sampleQuantumSuperposition,
+  traceSchwarzschildGeodesic,
+  type SchwarzschildGeodesicResult,
 } from "@/lib/kinetic-physics";
 import type { Locale } from "@/lib/i18n/config";
 
@@ -37,10 +40,10 @@ interface PointerPos {
 }
 
 /**
- * Unslop Kinetic Centerpiece — Living 60fps Interactive Physics Bench
- * Four direct-manipulation physics experiments with real-time HTML5 Canvas,
- * pointer probing & laser aiming, curated scientific presets, live KaTeX
- * equations, and expandable cinema-bench view.
+ * Unslop Kinetic Centerpiece — High-Precision Living 60fps Physics Instrument Bench
+ * Powered by exact CODATA-2022 / IAU-2015 constants, non-paraxial Fraunhofer optics,
+ * machine-epsilon Halley-Newton orbital mechanics, 4th-order Runge-Kutta Schwarzschild
+ * null geodesics, and closed-form analytical quantum Heisenberg observables.
  */
 export function UnslopKineticBench({ locale }: { locale: Locale }) {
   const isFa = locale === "fa";
@@ -49,28 +52,42 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
   const [playing, setPlaying] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
-  // Experiment 1: Double-slit optics
-  const [wavelengthNm, setWavelengthNm] = useState(565);
+  // Experiment 1: Exact Non-Paraxial Double-Slit Optics
+  const [wavelengthNm, setWavelengthNm] = useState(532);
   const [slitSepMm, setSlitSepMm] = useState(0.45);
+  const [slitWidthMm, setSlitWidthMm] = useState(0.09);
 
-  // Experiment 2: Keplerian orbit
+  // Experiment 2: Machine-Precision Keplerian Two-Body Orbit
   const [eccentricity, setEccentricity] = useState(0.52);
   const [semiMajorAU, setSemiMajorAU] = useState(1.4);
 
-  // Experiment 3: Relativistic event horizon
-  const [solarMasses, setSolarMasses] = useState(12);
+  // Experiment 3: Exact RK4 Schwarzschild Event Horizon
+  const [solarMasses, setSolarMasses] = useState(21.2);
 
-  // Experiment 4: 1D Quantum Potential Well Superposition
+  // Experiment 4: Exact 1D Infinite Quantum Potential Well
   const [quantumN1, setQuantumN1] = useState(1);
   const [quantumN2, setQuantumN2] = useState(2);
+  const [wellWidthNm, setWellWidthNm] = useState(1.0);
 
   // Live telemetry driven from the animation frame (throttled ~10Hz)
-  const [liveOrbitSpeed, setLiveOrbitSpeed] = useState(() =>
-    computeKeplerOrbit(1.4, 0.52, 0).speedKmS
-  );
-  const [liveOrbitRadius, setLiveOrbitRadius] = useState(() =>
-    computeKeplerOrbit(1.4, 0.52, 0).radiusAU
-  );
+  const [liveOrbit, setLiveOrbit] = useState(() => {
+    const pt = computeKeplerOrbit(1.4, 0.52, 0);
+    return {
+      speedKmS: pt.speedKmS,
+      radiusAU: pt.radiusAU,
+      flightPathDeg: pt.flightPathDeg,
+      perihelionAU: pt.perihelionAU,
+      aphelionAU: pt.aphelionAU,
+    };
+  });
+  const [liveQuantum, setLiveQuantum] = useState(() => {
+    const obs = computeQuantumObservables(1, 2, 0);
+    return {
+      meanU: obs.meanU,
+      sigmaU: obs.sigmaU,
+      heisenbergHbar: obs.heisenbergProductHbar,
+    };
+  });
   const [probeReadout, setProbeReadout] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -78,31 +95,42 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
   const pointerRef = useRef<PointerPos | null>(null);
   const lastUiSyncRef = useRef(0);
 
-  // Pure physics calculations
+  // Exact physics derivations
   const slitMetrics = useMemo(
-    () => computeDoubleSlit(wavelengthNm, slitSepMm, 1.5),
-    [wavelengthNm, slitSepMm]
+    () => computeDoubleSlit(wavelengthNm, slitSepMm, 1.5, slitWidthMm),
+    [wavelengthNm, slitSepMm, slitWidthMm]
   );
-  const orbitPeriod = useMemo(() => Math.pow(semiMajorAU, 1.5), [semiMajorAU]);
+  const orbitReference = useMemo(
+    () => computeKeplerOrbit(semiMajorAU, eccentricity, 0),
+    [semiMajorAU, eccentricity]
+  );
   const horizonMetrics = useMemo(
     () => computeHorizonCurvature(solarMasses),
     [solarMasses]
   );
   const quantumMetrics = useMemo(
-    () => computeQuantumWellMetrics(quantumN1, quantumN2, 1.0),
-    [quantumN1, quantumN2]
+    () => computeQuantumWellMetrics(quantumN1, quantumN2, wellWidthNm),
+    [quantumN1, quantumN2, wellWidthNm]
   );
 
-  // Pre-rendered KaTeX formula for each active instrument
+  // Pre-integrated ambient Schwarzschild null geodesics (exact RK4 from u = 0)
+  const ambientGeodesics = useMemo<SchwarzschildGeodesicResult[]>(() => {
+    const impacts = [-4.6, -3.35, -2.75, 2.75, 3.35, 4.6];
+    return impacts.map((b) =>
+      traceSchwarzschildGeodesic(b, { rViewRs: 18, maxSteps: 1800, stepRad: 0.015 })
+    );
+  }, []);
+
+  // Pre-rendered KaTeX governing equation for each active instrument
   const renderedFormula = useMemo(() => {
     const tex =
       mode === "slit"
-        ? `\\Delta y = \\frac{\\lambda L}{d}`
+        ? `I = \\cos^2\\!\\left(\\tfrac{\\pi\\Delta r}{\\lambda}\\right)\\operatorname{sinc}^2\\!\\left(\\tfrac{\\pi a\\sin\\theta}{\\lambda}\\right)`
         : mode === "orbit"
-          ? `v(r) = \\sqrt{GM\\!\\left(\\tfrac{2}{r} - \\tfrac{1}{a}\\right)}`
+          ? `M = E - e\\sin E,\\quad v = \\sqrt{\\mu\\!\\left(\\tfrac{2}{r}-\\tfrac{1}{a}\\right)}`
           : mode === "horizon"
-            ? `r_s = \\frac{2GM}{c^2},\\quad b_{\\text{crit}} = \\tfrac{3\\sqrt{3}}{2}r_s`
-            : `E_n = \\frac{n^2 h^2}{8mL^2},\\quad |\\psi(x,t)|^2`;
+            ? `\\frac{d^2 u}{d\\phi^2} = \\tfrac{3}{2}u^2 - u,\\quad b_{\\text{crit}} = \\tfrac{3\\sqrt{3}}{2}r_s`
+            : `E_n = \\frac{n^2 h^2}{8m_e L^2},\\quad \\sigma_x\\sigma_p \\ge \\tfrac{\\hbar}{2}`;
     try {
       return katex.renderToString(tex, {
         displayMode: false,
@@ -118,21 +146,22 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
     pointerRef.current = null;
     setProbeReadout(null);
     if (mode === "slit") {
-      setWavelengthNm(565);
+      setWavelengthNm(532);
       setSlitSepMm(0.45);
+      setSlitWidthMm(0.09);
     } else if (mode === "orbit") {
       setEccentricity(0.52);
       setSemiMajorAU(1.4);
     } else if (mode === "horizon") {
-      setSolarMasses(12);
+      setSolarMasses(21.2);
     } else {
       setQuantumN1(1);
       setQuantumN2(2);
+      setWellWidthNm(1.0);
     }
     setPlaying(true);
   };
 
-  // Switch experiment cleanly and clear stale probe telemetry
   const handleSelectMode = (nextMode: LabMode) => {
     setMode(nextMode);
     pointerRef.current = null;
@@ -171,6 +200,10 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
     let rafId = 0;
     let lastTs = performance.now();
+
+    // Cache interactive Schwarzschild geodesic across frames while impact parameter stays constant
+    let cachedImpactKey = Number.NaN;
+    let cachedLaserGeodesic: SchwarzschildGeodesicResult | null = null;
 
     const drawFrame = (now: number) => {
       const dt = Math.max(0, Math.min(0.05, (now - lastTs) / 1000));
@@ -234,16 +267,19 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
       const t = phaseRef.current;
       let nextProbeText: string | null = null;
+      let currentQuantumMeanU = 0.5;
+      let nextOrbitSync: typeof liveOrbit | null = null;
+      let nextQuantumSync: typeof liveQuantum | null = null;
 
       if (mode === "slit") {
-        const barrierX = Math.round(width * 0.23);
-        const screenX = Math.round(width * 0.77);
+        const barrierX = Math.round(width * 0.22);
+        const screenX = Math.round(width * 0.76);
         const centerY = height / 2;
-        const slitHalfGap = 12 + slitSepMm * 22;
-        const waveStepPx = 11 + ((wavelengthNm - 380) / 370) * 14;
+        const slitHalfGap = 11 + slitSepMm * 22;
+        const waveStepPx = 10 + ((wavelengthNm - 380) / 370) * 14;
         const waveColor = slitMetrics.spectralHex;
 
-        // Incoming coherent plane wave fronts
+        // Incoming coherent plane wavefronts
         ctx.strokeStyle = isDark
           ? "rgba(237, 242, 245, 0.26)"
           : "rgba(17, 22, 27, 0.22)";
@@ -251,8 +287,8 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         const planeOffset = (((t * 36) % waveStepPx) + waveStepPx) % waveStepPx;
         for (let x = planeOffset; x < barrierX - 6; x += waveStepPx) {
           ctx.beginPath();
-          ctx.moveTo(x, 22);
-          ctx.lineTo(x, height - 22);
+          ctx.moveTo(x, 20);
+          ctx.lineTo(x, height - 20);
           ctx.stroke();
         }
 
@@ -265,12 +301,12 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         const maxRadius = Math.hypot(screenX - barrierX, height);
         const radialOffset = (((t * 42) % waveStepPx) + waveStepPx) % waveStepPx;
         ctx.strokeStyle = waveColor;
-        ctx.lineWidth = 1.35;
+        ctx.lineWidth = 1.3;
 
         for (const slitY of [centerY - slitHalfGap, centerY + slitHalfGap]) {
           for (let r = radialOffset; r < maxRadius; r += waveStepPx) {
             if (r <= 0.5) continue;
-            const alpha = Math.max(0.08, 0.56 * (1 - r / maxRadius));
+            const alpha = Math.max(0.08, 0.54 * (1 - r / maxRadius));
             ctx.globalAlpha = alpha;
             ctx.beginPath();
             ctx.arc(barrierX, slitY, r, -Math.PI / 2, Math.PI / 2);
@@ -280,20 +316,20 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.restore();
         ctx.globalAlpha = 1;
 
-        // Optical barrier plate with two precision apertures
+        // Optical barrier plate with apertures scaled proportionally to slit width a
         ctx.strokeStyle = inkPrimary;
         ctx.lineWidth = 2.5;
-        const slitAperture = 5;
+        const slitAperturePx = Math.max(2.5, Math.min(9, slitWidthMm * 44));
         ctx.beginPath();
         ctx.moveTo(barrierX, 14);
-        ctx.lineTo(barrierX, centerY - slitHalfGap - slitAperture);
-        ctx.moveTo(barrierX, centerY - slitHalfGap + slitAperture);
-        ctx.lineTo(barrierX, centerY + slitHalfGap - slitAperture);
-        ctx.moveTo(barrierX, centerY + slitHalfGap + slitAperture);
-        ctx.lineTo(barrierX, height - 14);
+        ctx.lineTo(barrierX, centerY - slitHalfGap - slitAperturePx);
+        ctx.moveTo(barrierX, centerY - slitHalfGap + slitAperturePx);
+        ctx.lineTo(barrierX, centerY + slitHalfGap - slitAperturePx);
+        ctx.moveTo(barrierX, centerY + slitHalfGap + slitAperturePx);
+        ctx.lineTo(barrierX, height - 26);
         ctx.stroke();
 
-        // Detector screen axis + intensity curve
+        // Detector screen axis
         ctx.strokeStyle = axisLine;
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -301,19 +337,40 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.lineTo(screenX + 0.5, height - 14);
         ctx.stroke();
 
-        const curveMaxWidth = Math.max(38, width - screenX - 20);
+        const curveMaxWidth = Math.max(42, width - screenX - 18);
+        const screenHalfSpanMm = 7.5;
+
+        // Exact Fraunhofer single-slit diffraction envelope sinc²(β) dashed guide
+        ctx.save();
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = isDark
+          ? "rgba(237, 242, 245, 0.34)"
+          : "rgba(17, 22, 27, 0.32)";
+        ctx.lineWidth = 1;
         ctx.beginPath();
         for (let py = 16; py <= height - 16; py += 2) {
-          const screenMm = ((py - centerY) / (height / 2)) * 6.5;
-          const intensity = doubleSlitIntensity(screenMm, wavelengthNm, slitSepMm, 1.5);
-          const px = screenX + intensity * curveMaxWidth;
+          const screenMm = ((py - centerY) / (height / 2)) * screenHalfSpanMm;
+          const probe = probeDoubleSlitExact(screenMm, wavelengthNm, slitSepMm, 1.5, slitWidthMm);
+          const px = screenX + probe.envelope * curveMaxWidth;
+          if (py === 16) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // Exact non-paraxial interference × diffraction curve
+        ctx.beginPath();
+        for (let py = 16; py <= height - 16; py += 1.5) {
+          const screenMm = ((py - centerY) / (height / 2)) * screenHalfSpanMm;
+          const probe = probeDoubleSlitExact(screenMm, wavelengthNm, slitSepMm, 1.5, slitWidthMm);
+          const px = screenX + probe.intensity * curveMaxWidth;
           if (py === 16) ctx.moveTo(screenX, py);
           ctx.lineTo(px, py);
         }
         ctx.lineTo(screenX, height - 16);
         ctx.closePath();
         ctx.fillStyle = waveColor;
-        ctx.globalAlpha = isDark ? 0.25 : 0.2;
+        ctx.globalAlpha = isDark ? 0.24 : 0.18;
         ctx.fill();
 
         ctx.globalAlpha = 1;
@@ -323,21 +380,20 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
         // Crisp detector fringe strip
         for (let py = 16; py <= height - 16; py += 2) {
-          const screenMm = ((py - centerY) / (height / 2)) * 6.5;
-          const intensity = doubleSlitIntensity(screenMm, wavelengthNm, slitSepMm, 1.5);
+          const screenMm = ((py - centerY) / (height / 2)) * screenHalfSpanMm;
+          const probe = probeDoubleSlitExact(screenMm, wavelengthNm, slitSepMm, 1.5, slitWidthMm);
           ctx.fillStyle = waveColor;
-          ctx.globalAlpha = intensity * 0.92;
+          ctx.globalAlpha = probe.intensity * 0.94;
           ctx.fillRect(screenX - 3, py, 3, 2);
         }
         ctx.globalAlpha = 1;
 
-        // Interactive Pointer Probe crosshair along screen
+        // Interactive Non-Paraxial Optical Probe on hover
         if (ptr) {
           const py = Math.min(height - 18, Math.max(18, ptr.ny * height));
-          const screenMm = ((py - centerY) / (height / 2)) * 6.5;
-          const intensity = doubleSlitIntensity(screenMm, wavelengthNm, slitSepMm, 1.5);
-          const px = screenX + intensity * curveMaxWidth;
-          const orderM = screenMm / slitMetrics.fringeSpacingMm;
+          const screenMm = ((py - centerY) / (height / 2)) * screenHalfSpanMm;
+          const probe = probeDoubleSlitExact(screenMm, wavelengthNm, slitSepMm, 1.5, slitWidthMm);
+          const px = screenX + probe.intensity * curveMaxWidth;
 
           ctx.save();
           ctx.setLineDash([3, 3]);
@@ -359,18 +415,17 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
           ctx.fill();
           ctx.restore();
 
-          nextProbeText = `y=${screenMm >= 0 ? "+" : ""}${screenMm.toFixed(2)}mm · I=${Math.round(
-            intensity * 100
-          )}% · m=${orderM.toFixed(1)}λ`;
+          const signStr = screenMm >= 0 ? "+" : "";
+          nextProbeText = `y=${signStr}${screenMm.toFixed(2)}mm · Δr=${probe.pathDiffNm >= 0 ? "+" : ""}${Math.round(probe.pathDiffNm)}nm (${probe.orderM.toFixed(2)}λ) · I/I₀=${probe.intensity.toFixed(3)}`;
         }
       } else if (mode === "orbit") {
         const cx = width * 0.52;
         const cy = height * 0.5;
         const maxOrbitPx = Math.min(width * 0.37, height * 0.41);
         const scalePxPerAU =
-          maxOrbitPx / Math.max(semiMajorAU * (1 + eccentricity * 0.6), 1.0);
+          maxOrbitPx / Math.max(semiMajorAU * (1 + eccentricity * 0.55), 0.7);
         const aPx = semiMajorAU * scalePxPerAU;
-        const bPx = aPx * Math.sqrt(1 - eccentricity * eccentricity);
+        const bPx = aPx * Math.sqrt(Math.max(0.01, 1 - eccentricity * eccentricity));
         const cPx = aPx * eccentricity;
         const ellipseCenterX = cx - cPx * 0.45;
         const starX = ellipseCenterX + cPx;
@@ -386,34 +441,39 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.lineTo(starX + 0.5, height - 16);
         ctx.stroke();
 
-        // Perihelion / aphelion tick markers
+        // Perihelion / aphelion & empty focus markers
         const periX = ellipseCenterX + aPx;
         const aphX = ellipseCenterX - aPx;
+        const emptyFocusX = ellipseCenterX - cPx;
         ctx.fillStyle = inkMuted;
         ctx.beginPath();
-        ctx.arc(periX, cy, 2.2, 0, Math.PI * 2);
-        ctx.arc(aphX, cy, 2.2, 0, Math.PI * 2);
+        ctx.arc(periX, cy, 2.3, 0, Math.PI * 2);
+        ctx.arc(aphX, cy, 2.3, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = axisLine;
+        ctx.beginPath();
+        ctx.arc(emptyFocusX, cy, 3, 0, Math.PI * 2);
+        ctx.stroke();
 
         // Orbital ellipse path
         ctx.strokeStyle = isDark
-          ? "rgba(237, 242, 245, 0.36)"
-          : "rgba(17, 22, 27, 0.32)";
+          ? "rgba(237, 242, 245, 0.38)"
+          : "rgba(17, 22, 27, 0.34)";
         ctx.lineWidth = 1.4;
         ctx.beginPath();
         ctx.ellipse(ellipseCenterX, cy, aPx, bPx, 0, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Mean anomaly progresses at constant angular rate
+        // Mean anomaly progresses at constant angular rate (Kepler's 2nd Law exact!)
         const meanAnomaly = (t * 0.85) % (Math.PI * 2);
         const current = computeKeplerOrbit(semiMajorAU, eccentricity, meanAnomaly);
 
-        // Shaded equal-area sector swept over ΔM = 0.42 rad (Kepler's 2nd law)
+        // Shaded equal-area sector swept over ΔM = 0.48 rad (identical area at perihelion & aphelion)
         ctx.beginPath();
         ctx.moveTo(starX, starY);
-        const sweepSteps = 20;
+        const sweepSteps = 28;
         for (let i = 0; i <= sweepSteps; i++) {
-          const m = meanAnomaly - 0.42 + (0.42 * i) / sweepSteps;
+          const m = meanAnomaly - 0.48 + (0.48 * i) / sweepSteps;
           const pt = computeKeplerOrbit(semiMajorAU, eccentricity, m);
           ctx.lineTo(starX + pt.xAU * scalePxPerAU, starY + pt.yAU * scalePxPerAU);
         }
@@ -434,14 +494,13 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.lineTo(planetX, planetY);
         ctx.stroke();
 
-        // Instantaneous velocity tangent vector scaled by vis-viva speed
-        const ahead = computeKeplerOrbit(semiMajorAU, eccentricity, meanAnomaly + 0.04);
-        const vx = ahead.xAU - current.xAU;
-        const vy = ahead.yAU - current.yAU;
-        const vNorm = Math.hypot(vx, vy) || 1;
-        const arrowLen = Math.min(54, Math.max(16, current.speedKmS * 0.92));
-        const tipX = planetX + (vx / vNorm) * arrowLen;
-        const tipY = planetY + (vy / vNorm) * arrowLen;
+        // EXACT analytic velocity tangent vector (vxKmS, vyKmS) scaled by speed
+        const vNorm = Math.hypot(current.vxKmS, current.vyKmS) || 1;
+        const ux = current.vxKmS / vNorm;
+        const uy = current.vyKmS / vNorm;
+        const arrowLen = Math.min(58, Math.max(16, current.speedKmS * 0.82));
+        const tipX = planetX + ux * arrowLen;
+        const tipY = planetY + uy * arrowLen;
         ctx.strokeStyle = inkPrimary;
         ctx.lineWidth = 1.65;
         ctx.beginPath();
@@ -450,8 +509,6 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.stroke();
 
         // Crisp arrowhead
-        const ux = vx / vNorm;
-        const uy = vy / vNorm;
         ctx.beginPath();
         ctx.moveTo(tipX, tipY);
         ctx.lineTo(tipX - ux * 6 - uy * 3.5, tipY - uy * 6 + ux * 3.5);
@@ -472,174 +529,173 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.arc(planetX, planetY, 5, 0, Math.PI * 2);
         ctx.fill();
 
-        if (ptr) {
-          nextProbeText = ptr.down
-            ? `Scrubbing · r=${current.radiusAU.toFixed(2)}AU · v=${current.speedKmS.toFixed(1)}km/s`
-            : `Drag to scrub · r=${current.radiusAU.toFixed(2)}AU · T=${orbitPeriod.toFixed(2)}yr`;
-        }
-
-        if (now - lastUiSyncRef.current > 110) {
-          lastUiSyncRef.current = now;
-          setLiveOrbitSpeed(current.speedKmS);
-          setLiveOrbitRadius(current.radiusAU);
-        }
-      } else if (mode === "horizon") {
-        const cx = width * 0.52;
-        const cy = height * 0.5;
-        const rsPx = 15 + (solarMasses / 50) * 26;
-        const photonPx = rsPx * 1.5;
-        const critPx = rsPx * 2.598;
-
-        // Concentric gravitational potential contours
-        ctx.strokeStyle = isDark
-          ? "rgba(237, 242, 245, 0.12)"
-          : "rgba(17, 22, 27, 0.12)";
-        ctx.lineWidth = 1;
-        for (const mult of [2.1, 3.0, 4.1]) {
-          ctx.beginPath();
-          ctx.arc(cx, cy, rsPx * mult, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Photon sphere dashed circle (1.5 r_s)
+        // Micro apsis annotations
         ctx.save();
+        ctx.direction = "ltr";
+        ctx.font = "10px ui-monospace, SFMono-Regular, monospace";
+        ctx.fillStyle = inkMuted;
+        ctx.textAlign = "left";
+        if (periX + 6 < width - 24) ctx.fillText("rₚ", periX + 6, cy - 5);
+        ctx.textAlign = "right";
+        if (aphX - 6 > 24) ctx.fillText("rₐ", aphX - 6, cy - 5);
+        ctx.restore();
+
+        if (ptr) {
+          const nuDeg = ((current.trueAnomalyRad * 180) / Math.PI + 360) % 360;
+          nextProbeText = `ν=${nuDeg.toFixed(1)}° · r=${current.radiusAU.toFixed(3)}AU · v=${current.speedKmS.toFixed(2)}km/s · γ=${current.flightPathDeg >= 0 ? "+" : ""}${current.flightPathDeg.toFixed(1)}°`;
+        }
+
+        nextOrbitSync = {
+          speedKmS: current.speedKmS,
+          radiusAU: current.radiusAU,
+          flightPathDeg: current.flightPathDeg,
+          perihelionAU: current.perihelionAU,
+          aphelionAU: current.aphelionAU,
+        };
+      } else if (mode === "horizon") {
+        const cx = width * 0.54;
+        const cy = height * 0.5;
+        // Scale Schwarzschild radius cleanly so both photon sphere (1.5 r_s) and ISCO (3.0 r_s) fit crisply
+        const rsPx = Math.min(height * 0.135, 13 + (solarMasses / 65) * 18);
+        const photonPx = rsPx * 1.5;
+        const iscoPx = rsPx * 3.0;
+
+        // Concentric exact relativistic surfaces: ISCO (3 r_s) & outer gravitational reference (5 r_s)
+        ctx.save();
+        ctx.setLineDash([2, 4]);
+        ctx.strokeStyle = isDark
+          ? "rgba(237, 242, 245, 0.22)"
+          : "rgba(17, 22, 27, 0.22)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, iscoPx, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.strokeStyle = isDark
+          ? "rgba(237, 242, 245, 0.08)"
+          : "rgba(17, 22, 27, 0.08)";
+        ctx.beginPath();
+        ctx.arc(cx, cy, rsPx * 5.0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Photon sphere dashed circle (r = 1.5 r_s)
         ctx.setLineDash([4, 4]);
         ctx.strokeStyle = accent;
-        ctx.lineWidth = 1.2;
+        ctx.lineWidth = 1.25;
         ctx.beginPath();
         ctx.arc(cx, cy, photonPx, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
 
-        // Background ambient deflected null geodesics
-        const ambientOffsets = [-3.6, -2.8, 2.8, 3.6];
-        ambientOffsets.forEach((bMult, idx) => {
-          const b = bMult * rsPx;
-          const sign = b >= 0 ? 1 : -1;
-          const absB = Math.abs(b);
-          const deflectionStrength = (rsPx * rsPx * 1.45) / absB;
+        // Micro surface tags positioned on distinct axes so they never overlap at any mass
+        ctx.save();
+        ctx.direction = "ltr";
+        ctx.textAlign = "left";
+        ctx.font = "9.5px ui-monospace, SFMono-Regular, monospace";
+        ctx.fillStyle = accent;
+        ctx.fillText("1.5rₛ", cx + 6, cy - photonPx - 4);
+        ctx.fillStyle = inkMuted;
+        ctx.fillText("ISCO 3rₛ", cx + iscoPx * 0.74 + 5, cy + iscoPx * 0.74 + 4);
+        ctx.restore();
 
+        // Helper to draw an exact RK4 Schwarzschild geodesic polyline + travelling photon pulse
+        const drawGeodesic = (
+          geo: SchwarzschildGeodesicResult,
+          strokeColor: string,
+          lineWidth: number,
+          pulsePhase: number,
+          pulseRadius: number
+        ) => {
+          const pts = geo.points;
+          if (pts.length < 2) return;
           ctx.beginPath();
-          const steps = 64;
-          for (let i = 0; i <= steps; i++) {
-            const u = i / steps;
-            const x = 18 + u * (width - 36);
-            const dx = x - cx;
-            const bend = -sign * deflectionStrength * Math.exp(-(dx * dx) / (2 * absB * absB * 1.6));
-            const asymptotic = dx > 0 ? -sign * (deflectionStrength * 0.42) * (dx / (width * 0.45)) : 0;
-            const y = cy + b + bend + asymptotic;
+          for (let i = 0; i < pts.length; i++) {
+            const x = cx + pts[i].xRs * rsPx;
+            const y = cy - pts[i].yRs * rsPx;
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
           }
-          ctx.strokeStyle = isDark
-            ? "rgba(237, 242, 245, 0.25)"
-            : "rgba(17, 22, 27, 0.25)";
-          ctx.lineWidth = 1.1;
+          ctx.strokeStyle = strokeColor;
+          ctx.lineWidth = lineWidth;
           ctx.stroke();
 
-          // Travelling ambient photon pulses
-          const pulseU = (t * 0.36 + idx * 0.23) % 1;
-          const x = 18 + pulseU * (width - 36);
-          const dx = x - cx;
-          const bend = -sign * deflectionStrength * Math.exp(-(dx * dx) / (2 * absB * absB * 1.6));
-          const asymptotic = dx > 0 ? -sign * (deflectionStrength * 0.42) * (dx / (width * 0.45)) : 0;
-          const y = cy + b + bend + asymptotic;
-          ctx.fillStyle = inkMuted;
+          // Travelling photon pulse along exact geodesic arc
+          const idxFloat = (((pulsePhase % 1) + 1) % 1) * (pts.length - 1);
+          const idx0 = Math.floor(idxFloat);
+          const idx1 = Math.min(pts.length - 1, idx0 + 1);
+          const frac = idxFloat - idx0;
+          const px = cx + (pts[idx0].xRs + (pts[idx1].xRs - pts[idx0].xRs) * frac) * rsPx;
+          const py = cy - (pts[idx0].yRs + (pts[idx1].yRs - pts[idx0].yRs) * frac) * rsPx;
+          ctx.fillStyle = strokeColor;
           ctx.beginPath();
-          ctx.arc(x, y, 2.3, 0, Math.PI * 2);
+          ctx.arc(px, py, pulseRadius, 0, Math.PI * 2);
           ctx.fill();
+        };
+
+        // Render ambient exact RK4 deflected null geodesics
+        const ambientColor = isDark
+          ? "rgba(237, 242, 245, 0.28)"
+          : "rgba(17, 22, 27, 0.28)";
+        ambientGeodesics.forEach((geo, idx) => {
+          drawGeodesic(geo, ambientColor, 1.1, t * 0.34 + idx * 0.17, 2.2);
         });
 
-        // Interactive User-Aimed Test Laser Photon (defaults to b = 2.9 r_s when idle, follows cursor Y when hovering)
-        const aimY = ptr ? Math.min(height - 16, Math.max(16, ptr.ny * height)) : cy - rsPx * 2.85;
-        const aimOffsetPx = aimY - cy;
-        const impactRs = Math.max(0.25, Math.abs(aimOffsetPx) / rsPx);
-        const deflection = computePhotonDeflection(impactRs);
-        const sign = aimOffsetPx >= 0 ? 1 : -1;
-
-        ctx.beginPath();
-        const raySteps = 80;
-        let pulseX = 18;
-        let pulseY = aimY;
-        const userPulseU = (t * 0.52) % 1;
-
-        if (deflection.captured) {
-          // Captured geodesic plunges cleanly into the Schwarzschild event horizon
-          const endX = cx - Math.cos(0.45) * (rsPx * 0.92);
-          const endY = cy + sign * Math.sin(0.45) * (rsPx * 0.92);
-          for (let i = 0; i <= raySteps; i++) {
-            const u = i / raySteps;
-            const x = 18 + u * (endX - 18);
-            const curve = Math.pow(u, 2.6);
-            const y = aimY * (1 - curve) + endY * curve;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-            if (Math.abs(u - userPulseU) < 1 / raySteps) {
-              pulseX = x;
-              pulseY = y;
-            }
-          }
-          ctx.strokeStyle = "#dc2626";
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          ctx.fillStyle = "#dc2626";
-          ctx.beginPath();
-          ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
-          ctx.fill();
-        } else {
-          const absB = Math.max(critPx * 0.92, Math.abs(aimOffsetPx));
-          const deflectionStrength = (rsPx * rsPx * 1.95) / absB;
-          for (let i = 0; i <= raySteps; i++) {
-            const u = i / raySteps;
-            const x = 18 + u * (width - 36);
-            const dx = x - cx;
-            const bend = -sign * deflectionStrength * Math.exp(-(dx * dx) / (2 * absB * absB * 1.35));
-            const asymptotic = dx > 0 ? -sign * (deflectionStrength * 0.58) * (dx / (width * 0.42)) : 0;
-            const y = cy + aimOffsetPx + bend + asymptotic;
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-            if (Math.abs(u - userPulseU) < 1 / raySteps) {
-              pulseX = x;
-              pulseY = y;
-            }
-          }
-          ctx.strokeStyle = accent;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-
-          ctx.fillStyle = accent;
-          ctx.beginPath();
-          ctx.arc(pulseX, pulseY, 4, 0, Math.PI * 2);
-          ctx.fill();
+        // Interactive User-Aimed Test Laser Photon:
+        // Defaults to b = 2.66 r_s (just outside b_crit = 2.598 r_s) so strong-field lensing >120° is immediately visible!
+        const aimY = ptr
+          ? Math.min(height - 14, Math.max(14, ptr.ny * height))
+          : cy - rsPx * 2.68;
+        // Convert screen offset to signed physical impact parameter b / r_s (positive above horizon)
+        const rawSignedImpact = (cy - aimY) / rsPx;
+        const signedImpactRs =
+          Math.abs(rawSignedImpact) < 0.3
+            ? rawSignedImpact >= 0
+              ? 0.3
+              : -0.3
+            : rawSignedImpact;
+        const quantKey = Math.round(signedImpactRs * 200);
+        if (quantKey !== cachedImpactKey || !cachedLaserGeodesic) {
+          cachedImpactKey = quantKey;
+          cachedLaserGeodesic = traceSchwarzschildGeodesic(signedImpactRs, {
+            rViewRs: Math.max(16, Math.ceil((width * 0.65) / rsPx)),
+            maxSteps: 2200,
+            stepRad: 0.012,
+          });
         }
 
-        // Laser emitter notch on left edge
-        ctx.fillStyle = deflection.captured ? "#dc2626" : accent;
-        ctx.fillRect(10, aimY - 3, 8, 6);
+        const laserGeo = cachedLaserGeodesic;
+        const laserColor = laserGeo.captured ? "#dc2626" : accent;
+        drawGeodesic(laserGeo, laserColor, 2.1, t * 0.45, 4);
 
-        // Matte event horizon disk
+        // Laser emitter notch aligned to asymptotic impact parameter b on left edge
+        const emitterY = Math.min(height - 10, Math.max(10, cy - signedImpactRs * rsPx));
+        ctx.fillStyle = laserColor;
+        ctx.fillRect(8, emitterY - 3, 8, 6);
+
+        // Matte Schwarzschild event horizon disk (r = r_s)
         ctx.fillStyle = isDark ? "#050708" : "#11161b";
         ctx.beginPath();
         ctx.arc(cx, cy, rsPx, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = inkPrimary;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1.6;
         ctx.stroke();
 
+        // Always show live RK4 laser telemetry when pointer is on canvas
         if (ptr) {
-          nextProbeText = deflection.captured
-            ? `b=${impactRs.toFixed(2)}rₛ < 2.60rₛ · CAPTURED`
-            : `b=${impactRs.toFixed(2)}rₛ · Δφ=${deflection.deflectionDeg.toFixed(1)}°`;
+          nextProbeText = laserGeo.captured
+            ? `b=${laserGeo.impactParamRs.toFixed(3)}rₛ < ${CRITICAL_IMPACT_RS.toFixed(3)}rₛ · CAPTURED AT r=rₛ`
+            : `b=${laserGeo.impactParamRs.toFixed(3)}rₛ · Δφ=${laserGeo.deflectionDeg.toFixed(1)}° · r_min=${laserGeo.closestApproachRs.toFixed(2)}rₛ`;
         }
       } else {
-        // Experiment 4: 1D Quantum Potential Well Superposition |ψ(x, t)|²
+        // Experiment 4: Exact 1D Infinite Quantum Potential Well Superposition |ψ(x, t)|²
         const padX = 44;
         const wellLeft = padX;
         const wellRight = width - padX;
         const wellWidth = wellRight - wellLeft;
         const baseY = Math.round(height * 0.78);
-        const topY = 26;
+        const topY = 24;
         const usableH = baseY - topY;
         const phaseT = t * 1.35;
 
@@ -653,7 +709,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.lineTo(wellRight, topY);
         ctx.stroke();
 
-        // Midline axis for Re(ψ)
+        // Midline axis for Re(ψ) and Im(ψ)
         const waveMidY = topY + usableH * 0.56;
         ctx.strokeStyle = axisLine;
         ctx.lineWidth = 1;
@@ -663,7 +719,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         ctx.stroke();
 
         // Probability density |ψ(x, t)|² filled area & crisp curve
-        const samples = 140;
+        const samples = 180;
         const probScale = usableH * 0.24;
         ctx.beginPath();
         ctx.moveTo(wellLeft, baseY);
@@ -694,12 +750,31 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         }
         ctx.stroke();
 
-        // Real part Re(ψ(x, t)) oscillating hairline
+        // Imaginary part Im(ψ(x, t)) subtle dashed hairline
         const ampScale = usableH * 0.22;
+        ctx.save();
+        ctx.setLineDash([3, 3]);
         ctx.strokeStyle = isDark
-          ? "rgba(237, 242, 245, 0.72)"
-          : "rgba(17, 22, 27, 0.65)";
-        ctx.lineWidth = 1.35;
+          ? "rgba(237, 242, 245, 0.3)"
+          : "rgba(17, 22, 27, 0.28)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i <= samples; i++) {
+          const u = i / samples;
+          const s = sampleQuantumSuperposition(u, quantumN1, quantumN2, phaseT);
+          const x = wellLeft + u * wellWidth;
+          const y = waveMidY - s.imag * ampScale;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        // Real part Re(ψ(x, t)) crisp hairline
+        ctx.strokeStyle = isDark
+          ? "rgba(237, 242, 245, 0.78)"
+          : "rgba(17, 22, 27, 0.7)";
+        ctx.lineWidth = 1.4;
         ctx.beginPath();
         for (let i = 0; i <= samples; i++) {
           const u = i / samples;
@@ -711,20 +786,39 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         }
         ctx.stroke();
 
-        // Expected position <x> marker along bottom rail
-        let meanU = 0;
-        for (let i = 0; i < 100; i++) {
-          const u = (i + 0.5) / 100;
-          meanU += u * sampleQuantumSuperposition(u, quantumN1, quantumN2, phaseT).probDensity / 100;
-        }
-        const meanX = wellLeft + meanU * wellWidth;
+        // EXACT analytical <x(t)> and ±σ_x(t) uncertainty bracket along bottom rail
+        const exactObs = computeQuantumObservables(quantumN1, quantumN2, phaseT);
+        currentQuantumMeanU = exactObs.meanU;
+        const meanX = wellLeft + exactObs.meanU * wellWidth;
+        const leftSigmaX = Math.max(wellLeft, wellLeft + (exactObs.meanU - exactObs.sigmaU) * wellWidth);
+        const rightSigmaX = Math.min(wellRight, wellLeft + (exactObs.meanU + exactObs.sigmaU) * wellWidth);
+
+        // ±σ_x horizontal uncertainty bar
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(leftSigmaX, baseY + 6);
+        ctx.lineTo(rightSigmaX, baseY + 6);
+        ctx.moveTo(leftSigmaX, baseY + 3);
+        ctx.lineTo(leftSigmaX, baseY + 9);
+        ctx.moveTo(rightSigmaX, baseY + 3);
+        ctx.lineTo(rightSigmaX, baseY + 9);
+        ctx.stroke();
+
+        // Exact <x> triangle pointer
         ctx.fillStyle = accent;
         ctx.beginPath();
-        ctx.moveTo(meanX, baseY + 2);
-        ctx.lineTo(meanX - 5, baseY + 10);
-        ctx.lineTo(meanX + 5, baseY + 10);
+        ctx.moveTo(meanX, baseY + 1);
+        ctx.lineTo(meanX - 4.5, baseY + 9);
+        ctx.lineTo(meanX + 4.5, baseY + 9);
         ctx.closePath();
         ctx.fill();
+
+        nextQuantumSync = {
+          meanU: exactObs.meanU,
+          sigmaU: exactObs.sigmaU,
+          heisenbergHbar: exactObs.heisenbergProductHbar,
+        };
 
         // Interactive Quantum Position Probe on hover
         if (ptr) {
@@ -749,14 +843,16 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
           ctx.fill();
           ctx.restore();
 
-          nextProbeText = `x/L=${u.toFixed(2)} · |ψ|²=${s.probDensity.toFixed(2)} · Re(ψ)=${s.real.toFixed(2)}`;
+          nextProbeText = `x=${(u * wellWidthNm).toFixed(3)}nm · |ψ|²=${s.probDensity.toFixed(3)} · Re=${s.real.toFixed(2)} · Im=${s.imag.toFixed(2)}`;
         }
       }
 
-      // Sync pointer probe telemetry cleanly (~12Hz)
-      if (now - lastUiSyncRef.current > 85) {
+      // Unified throttled UI telemetry sync (~10Hz) across all 4 instruments
+      if (now - lastUiSyncRef.current > 95) {
         lastUiSyncRef.current = now;
         setProbeReadout(nextProbeText);
+        if (nextOrbitSync) setLiveOrbit(nextOrbitSync);
+        if (nextQuantumSync) setLiveQuantum(nextQuantumSync);
       }
 
       // Calibration corner ruler marks (always LTR so units never clip on RTL pages)
@@ -767,12 +863,12 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
       ctx.font = "11px ui-monospace, SFMono-Regular, monospace";
       const tag =
         mode === "slit"
-          ? `λ=${wavelengthNm}nm  d=${slitSepMm.toFixed(2)}mm`
+          ? `λ=${wavelengthNm}nm  d=${slitSepMm.toFixed(2)}mm  a=${slitWidthMm.toFixed(3)}mm`
           : mode === "orbit"
-            ? `e=${eccentricity.toFixed(2)}  a=${semiMajorAU.toFixed(1)}AU`
+            ? `e=${eccentricity.toFixed(3)}  a=${semiMajorAU.toFixed(3)}AU  ε=${orbitReference.specificEnergyKm2S2.toFixed(1)}km²/s²`
             : mode === "horizon"
-              ? `M=${solarMasses}M☉  rₛ=${horizonMetrics.schwarzschildKm.toFixed(1)}km`
-              : `n₁=${quantumN1}  n₂=${quantumN2}  L=1.0nm`;
+              ? `M=${solarMasses.toFixed(1)}M☉  rₛ=${horizonMetrics.schwarzschildKm.toFixed(2)}km  b_crit=${horizonMetrics.criticalImpactKm.toFixed(1)}km`
+              : `n₁=${quantumN1}  n₂=${quantumN2}  L=${wellWidthNm.toFixed(2)}nm  ⟨x⟩=${(currentQuantumMeanU * wellWidthNm).toFixed(2)}nm`;
       ctx.fillText(tag, 12, height - 10);
       ctx.restore();
 
@@ -789,15 +885,18 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
     expanded,
     wavelengthNm,
     slitSepMm,
+    slitWidthMm,
     slitMetrics.spectralHex,
-    slitMetrics.fringeSpacingMm,
     eccentricity,
     semiMajorAU,
-    orbitPeriod,
+    orbitReference.specificEnergyKm2S2,
     solarMasses,
     horizonMetrics.schwarzschildKm,
+    horizonMetrics.criticalImpactKm,
+    ambientGeodesics,
     quantumN1,
     quantumN2,
+    wellWidthNm,
   ]);
 
   const tabs: { id: LabMode; icon: typeof Waves; labelFa: string; labelEn: string }[] = [
@@ -810,19 +909,28 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
   const probeHint =
     mode === "slit"
       ? isFa
-        ? "حرکت نشانگر برای اندازه‌گیری شدت فریز"
-        : "Move pointer to probe fringe intensity"
+        ? "حرکت نشانگر برای سنجش دقیق Δr و I/I₀"
+        : "Move pointer to probe exact Δr & I/I₀"
       : mode === "orbit"
         ? isFa
-          ? "بکشید تا سیاره را روی مدار حرکت دهید"
+          ? "بکشید تا سیاره را روی مدار دقیق حرکت دهید"
           : "Drag canvas to scrub orbital phase"
         : mode === "horizon"
           ? isFa
-            ? "حرکت عمودی نشانگر برای نشانه‌گیری لیزر فوتون"
-            : "Move vertically to aim test photon beam"
+            ? "حرکت عمودی نشانگر برای شلیک لیزر فوتونی RK4"
+            : "Move vertically to aim exact RK4 photon beam"
           : isFa
-            ? "حرکت نشانگر برای اندازه‌گیری |ψ(x)|²"
-            : "Move pointer to sample |ψ(x)|²";
+            ? "حرکت نشانگر برای سنجش |ψ(x)|²، Re و Im"
+            : "Move pointer to sample |ψ(x)|², Re & Im";
+
+  const solverBadge =
+    mode === "slit"
+      ? "NON-PARAXIAL · CODATA 2022"
+      : mode === "orbit"
+        ? "HALLEY <10⁻¹⁴ · IAU 2015"
+        : mode === "horizon"
+          ? "RK4 SCHWARZSCHILD · EXACT"
+          : "ANALYTIC ħ · CODATA 2022";
 
   return (
     <div
@@ -830,25 +938,58 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
       className="overflow-hidden rounded-t-2xl border border-b-0 border-(--color-border-strong) bg-(--color-bg-elevated) shadow-[0_-10px_32px_rgba(15,20,22,0.08)]"
     >
       {/* Top instrument header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-subtle) px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2.5 text-xs text-(--color-text-tertiary)">
-          <span
-            dir="ltr"
-            className="font-[family-name:var(--font-mono)] font-medium text-(--color-accent-purple)"
-          >
-            01 / LAB
-          </span>
-          <span aria-hidden="true">·</span>
-          <span className="font-medium text-(--color-text-secondary)">
-            {isFa ? "میز شبیه‌ساز زنده فیزیک" : "Live physics instrument bench"}
-          </span>
+      <div className="flex flex-col gap-2.5 border-b border-(--color-border-subtle) px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-(--color-text-tertiary)">
+            <span
+              dir="ltr"
+              className="font-[family-name:var(--font-mono)] font-medium text-(--color-accent-purple)"
+            >
+              01 / LAB
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="font-medium text-(--color-text-secondary)">
+              {isFa ? "میز شبیه‌ساز دقیق فیزیک" : "Precision live physics bench"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setPlaying((p) => !p)}
+              aria-label={
+                playing
+                  ? isFa
+                    ? "توقف شبیه‌سازی"
+                    : "Pause simulation"
+                  : isFa
+                    ? "ادامه شبیه‌سازی"
+                    : "Play simulation"
+              }
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
+            >
+              {playing ? (
+                <Pause className="h-3.5 w-3.5" strokeWidth={1.5} />
+              ) : (
+                <Play className="h-3.5 w-3.5" strokeWidth={1.5} />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleReset}
+              aria-label={isFa ? "بازنشانی پارامترها" : "Reset parameters"}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
+            >
+              <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <div
             role="tablist"
             aria-label={isFa ? "انتخاب آزمایش زنده" : "Select physics experiment"}
-            className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1"
+            className="grid w-full grid-cols-2 gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1 sm:inline-flex sm:w-auto sm:flex-wrap sm:items-center"
           >
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -861,20 +1002,20 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                   aria-selected={active}
                   data-kinetic-tab={tab.id}
                   onClick={() => handleSelectMode(tab.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-150 ${
+                  className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors duration-150 sm:justify-start sm:py-1 ${
                     active
                       ? "bg-(--color-bg-elevated) text-(--color-text-primary) shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
                       : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
-                  <span>{isFa ? tab.labelFa : tab.labelEn}</span>
+                  <span className="truncate">{isFa ? tab.labelFa : tab.labelEn}</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="hidden items-center gap-1 lg:flex">
             <button
               type="button"
               onClick={() => setPlaying((p) => !p)}
@@ -917,7 +1058,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                     ? "گسترش نمای آزمایشگاه"
                     : "Expand lab view"
               }
-              className="hidden h-8 w-8 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) lg:flex"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
             >
               {expanded ? (
                 <Minimize2 className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -929,7 +1070,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         </div>
       </div>
 
-      {/* Main bench body: 7/5 split or expanded stacked 12-col cinema bench */}
+      {/* Main bench body: 7/5 split or expanded 12-col cinema bench */}
       <div
         className={`grid divide-y divide-(--color-border-subtle) ${
           expanded
@@ -941,7 +1082,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
         <div className={`relative p-4 sm:p-5 ${expanded ? "" : "lg:col-span-7"}`}>
           <div
             className={`relative w-full overflow-hidden rounded-xl border border-(--color-border-subtle) ${
-              expanded ? "h-[340px] sm:h-[390px]" : "h-[248px] sm:h-[282px]"
+              expanded ? "h-[350px] sm:h-[400px]" : "h-[264px] sm:h-[304px]"
             }`}
           >
             <canvas
@@ -965,28 +1106,28 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               aria-label={
                 mode === "slit"
                   ? isFa
-                    ? "شبیه‌سازی زنده تداخل موج دو شکاف"
-                    : "Live double-slit wave interference simulation"
+                    ? "شبیه‌سازی دقیق غیرپاراگزیال تداخل موج دو شکاف"
+                    : "Exact non-paraxial double-slit wave interference simulation"
                   : mode === "orbit"
                     ? isFa
-                      ? "شبیه‌سازی زنده مدار بیضوی کپلر"
-                      : "Live Keplerian elliptical orbit simulation"
+                      ? "شبیه‌سازی دقیق مدار بیضوی کپلر با حلگر هالی"
+                      : "Machine-precision Keplerian elliptical orbit simulation"
                     : mode === "horizon"
                       ? isFa
-                        ? "شبیه‌سازی زنده خمش نور در افق رویداد"
-                        : "Live gravitational light deflection around event horizon"
+                        ? "شبیه‌سازی دقیق ژئودزیک نور شوارتزشیلد با انتگرال‌گیر RK4"
+                        : "Exact RK4 Schwarzschild null geodesic simulation"
                       : isFa
-                        ? "شبیه‌سازی زنده برهم‌نهی موج کوانتومی در چاه پتانسیل"
-                        : "Live quantum wavefunction superposition in a 1D potential well"
+                        ? "شبیه‌سازی دقیق برهم‌نهی موج کوانتومی و عدم قطعیت هایزنبرگ"
+                        : "Exact 1D quantum potential well wavefunction & Heisenberg simulation"
               }
               className="block h-full w-full cursor-crosshair touch-none"
             />
           </div>
 
-          {/* Interactive Pointer Telemetry Footer */}
+          {/* Interactive Pointer Telemetry & Solver Provenance Footer */}
           <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-(--color-text-tertiary)">
             <span className="inline-flex items-center gap-1.5">
-              <Crosshair className="h-3.5 w-3.5 text-(--color-accent-purple)" strokeWidth={1.5} />
+              <Crosshair className="h-3.5 w-3.5 shrink-0 text-(--color-accent-purple)" strokeWidth={1.5} />
               {probeReadout ? (
                 <span
                   dir="ltr"
@@ -998,13 +1139,13 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                 <span>{probeHint}</span>
               )}
             </span>
-            <span dir="ltr" className="font-[family-name:var(--font-mono)] tabular-nums opacity-75">
-              60 FPS · REALTIME
+            <span dir="ltr" className="font-[family-name:var(--font-mono)] tabular-nums opacity-80">
+              {solverBadge}
             </span>
           </div>
         </div>
 
-        {/* Precision Controls, Curated Presets, Live KaTeX & Readouts */}
+        {/* Precision Controls, Curated Presets, Live KaTeX & Exact Readouts */}
         <div
           className={
             expanded
@@ -1012,42 +1153,45 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               : "flex flex-col justify-between gap-4 p-4 sm:p-5 lg:col-span-5"
           }
         >
-          <div className={expanded ? "space-y-3 lg:col-span-4" : "space-y-4"}>
-            {/* Live Formula Strip */}
+          <div className={expanded ? "space-y-3 lg:col-span-4" : "space-y-3"}>
+            {/* Live Governing Equation Strip */}
             <div className="flex items-center justify-between gap-3 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3.5 py-2.5">
-              <span className="text-xs text-(--color-text-tertiary)">
+              <span className="shrink-0 text-xs text-(--color-text-tertiary)">
                 {mode === "slit"
                   ? isFa
-                    ? "فاصله فریزها"
-                    : "Fringe spacing"
+                    ? "تداخل و پراش"
+                    : "Interference"
                   : mode === "orbit"
                     ? isFa
-                      ? "معادله ویس-ویوا"
-                      : "Vis-viva law"
+                      ? "کپلر و ویس-ویوا"
+                      : "Kepler law"
                     : mode === "horizon"
                       ? isFa
-                        ? "افق و کره فوتونی"
-                        : "Horizon scale"
+                        ? "ژئودزیک نوری"
+                        : "Null geodesic"
                       : isFa
-                        ? "تراز انرژی کوانتومی"
-                        : "Quantized levels"}
+                        ? "تراز و هایزنبرگ"
+                        : "Eigen & ħ/2"}
               </span>
               <div
                 dir="ltr"
-                className="overflow-x-auto text-sm text-(--color-text-primary)"
+                className="overflow-x-auto text-xs text-(--color-text-primary) sm:text-[13px]"
                 dangerouslySetInnerHTML={{ __html: renderedFormula }}
               />
             </div>
 
-            {/* Curated Scientific Presets */}
+            {/* Curated Real-World Scientific Presets */}
             <div className="flex flex-wrap items-center gap-1.5">
               {mode === "slit" &&
                 [
-                  { labelFa: "بنفش ۴۲۰nm", labelEn: "Violet 420nm", wl: 420, d: 0.35 },
-                  { labelFa: "لیزر سبز ۵۳۲nm", labelEn: "Laser 532nm", wl: 532, d: 0.45 },
-                  { labelFa: "قرمز ۶۵۰nm", labelEn: "Red 650nm", wl: 650, d: 0.6 },
+                  { labelFa: "بنفش ۴۰۵nm", labelEn: "Violet 405nm", wl: 405, d: 0.35, a: 0.07 },
+                  { labelFa: "Nd:YAG ۵۳۲nm", labelEn: "Nd:YAG 532nm", wl: 532, d: 0.45, a: 0.09 },
+                  { labelFa: "He-Ne ۶۳۳nm", labelEn: "He-Ne 633nm", wl: 633, d: 0.6, a: 0.12 },
                 ].map((preset) => {
-                  const active = wavelengthNm === preset.wl && Math.abs(slitSepMm - preset.d) < 0.01;
+                  const active =
+                    wavelengthNm === preset.wl &&
+                    Math.abs(slitSepMm - preset.d) < 0.01 &&
+                    Math.abs(slitWidthMm - preset.a) < 0.005;
                   return (
                     <button
                       key={preset.labelEn}
@@ -1055,6 +1199,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                       onClick={() => {
                         setWavelengthNm(preset.wl);
                         setSlitSepMm(preset.d);
+                        setSlitWidthMm(preset.a);
                       }}
                       className={`rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
                         active
@@ -1069,13 +1214,13 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
               {mode === "orbit" &&
                 [
-                  { labelFa: "مدار زمین", labelEn: "Earth", e: 0.02, a: 1.0 },
-                  { labelFa: "سیاره بیضوی", labelEn: "Exoplanet", e: 0.52, a: 1.4 },
-                  { labelFa: "دنباله‌دار هالی", labelEn: "Comet", e: 0.74, a: 2.2 },
+                  { labelFa: "عطارد (۰.۲۰۶)", labelEn: "Mercury", e: 0.206, a: 0.387 },
+                  { labelFa: "زمین (۰.۰۱۷)", labelEn: "Earth", e: 0.017, a: 1.0 },
+                  { labelFa: "بیضوی شدید", labelEn: "Eccentric", e: 0.78, a: 2.1 },
                 ].map((preset) => {
                   const active =
-                    Math.abs(eccentricity - preset.e) < 0.01 &&
-                    Math.abs(semiMajorAU - preset.a) < 0.05;
+                    Math.abs(eccentricity - preset.e) < 0.005 &&
+                    Math.abs(semiMajorAU - preset.a) < 0.02;
                   return (
                     <button
                       key={preset.labelEn}
@@ -1097,11 +1242,11 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
               {mode === "horizon" &&
                 [
-                  { labelFa: "ستاره‌ای ۵M☉", labelEn: "Stellar 5M☉", m: 5 },
-                  { labelFa: "ادغام ۲۰M☉", labelEn: "Merger 20M☉", m: 20 },
-                  { labelFa: "سنگین ۴۸M☉", labelEn: "Massive 48M☉", m: 48 },
+                  { labelFa: "ستاره‌ای ۵M☉", labelEn: "Stellar 5M☉", m: 5.0 },
+                  { labelFa: "Cygnus X-1", labelEn: "Cygnus X-1", m: 21.2 },
+                  { labelFa: "GW150914 (62M☉)", labelEn: "GW150914", m: 62.0 },
                 ].map((preset) => {
-                  const active = solarMasses === preset.m;
+                  const active = Math.abs(solarMasses - preset.m) < 0.1;
                   return (
                     <button
                       key={preset.labelEn}
@@ -1120,11 +1265,14 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
               {mode === "quantum" &&
                 [
-                  { labelFa: "پایه (۱+۱)", labelEn: "Ground (1+1)", a: 1, b: 1 },
-                  { labelFa: "برهم‌نهی (۱+۲)", labelEn: "Slosh (1+2)", a: 1, b: 2 },
-                  { labelFa: "تپنده (۲+۴)", labelEn: "Beat (2+4)", a: 2, b: 4 },
+                  { labelFa: "پایه (۱+۱)", labelEn: "Ground (1+1)", a: 1, b: 1, L: 1.0 },
+                  { labelFa: "نوسان (۱+۲)", labelEn: "Slosh (1+2)", a: 1, b: 2, L: 1.0 },
+                  { labelFa: "تنفس (۱+۳)", labelEn: "Breathe (1+3)", a: 1, b: 3, L: 1.0 },
                 ].map((preset) => {
-                  const active = quantumN1 === preset.a && quantumN2 === preset.b;
+                  const active =
+                    quantumN1 === preset.a &&
+                    quantumN2 === preset.b &&
+                    Math.abs(wellWidthNm - preset.L) < 0.02;
                   return (
                     <button
                       key={preset.labelEn}
@@ -1132,6 +1280,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                       onClick={() => {
                         setQuantumN1(preset.a);
                         setQuantumN2(preset.b);
+                        setWellWidthNm(preset.L);
                       }}
                       className={`rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${
                         active
@@ -1146,11 +1295,11 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
             </div>
           </div>
 
-          {/* Interactive Parameter Sliders */}
-          <div className={expanded ? "space-y-3 lg:col-span-4" : "space-y-3"}>
+          {/* Interactive Precision Parameter Sliders */}
+          <div className={expanded ? "space-y-2.5 lg:col-span-4" : "space-y-2.5"}>
             {mode === "slit" && (
               <>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <label htmlFor="kinetic-wl" className="text-(--color-text-secondary)">
                       {isFa ? "طول موج نور (λ)" : "Wavelength (λ)"}
@@ -1170,16 +1319,16 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                   <input
                     id="kinetic-wl"
                     type="range"
-                    min={400}
-                    max={700}
-                    step={5}
+                    min={380}
+                    max={750}
+                    step={1}
                     value={wavelengthNm}
                     onChange={(e) => setWavelengthNm(Number(e.target.value))}
                     className="kinetic-slider w-full"
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <label htmlFor="kinetic-slit" className="text-(--color-text-secondary)">
                       {isFa ? "فاصله دو شکاف (d)" : "Slit separation (d)"}
@@ -1194,11 +1343,35 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                   <input
                     id="kinetic-slit"
                     type="range"
-                    min={0.2}
-                    max={1.2}
-                    step={0.05}
+                    min={0.15}
+                    max={1.5}
+                    step={0.01}
                     value={slitSepMm}
                     onChange={(e) => setSlitSepMm(Number(e.target.value))}
+                    className="kinetic-slider w-full"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <label htmlFor="kinetic-slit-width" className="text-(--color-text-secondary)">
+                      {isFa ? "پهنای هر شکاف (a)" : "Slit aperture (a)"}
+                    </label>
+                    <span
+                      dir="ltr"
+                      className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
+                    >
+                      <bdi dir="ltr">{slitWidthMm.toFixed(3)} mm</bdi>
+                    </span>
+                  </div>
+                  <input
+                    id="kinetic-slit-width"
+                    type="range"
+                    min={0.02}
+                    max={0.2}
+                    step={0.005}
+                    value={slitWidthMm}
+                    onChange={(e) => setSlitWidthMm(Number(e.target.value))}
                     className="kinetic-slider w-full"
                   />
                 </div>
@@ -1207,7 +1380,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
             {mode === "orbit" && (
               <>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <label htmlFor="kinetic-ecc" className="text-(--color-text-secondary)">
                       {isFa ? "خروج از مرکز مدار (e)" : "Eccentricity (e)"}
@@ -1216,22 +1389,22 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                       dir="ltr"
                       className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
                     >
-                      <bdi dir="ltr">{eccentricity.toFixed(2)}</bdi>
+                      <bdi dir="ltr">{eccentricity.toFixed(3)}</bdi>
                     </span>
                   </div>
                   <input
                     id="kinetic-ecc"
                     type="range"
                     min={0}
-                    max={0.75}
-                    step={0.02}
+                    max={0.9}
+                    step={0.005}
                     value={eccentricity}
                     onChange={(e) => setEccentricity(Number(e.target.value))}
                     className="kinetic-slider w-full"
                   />
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <label htmlFor="kinetic-axis" className="text-(--color-text-secondary)">
                       {isFa ? "نیم‌محور بزرگ (a)" : "Semi-major axis (a)"}
@@ -1240,15 +1413,15 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                       dir="ltr"
                       className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
                     >
-                      <bdi dir="ltr">{semiMajorAU.toFixed(1)} AU</bdi>
+                      <bdi dir="ltr">{semiMajorAU.toFixed(3)} AU</bdi>
                     </span>
                   </div>
                   <input
                     id="kinetic-axis"
                     type="range"
-                    min={0.6}
-                    max={2.6}
-                    step={0.1}
+                    min={0.35}
+                    max={3.0}
+                    step={0.05}
                     value={semiMajorAU}
                     onChange={(e) => setSemiMajorAU(Number(e.target.value))}
                     className="kinetic-slider w-full"
@@ -1267,15 +1440,15 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
                     dir="ltr"
                     className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
                   >
-                    <bdi dir="ltr">{solarMasses} M☉</bdi>
+                    <bdi dir="ltr">{solarMasses.toFixed(1)} M☉</bdi>
                   </span>
                 </div>
                 <input
                   id="kinetic-mass"
                   type="range"
                   min={1}
-                  max={50}
-                  step={1}
+                  max={65}
+                  step={0.5}
                   value={solarMasses}
                   onChange={(e) => setSolarMasses(Number(e.target.value))}
                   className="kinetic-slider w-full"
@@ -1285,50 +1458,76 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
 
             {mode === "quantum" && (
               <>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <label htmlFor="kinetic-n1" className="text-(--color-text-secondary)">
-                      {isFa ? "تراز کوانتومی اول (n₁)" : "Primary eigenstate (n₁)"}
-                    </label>
-                    <span
-                      dir="ltr"
-                      className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
-                    >
-                      <bdi dir="ltr">n₁ = {quantumN1}</bdi>
-                    </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <label htmlFor="kinetic-n1" className="text-(--color-text-secondary)">
+                        {isFa ? "تراز n₁" : "State n₁"}
+                      </label>
+                      <span
+                        dir="ltr"
+                        className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
+                      >
+                        <bdi dir="ltr">{quantumN1}</bdi>
+                      </span>
+                    </div>
+                    <input
+                      id="kinetic-n1"
+                      type="range"
+                      min={1}
+                      max={6}
+                      step={1}
+                      value={quantumN1}
+                      onChange={(e) => setQuantumN1(Number(e.target.value))}
+                      className="kinetic-slider w-full"
+                    />
                   </div>
-                  <input
-                    id="kinetic-n1"
-                    type="range"
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={quantumN1}
-                    onChange={(e) => setQuantumN1(Number(e.target.value))}
-                    className="kinetic-slider w-full"
-                  />
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <label htmlFor="kinetic-n2" className="text-(--color-text-secondary)">
+                        {isFa ? "تراز n₂" : "State n₂"}
+                      </label>
+                      <span
+                        dir="ltr"
+                        className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
+                      >
+                        <bdi dir="ltr">{quantumN2}</bdi>
+                      </span>
+                    </div>
+                    <input
+                      id="kinetic-n2"
+                      type="range"
+                      min={1}
+                      max={6}
+                      step={1}
+                      value={quantumN2}
+                      onChange={(e) => setQuantumN2(Number(e.target.value))}
+                      className="kinetic-slider w-full"
+                    />
+                  </div>
                 </div>
 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
-                    <label htmlFor="kinetic-n2" className="text-(--color-text-secondary)">
-                      {isFa ? "تراز کوانتومی دوم (n₂)" : "Superposed state (n₂)"}
+                    <label htmlFor="kinetic-well-width" className="text-(--color-text-secondary)">
+                      {isFa ? "پهنای چاه پتانسیل (L)" : "Well width (L)"}
                     </label>
                     <span
                       dir="ltr"
                       className="font-[family-name:var(--font-mono)] font-medium tabular-nums text-(--color-text-primary)"
                     >
-                      <bdi dir="ltr">n₂ = {quantumN2}</bdi>
+                      <bdi dir="ltr">{wellWidthNm.toFixed(2)} nm</bdi>
                     </span>
                   </div>
                   <input
-                    id="kinetic-n2"
+                    id="kinetic-well-width"
                     type="range"
-                    min={1}
-                    max={5}
-                    step={1}
-                    value={quantumN2}
-                    onChange={(e) => setQuantumN2(Number(e.target.value))}
+                    min={0.5}
+                    max={2.5}
+                    step={0.05}
+                    value={wellWidthNm}
+                    onChange={(e) => setWellWidthNm(Number(e.target.value))}
                     className="kinetic-slider w-full"
                   />
                 </div>
@@ -1336,7 +1535,7 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
             )}
           </div>
 
-          {/* Live Computed Telemetry Readouts */}
+          {/* Exact CODATA / RK4 / Analytical Readouts */}
           <div
             className={
               expanded
@@ -1348,24 +1547,26 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               <>
                 <div className="rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "گام تداخل (Δy)" : "Fringe spacing"}
+                    {isFa ? "گام فریز (Δy)" : "Fringe spacing"}
                   </div>
                   <div
                     dir="ltr"
                     className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums text-(--color-accent-purple)"
                   >
-                    <bdi dir="ltr">{slitMetrics.fringeSpacingMm.toFixed(2)} mm</bdi>
+                    <bdi dir="ltr">{slitMetrics.fringeSpacingMm.toFixed(3)} mm</bdi>
                   </div>
                 </div>
                 <div className="rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "فاصله پرده (L)" : "Screen distance"}
+                    {isFa ? "انرژی فوتون / مرتبه غایب" : "Photon E / missing m"}
                   </div>
                   <div
                     dir="ltr"
-                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums text-(--color-text-primary)"
+                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums text-(--color-text-primary)"
                   >
-                    <bdi dir="ltr">1.50 m</bdi>
+                    <bdi dir="ltr">
+                      {slitMetrics.photonEnergyEv.toFixed(3)} eV · d/a={slitMetrics.missingOrder.toFixed(1)}
+                    </bdi>
                   </div>
                 </div>
               </>
@@ -1375,25 +1576,25 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               <>
                 <div className="rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "تندی لحظه‌ای (v)" : "Live speed"}
+                    {isFa ? "تندی لحظه‌ای (v)" : "Live speed (v)"}
                   </div>
                   <div
                     dir="ltr"
                     className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums text-(--color-accent-purple)"
                   >
-                    <bdi dir="ltr">{liveOrbitSpeed.toFixed(1)} km/s</bdi>
+                    <bdi dir="ltr">{liveOrbit.speedKmS.toFixed(2)} km/s</bdi>
                   </div>
                 </div>
                 <div className="rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "دوره تناوب / فاصله" : "Period / radius"}
+                    {isFa ? "دوره تناوب / rₚ – rₐ" : "Period / rₚ – rₐ"}
                   </div>
                   <div
                     dir="ltr"
-                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums text-(--color-text-primary)"
+                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-[11px] font-medium tabular-nums text-(--color-text-primary)"
                   >
                     <bdi dir="ltr">
-                      {orbitPeriod.toFixed(2)} yr · {liveOrbitRadius.toFixed(2)} AU
+                      {orbitReference.periodYears.toFixed(3)} yr · {liveOrbit.perihelionAU.toFixed(2)}–{liveOrbit.aphelionAU.toFixed(2)} AU
                     </bdi>
                   </div>
                 </div>
@@ -1404,26 +1605,25 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               <>
                 <div className="rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "شعاع افق (rₛ)" : "Horizon radius"}
+                    {isFa ? "افق رویداد (rₛ)" : "Horizon (rₛ)"}
                   </div>
                   <div
                     dir="ltr"
                     className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums text-(--color-accent-purple)"
                   >
-                    <bdi dir="ltr">{horizonMetrics.schwarzschildKm.toFixed(1)} km</bdi>
+                    <bdi dir="ltr">{horizonMetrics.schwarzschildKm.toFixed(2)} km</bdi>
                   </div>
                 </div>
                 <div className="rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "کره فوتونی / Tₕ" : "Photon sphere / Tₕ"}
+                    {isFa ? "ISCO / دمای هاوکینگ" : "ISCO / Hawking Tₕ"}
                   </div>
                   <div
                     dir="ltr"
-                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums text-(--color-text-primary)"
+                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-[11px] font-medium tabular-nums text-(--color-text-primary)"
                   >
                     <bdi dir="ltr">
-                      {horizonMetrics.photonSphereKm.toFixed(1)} km ·{" "}
-                      {horizonMetrics.hawkingTempNanoK.toFixed(1)} nK
+                      {horizonMetrics.iscoKm.toFixed(1)} km · {horizonMetrics.hawkingTempNanoK.toFixed(2)} nK
                     </bdi>
                   </div>
                 </div>
@@ -1434,31 +1634,28 @@ export function UnslopKineticBench({ locale }: { locale: Locale }) {
               <>
                 <div className="rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "شکاف انرژی (ΔE)" : "Energy gap (ΔE)"}
+                    {isFa ? "شکاف انرژی / دوره تپش" : "ΔE / Beat period"}
                   </div>
                   <div
                     dir="ltr"
-                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums text-(--color-accent-purple)"
+                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums text-(--color-accent-purple)"
                   >
                     <bdi dir="ltr">
                       {quantumMetrics.isSuperposition
-                        ? `${quantumMetrics.deltaEEv.toFixed(2)} eV`
-                        : `${quantumMetrics.energy1Ev.toFixed(2)} eV`}
+                        ? `${quantumMetrics.deltaEEv.toFixed(3)} eV · ${quantumMetrics.beatPeriodFs.toFixed(2)} fs`
+                        : `${quantumMetrics.energy1Ev.toFixed(3)} eV · ∞`}
                     </bdi>
                   </div>
                 </div>
                 <div className="rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2">
                   <div className="text-[11px] text-(--color-text-tertiary)">
-                    {isFa ? "وضعیت موج" : "Wave state"}
+                    {isFa ? "عدم قطعیت هایزنبرگ" : "Heisenberg σₓσₚ"}
                   </div>
-                  <div className="mt-0.5 text-xs font-medium text-(--color-text-primary)">
-                    {quantumMetrics.isSuperposition
-                      ? isFa
-                        ? "برهم‌نهی نوسانی زنده"
-                        : "Live sloshing beat"
-                      : isFa
-                        ? "حالت ایستا (تک‌تراز)"
-                        : "Stationary eigenstate"}
+                  <div
+                    dir="ltr"
+                    className="mt-0.5 text-start font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums text-(--color-text-primary)"
+                  >
+                    <bdi dir="ltr">{liveQuantum.heisenbergHbar.toFixed(3)} ħ ≥ 0.500</bdi>
                   </div>
                 </div>
               </>

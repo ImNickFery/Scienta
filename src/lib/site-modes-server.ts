@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { execute, queryOne } from "./db";
 import {
   DEFAULT_SITE_MODES,
@@ -11,22 +12,38 @@ interface SettingRow {
   updated_at?: string | null;
 }
 
+const SITE_MODES_CACHE_TTL_MS = 5_000;
+
+let cachedSiteModes: { value: SiteModesConfig; expiresAt: number } | null = null;
+
+export function invalidateSiteModesCache(): void {
+  cachedSiteModes = null;
+}
+
 /**
  * Loads the persisted site modes configuration from the `settings` table.
- * Falls back gracefully to defaults if the row does not exist yet.
+ * Uses a 5-second in-memory TTL cache + React per-request deduplication to avoid
+ * repeated `settings` lookups across layout and page renders, and falls back
+ * gracefully to defaults if the row does not exist yet.
  */
-export async function getSiteModes(): Promise<SiteModesConfig> {
+export const getSiteModes = cache(async (): Promise<SiteModesConfig> => {
+  const now = Date.now();
+  if (cachedSiteModes && cachedSiteModes.expiresAt > now) {
+    return { ...cachedSiteModes.value };
+  }
+
   try {
     const row = await queryOne<SettingRow>(
       "SELECT `value` FROM settings WHERE `key` = ? LIMIT 1",
       [SITE_MODES_SETTING_KEY]
     );
-    if (!row?.value) return { ...DEFAULT_SITE_MODES };
-    return parseSiteModes(row.value);
+    const parsed = row?.value ? parseSiteModes(row.value) : { ...DEFAULT_SITE_MODES };
+    cachedSiteModes = { value: parsed, expiresAt: now + SITE_MODES_CACHE_TTL_MS };
+    return { ...parsed };
   } catch {
     return { ...DEFAULT_SITE_MODES };
   }
-}
+});
 
 export async function getSiteModesWithMeta(): Promise<{
   modes: SiteModesConfig;
@@ -40,8 +57,10 @@ export async function getSiteModesWithMeta(): Promise<{
     if (!row?.value) {
       return { modes: { ...DEFAULT_SITE_MODES }, updatedAt: null };
     }
+    const modes = parseSiteModes(row.value);
+    cachedSiteModes = { value: modes, expiresAt: Date.now() + SITE_MODES_CACHE_TTL_MS };
     return {
-      modes: parseSiteModes(row.value),
+      modes,
       updatedAt: row.updated_at ?? null,
     };
   } catch {
@@ -66,5 +85,6 @@ export async function saveSiteModes(config: SiteModesConfig): Promise<SiteModesC
       [SITE_MODES_SETTING_KEY, serialized]
     );
   }
+  invalidateSiteModesCache();
   return safe;
 }

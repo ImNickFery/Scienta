@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidLocale } from "@/lib/i18n/config";
-import { getAllArticles, getAllTagRecords, searchArticles } from "@/lib/content";
+import { getAllTagRecords, getRecentArticles, searchArticles } from "@/lib/content";
 import { getAuthors, getFields } from "@/lib/taxonomy";
 import { filterTaxonomyForPalette, type CommandPalettePayload } from "@/lib/command-palette";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
 
   const [articlesRaw, fields, tags, authors] = await Promise.all([
-    q ? searchArticles(rawLocale, q) : getAllArticles(rawLocale),
+    q ? searchArticles(rawLocale, q) : getRecentArticles(rawLocale, 4),
     getFields(),
     getAllTagRecords(),
     getAuthors(),

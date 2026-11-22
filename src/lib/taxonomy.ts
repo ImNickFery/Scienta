@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { query, queryOne } from "./db";
 import type { Author, FieldSlug } from "@/types";
 
@@ -18,12 +19,17 @@ interface FieldRow {
   article_count: number;
 }
 
-export async function getFields(): Promise<FieldRecord[]> {
+export const getFields = cache(async (): Promise<FieldRecord[]> => {
   const rows = await query<FieldRow>(
     `SELECT f.slug, f.name_fa, f.name_en, f.color, f.icon,
-            (SELECT COUNT(*) FROM articles a WHERE a.field_id = f.id AND a.status='published' AND a.deleted_at IS NULL) AS article_count
+            COUNT(a.id) AS article_count
      FROM fields f
+     LEFT JOIN articles a
+       ON a.field_id = f.id
+      AND a.status = 'published'
+      AND a.deleted_at IS NULL
      WHERE f.deleted_at IS NULL
+     GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon, f.sort_order
      ORDER BY f.sort_order ASC`
   );
   return rows.map((r) => ({
@@ -31,15 +37,22 @@ export async function getFields(): Promise<FieldRecord[]> {
     name: { fa: r.name_fa, en: r.name_en },
     color: r.color,
     icon: r.icon,
-    articleCount: r.article_count,
+    articleCount: Number(r.article_count ?? 0),
   }));
-}
+});
 
-export async function getFieldBySlug(slug: string): Promise<FieldRecord | null> {
+export const getFieldBySlug = cache(async (slug: string): Promise<FieldRecord | null> => {
   const row = await queryOne<FieldRow>(
     `SELECT f.slug, f.name_fa, f.name_en, f.color, f.icon,
-            (SELECT COUNT(*) FROM articles a WHERE a.field_id = f.id AND a.status='published' AND a.deleted_at IS NULL) AS article_count
-     FROM fields f WHERE f.slug = ? AND f.deleted_at IS NULL LIMIT 1`,
+            COUNT(a.id) AS article_count
+     FROM fields f
+     LEFT JOIN articles a
+       ON a.field_id = f.id
+      AND a.status = 'published'
+      AND a.deleted_at IS NULL
+     WHERE f.slug = ? AND f.deleted_at IS NULL
+     GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon
+     LIMIT 1`,
     [slug]
   );
   if (!row) return null;
@@ -48,9 +61,9 @@ export async function getFieldBySlug(slug: string): Promise<FieldRecord | null> 
     name: { fa: row.name_fa, en: row.name_en },
     color: row.color,
     icon: row.icon,
-    articleCount: row.article_count,
+    articleCount: Number(row.article_count ?? 0),
   };
-}
+});
 
 interface AuthorRow {
   slug: string;
@@ -86,19 +99,19 @@ function rowToAuthor(row: AuthorRow): Author {
   };
 }
 
-export async function getAuthors(): Promise<Author[]> {
+export const getAuthors = cache(async (): Promise<Author[]> => {
   const rows = await query<AuthorRow>(
     `SELECT slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en, avatar_url, social_json
      FROM authors WHERE deleted_at IS NULL ORDER BY name_en ASC`
   );
   return rows.map(rowToAuthor);
-}
+});
 
-export async function getAuthorBySlug(slug: string): Promise<Author | null> {
+export const getAuthorBySlug = cache(async (slug: string): Promise<Author | null> => {
   const row = await queryOne<AuthorRow>(
     `SELECT slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en, avatar_url, social_json
      FROM authors WHERE slug = ? AND deleted_at IS NULL LIMIT 1`,
     [slug]
   );
   return row ? rowToAuthor(row) : null;
-}
+});

@@ -106,7 +106,8 @@ CREATE TABLE IF NOT EXISTS fields (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted_at DATETIME NULL,
-  INDEX idx_fields_deleted (deleted_at)
+  INDEX idx_fields_deleted (deleted_at),
+  INDEX idx_fields_deleted_order (deleted_at, sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -152,6 +153,7 @@ CREATE TABLE IF NOT EXISTS media (
   deleted_at DATETIME NULL,
   CONSTRAINT fk_media_uploader FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_media_deleted (deleted_at),
+  INDEX idx_media_deleted_created (deleted_at, created_at),
   INDEX idx_media_mime (mime_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -186,7 +188,14 @@ CREATE TABLE IF NOT EXISTS articles (
   INDEX idx_articles_deleted (deleted_at),
   INDEX idx_articles_published (published_at),
   INDEX idx_articles_featured (featured),
-  INDEX idx_articles_field (field_id)
+  INDEX idx_articles_field (field_id),
+  INDEX idx_articles_live_published (deleted_at, status, published_at, created_at),
+  INDEX idx_articles_live_field (deleted_at, status, field_id, published_at),
+  INDEX idx_articles_live_featured (deleted_at, status, featured, published_at),
+  INDEX idx_articles_live_trending (deleted_at, status, trending, views),
+  INDEX idx_articles_live_views (deleted_at, status, views),
+  INDEX idx_articles_live_scheduled (deleted_at, status, scheduled_at),
+  INDEX idx_articles_author (author_id, deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS article_translations (
@@ -216,6 +225,7 @@ CREATE TABLE IF NOT EXISTS article_tags (
   article_id CHAR(36) NOT NULL,
   tag_id CHAR(36) NOT NULL,
   PRIMARY KEY (article_id, tag_id),
+  INDEX idx_atags_tag_article (tag_id, article_id),
   CONSTRAINT fk_atags_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
   CONSTRAINT fk_atags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -255,7 +265,8 @@ CREATE TABLE IF NOT EXISTS comments (
   CONSTRAINT fk_comments_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE CASCADE,
   CONSTRAINT fk_comments_parent FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE,
   INDEX idx_comments_status (status),
-  INDEX idx_comments_article_locale (article_id, locale, status)
+  INDEX idx_comments_status_created (status, created_at),
+  INDEX idx_comments_article_locale (article_id, locale, status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -312,7 +323,8 @@ CREATE TABLE IF NOT EXISTS subscribers (
   locale ENUM('fa','en') NOT NULL DEFAULT 'fa',
   status ENUM('subscribed','unsubscribed') NOT NULL DEFAULT 'subscribed',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_subscribers_status (status)
+  INDEX idx_subscribers_status (status),
+  INDEX idx_subscribers_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS contact_messages (
@@ -324,7 +336,8 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   status ENUM('new','read','archived') NOT NULL DEFAULT 'new',
   ip_address VARCHAR(64) NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_contact_status (status)
+  INDEX idx_contact_status (status),
+  INDEX idx_contact_status_created (status, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------
@@ -403,7 +416,7 @@ CREATE TABLE IF NOT EXISTS analytics_pageviews (
   CONSTRAINT fk_apv_article FOREIGN KEY (article_id) REFERENCES articles(id) ON DELETE SET NULL,
   INDEX idx_apv_created (created_at),
   INDEX idx_apv_locale_created (locale, created_at),
-  INDEX idx_apv_article (article_id)
+  INDEX idx_apv_article_created (article_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

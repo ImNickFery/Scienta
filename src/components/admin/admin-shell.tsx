@@ -29,6 +29,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Palette,
+  ServerCog,
 } from "lucide-react";
 import { useAdminAuth } from "./admin-auth-context";
 import { useAdminLocale } from "./admin-locale-context";
@@ -41,7 +42,7 @@ interface NavItem {
   labelFa: string;
   icon: typeof LayoutDashboard;
   permission?: string;
-  group: "editorial" | "audience" | "platform";
+  group: "editorial" | "audience" | "platform" | "system";
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -63,12 +64,15 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/users", labelEn: "Users & Roles", labelFa: "کاربران و نقش‌ها", icon: Users, permission: "users.view", group: "platform" },
   { href: "/admin/logs", labelEn: "Activity Logs", labelFa: "گزارش فعالیت‌ها", icon: Activity, permission: "logs.view", group: "platform" },
   { href: "/admin/trash", labelEn: "Recycle Bin", labelFa: "سطل بازیافت", icon: Trash2, permission: "articles.manage", group: "platform" },
+
+  { href: "/admin/system", labelEn: "System & Updates", labelFa: "سیستم و بروزرسانی", icon: ServerCog, permission: "settings.manage", group: "system" },
 ];
 
 const GROUP_LABELS = {
   editorial: { en: "Editorial", fa: "تحریریه و محتوا" },
   audience: { en: "Audience", fa: "مخاطبان و ارتباط" },
   platform: { en: "Platform & AI", fa: "سامانه و هوش مصنوعی" },
+  system: { en: "System & Server", fa: "سرور و استقرار" },
 } as const;
 
 interface QuickSearchArticle {
@@ -211,12 +215,12 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-          {(["editorial", "audience", "platform"] as const).map((groupKey) => {
+        <nav className="flex-1 space-y-3.5 overflow-y-auto px-3 py-3">
+          {(["editorial", "audience", "platform", "system"] as const).map((groupKey) => {
             const groupItems = visibleNav.filter((item) => item.group === groupKey);
             if (groupItems.length === 0) return null;
             return (
-              <div key={groupKey} className="space-y-1">
+              <div key={groupKey} className="space-y-0.5">
                 <p className="px-3 pb-1 text-[11px] font-medium text-(--color-text-tertiary)">
                   {isFa ? GROUP_LABELS[groupKey].fa : GROUP_LABELS[groupKey].en}
                 </p>
@@ -228,7 +232,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
-                      className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors whitespace-nowrap ${
+                      className={`flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors whitespace-nowrap ${
                         active
                           ? "bg-(--color-accent-purple)/15 text-(--color-text-primary)"
                           : "text-(--color-text-secondary) hover:bg-white/[0.04] hover:text-(--color-text-primary)"

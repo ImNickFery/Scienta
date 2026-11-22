@@ -15,6 +15,8 @@ const KNOWN_THUMB_SLUGS = new Set([
   "black-hole-horizon",
   "black-hole-spacetime",
   "crispr-dna-helix",
+  "euv-lithography-optics",
+  "gravitational-wave-ligo",
   "jwst-deep-galaxies",
   "mrna-lipid-nanoparticle",
   "neural-network-synapse",
@@ -22,6 +24,8 @@ const KNOWN_THUMB_SLUGS = new Set([
   "quantum-cryostat-chip",
   "quantum-entanglement-waves",
   "riemann-complex-surface",
+  "tokamak-fusion-core",
+  "transformer-attention-geometry",
 ]);
 
 export type ArticleCardSize = "default" | "large" | "compact";

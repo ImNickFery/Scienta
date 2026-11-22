@@ -159,6 +159,50 @@ export const SEED_MEDIA: SeedMediaItem[] = [
     thumbnailPath: "/images/articles/thumbs/mrna-lipid-nanoparticle_thumb.webp",
     altText: "Lipid nanoparticle releasing an illuminated messenger RNA strand toward a cellular membrane",
   },
+  {
+    filename: "tokamak-fusion-core.webp",
+    originalName: "tokamak-fusion-core.webp",
+    mimeType: "image/webp",
+    sizeBytes: 128852,
+    width: 1376,
+    height: 768,
+    path: "/images/articles/tokamak-fusion-core.webp",
+    thumbnailPath: "/images/articles/thumbs/tokamak-fusion-core_thumb.webp",
+    altText: "Toroidal deuterium-tritium fusion plasma confined inside tungsten tokamak chamber tiles",
+  },
+  {
+    filename: "euv-lithography-optics.webp",
+    originalName: "euv-lithography-optics.webp",
+    mimeType: "image/webp",
+    sizeBytes: 128714,
+    width: 1376,
+    height: 768,
+    path: "/images/articles/euv-lithography-optics.webp",
+    thumbnailPath: "/images/articles/thumbs/euv-lithography-optics_thumb.webp",
+    altText: "Extreme ultraviolet 13.5 nm multilayer mirror optics focusing light onto a silicon wafer",
+  },
+  {
+    filename: "gravitational-wave-ligo.webp",
+    originalName: "gravitational-wave-ligo.webp",
+    mimeType: "image/webp",
+    sizeBytes: 87548,
+    width: 1376,
+    height: 768,
+    path: "/images/articles/gravitational-wave-ligo.webp",
+    thumbnailPath: "/images/articles/thumbs/gravitational-wave-ligo_thumb.webp",
+    altText: "Suspended fused-silica test-mass mirror inside a laser gravitational-wave interferometer",
+  },
+  {
+    filename: "transformer-attention-geometry.webp",
+    originalName: "transformer-attention-geometry.webp",
+    mimeType: "image/webp",
+    sizeBytes: 183734,
+    width: 1376,
+    height: 768,
+    path: "/images/articles/transformer-attention-geometry.webp",
+    thumbnailPath: "/images/articles/thumbs/transformer-attention-geometry_thumb.webp",
+    altText: "Multi-head transformer attention arcs connecting layered token representation planes",
+  },
 ];
 
 export const SEED_FIELDS: SeedField[] = [
@@ -219,6 +263,15 @@ export const SEED_AUTHORS: SeedAuthor[] = [
     title_en: "Number Theorist & Pure Mathematician",
     bio_fa: "دکتر آرش تهرانی درباره آنالیز مختلط، توزیع اعداد اول و پیوندهای غیرمنتظره ریاضیات و فیزیک می‌نویسد.",
     bio_en: "Dr. Arash Tehrani writes about complex analysis, prime distributions, and unexpected bridges between pure mathematics and physics.",
+  },
+  {
+    slug: "navid-farhadi",
+    name_fa: "دکتر نوید فرهادی",
+    name_en: "Dr. Navid Farhadi",
+    title_fa: "مهندس فیزیک پلاسما و سامانه‌های نیمه‌رسانا",
+    title_en: "Plasma Fusion & Semiconductor Systems Engineer",
+    bio_fa: "دکتر نوید فرهادی پژوهشگر مهندسی گداخت مغناطیسی، ابررساناهای دما-بالا و اپتیک لیتوگرافی نانومقیاس است.",
+    bio_en: "Dr. Navid Farhadi researches magnetic confinement fusion, high-temperature superconducting magnets, and nanoscale lithography optics.",
   },
 ];
 
@@ -1437,6 +1490,726 @@ As circular RNAs, self-amplifying constructs, and organ-selective lipid chemistr
 
 1. Karikó, K. et al., *Immunity*, 23, 165–175, 2005.
 2. Sahin, U., Karikó, K. & Türeci, Ö., *Nature Reviews Drug Discovery*, 2014.`,
+    },
+  },
+  {
+    slug: "tokamak-nuclear-fusion-engineering",
+    field: "engineering",
+    authorSlug: "navid-farhadi",
+    coverFilename: "tokamak-fusion-core.webp",
+    tags: [
+      { slug: "nuclear-fusion", name_fa: "گداخت هسته‌ای", name_en: "Nuclear Fusion" },
+      { slug: "plasma-physics", name_fa: "فیزیک پلاسما", name_en: "Plasma Physics" },
+      { slug: "superconductors", name_fa: "ابررساناها", name_en: "Superconductors" },
+    ],
+    featured: true,
+    trending: true,
+    views: 19640,
+    publishedAt: "2026-11-18 00:00:00",
+    fa: {
+      title: "مهندسی گداخت هسته‌ای: چگونه توکامک‌ها خورشید را در قفس مغناطیسی مهار می‌کنند؟",
+      excerpt: "از معیار سه‌گانه لاوسون و آهنرباهای ابررسانای ۲۰ تسلا تا چالش دیورتور تنگستنی و تولید تریتیوم؛ کالبدشکافی دقیق مهندسی نیروگاه‌های گداخت.",
+      content: `بازآفرینی واکنش انرژی‌بخش هسته ستارگان بر روی زمین، شاید پیچیده‌ترین مسئله چندفیزیکی در تاریخ مهندسی باشد. در مرکز خورشید، گرانش عظیم پلاسمای هیدروژن را در دمای حدود ۱۵ میلیون کلوین متراکم نگه می‌دارد؛ اما در یک راکتور زمینی که از چنین گرانشی بی‌بهره است، باید پلاسمای دوتریم–تریتیوم را تا حدود ۱۵۰ میلیون کلوین—یعنی ده برابر داغ‌تر از مرکز خورشید—گرم کنیم و بدون آنکه ذره‌ای از آن به دیواره جامد برخورد کند، درون یک قفس نامرئی مغناطیسی معلق سازیم.
+
+<StatHighlight stats={[
+  { value: "۱۵۰ میلیون K", label: "دمای عملیاتی پلاسمای دوتریم–تریتیوم" },
+  { value: "۱۷.۶ MeV", label: "انرژی آزادشده در هر واکنش D–T" },
+  { value: "۲۰ تسلا", label: "شدت میدان آهنرباهای ابررسانای REBCO" }
+]} />
+
+## واکنش D–T و معیار سه‌گانه لاوسون
+
+در میان تمام واکنش‌های همجوشی سبک، ترکیب دو ایزوتوپ سنگین هیدروژن یعنی دوتریم ($\\mathrm{D}$) و تریتیوم ($\\mathrm{T}$) بیشترین سطح مقطع واکنش را در پایین‌ترین دمای ممکن دارد. محصول این برخورد یک هسته هلیم-۴ (ذره آلفا با انرژی $3.5\\ \\text{MeV}$) و یک نوترون سریع ($14.1\\ \\text{MeV}$) است:
+
+$$
+{}_{1}^{2}\\mathrm{H} + {}_{1}^{3}\\mathrm{H} \\longrightarrow {}_{2}^{4}\\mathrm{He}\\,(3.5\\ \\text{MeV}) + {}_{0}^{1}\\mathrm{n}\\,(14.1\\ \\text{MeV})
+$$
+
+ذرات آلفای باردار درون میدان مغناطیسی به دام می‌افتند و با انتقال انرژی به پلاسما، سوختن خودنگهدار (Ignition) را ممکن می‌کنند؛ در حالی که نوترون‌های خنثی از میدان مغناطیسی می‌گریزند و انرژی جنبشی خود را در پوشش پیرامونی (Blanket) به گرما تبدیل می‌کنند. برای آنکه توان تولیدی گداخت از تلفات تابشی و انتقالی پیشی بگیرد، حاصل‌ضرب سه‌گانه چگالی پلاسما $n$، دمای یونی $T$ و زمان محصورسازی انرژی $\\tau_E$ باید از آستانه بحرانی **معیار لاوسون** فراتر رود:
+
+$$
+n\\,T\\,\\tau_E \\ge 3 \\times 10^{21}\\ \\mathrm{keV\\cdot s\\cdot m^{-3}}
+$$
+
+<Figure src="/images/articles/tokamak-fusion-core.webp" alt="نمای داخلی محفظه توکامک با حلقه پلاسمای درخشان و کاشی‌های تنگستنی" caption="شبیه‌سازی مهندسی از پلاسمای حلقوی دوتریم–تریتیوم معلق در خطوط میدان مغناطیسی پیچشی درون دیواره تنگستنی توکامک." wide aspect="wide" />
+
+## فشار مغناطیسی و انقلاب ابررساناهای دما-بالا
+
+توکامک (Tokamak) برای جلوگیری از رانش ذرات باردار به سمت بیرون، دو میدان مغناطیسی عمود بر هم را ترکیب می‌کند: میدان حلقوی قدرتمند $B_\\phi$ که توسط سیم‌پیچ‌های D-شکل پیرامونی ساخته می‌شود، و میدان قطبی $B_\\theta$ که از عبور جریان الکتریکی چند مگاآمپری درون خود پلاسما پدید می‌آید. برآیند این دو، خطوط میدانی مارپیچ بر روی سطوح شار تودرتو می‌سازد. کارایی این قفس مغناطیسی با کمیت بی‌بعد **بتای پلاسما** ($\\beta$) یعنی نسبت فشار حرارتی پلاسما به فشار میدان مغناطیسی سنجیده می‌شود:
+
+$$
+\\beta = \\frac{p}{B^2 / (2\\mu_0)} = \\frac{2\\mu_0\\, n k_B T}{B^2}
+$$
+
+از آنجا که چگالی توان گداخت تقریباً با توان چهارم میدان مغناطیسی ($P_{\\text{fus}} \\propto \\beta^2 B^4$) رشد می‌کند، دو برابر کردن شدت میدان $B$ می‌تواند حجم مورد نیاز راکتور را تا شانزده برابر کاهش دهد! به همین دلیل، ظهور نوارهای ابررسانای دما-بالا از جنس اکسید مس–باریم–عناصر کمیاب (**REBCO**) که میدان‌هایی بالای ۲۰ تسلا تولید می‌کنند، نقشه راه گداخت را از پروژه‌های غول‌پیکر به راکتورهای فشرده و اقتصادی‌تر تغییر داده است.
+
+<PullQuote attribution="جان لاوسون، ۱۹۵۷">
+دستیابی به انرژی گداخت تنها به معنای داغ کردن پلاسما نیست؛ هنر واقعی، نگه داشتن هم‌زمان چگالی، دما و پایداری محصورسازی بالاتر از آستانه احتراق است.
+</PullQuote>
+
+## سه گلوگاه سخت مهندسی در یک نیروگاه تجاری
+
+حتی پس از رسیدن به بهره انرژی خالص ($Q > 10$)، سه چالش مهندسی تعیین می‌کنند که آیا یک توکامک می‌تواند سالانه هزاران ساعت برق پایدار به شبکه تحویل دهد:
+
+| زیرسامانه مهندسی | شرط عملیاتی بحرانی | راه‌حل پیشرفته کنونی |
+| --- | --- | --- |
+| دیورتور (Divertor) | شار حرارتی ۱۰ تا ۲۰ مگاوات بر مترمربع | کاشی‌های تنگستن یکپارچه با خنک‌کاری پرفشار |
+| پوشش زاینده تریتیوم | نسبت زایش $TBR > 1.05$ | نمک مذاب FLiBe و لایه‌های سرامیکی لیتیوم-۶ |
+| دیواره نخست (First Wall) | بمباران پیوسته نوترون‌های $14.1\\ \\text{MeV}$ | فولادهای فریتی–مارتنزیتی کم‌فعال‌سازی (RAFM) |
+
+## مقایسه نسل‌های راکتورهای گداخت مغناطیسی
+
+<ComparisonCards columns={[
+  { title: "ITER (فرانسـه)", rows: ["میدان روی محور ۵.۳ تسلا (Nb3Sn)", "شعاع اصلی ۶.۲ متر و حجم پلاسما ۸۴۰ مترمکعب", "هدف پژوهشی: بهره انرژی Q = 10 با توان ۵۰۰ مگاوات"] },
+  { title: "SPARC (نسل فشرده)", highlight: true, rows: ["میدان روی محور ۱۲.۲ تسلا (REBCO)", "شعاع اصلی ۱.۸۵ متر با ابعاد بسیار کوچک‌تر", "هدف مهندسی: Q > 2 تا ۱۱ با چگالی توان بالا"] },
+  { title: "استلاراتور (Wendelstein 7-X)", rows: ["پیچش سه‌بعدی بدون نیاز به جریان پلاسما", "عملکرد پیوسته بدون ناپایداری گسست جریان", "پیچیدگی بسیار بالا در ساخت سیم‌پیچ‌های غیرمسطح"] }
+]} />
+
+## چرخه بسته انرژی و سوخت تریتیوم
+
+\`\`\`mermaid
+flowchart LR
+    A[پلاسمای D-T در ۱۵۰ میلیون K] --> B[واکنش گداخت ۱۷.۶ MeV]
+    B --> C[ذره آلفا ۳.۵ MeV: گرمایش خودکار پلاسما]
+    B --> D[نوترون ۱۴.۱ MeV: عبور از میدان مغناطیسی]
+    D --> E[برخورد با پوشش لیتیوم-۶ و تولید تریتیوم تازه]
+    D --> F[مبدل حرارتی و توربین تولید برق]
+    E --> A
+\`\`\`
+
+## گاه‌شمار مهندسی گداخت مغناطیسی
+
+<Timeline events={[
+  { year: "۱۹۵۸", title: "اختراع توکامک T-1", description: "ساخت نخستین محفظه چنبره‌ای با محصورسازی مغناطیسی توسط تیم کورچاتوف." },
+  { year: "۱۹۹۷", title: "رکورد JET در انگلستان", description: "دستیابی به توان گداخت ۱۶ مگاوات و نسبت بهره انرژی Q = 0.67." },
+  { year: "۲۰۲۱", title: "آهنربای ۲۰ تسلای REBCO", description: "آزمایش موفق سیم‌پیچ ابررسانای دما-بالا در مقیاس واقعی توسط MIT و CFS." },
+  { year: "۲۰۲۴", title: "رکورد انرژی پایدار JET", description: "تولید ۶۹ مگاژول انرژی گداخت در یک پالس ۵ ثانیه‌ای با سوخت D–T." }
+]} />
+
+<Callout type="tip" title="چرا گداخت ذاتاً ایمن است؟">
+برخلاف راکتورهای شکافت، درون یک توکامک در هر لحظه تنها چند گرم سوخت پلاسمایی وجود دارد. هرگونه اختلال در میدان مغناطیسی یا خنک‌کاری باعث افت فوری دما و خاموش شدن خودبه‌خودی واکنش در کسری از ثانیه می‌شود و هیچ امکان واکنش زنجیره‌ای مهارناپذیر وجود ندارد.
+</Callout>
+
+## چشم‌انداز یک دهه آینده
+
+همگرایی سه فناوری—آهنرباهای ابررسانای دما-بالا، کنترل بلادرنگ ناپایداری‌های پلاسما با یادگیری تقویتی عمیق و مواد مقاوم در برابر شار نوترونی—نشان می‌دهد که مهندسی گداخت از مرحله آزمایشگاه فیزیک به مرحله طراحی نیروگاه پایلوت وارد شده است.
+
+## منابع
+
+1. Wesson, J., *Tokamaks*, 4th Edition, Oxford University Press, 2011.
+2. Creely, A. J. et al., *Overview of the SPARC tokamak*, Journal of Plasma Physics, 86(5), 2020.
+3. Lawson, J. D., *Some Criteria for a Power Producing Thermonuclear Reactor*, Proc. Phys. Soc. B, 70, 1957.`,
+    },
+    en: {
+      title: "Nuclear Fusion Engineering: How Tokamaks Cage a Star in Magnetic Fields",
+      excerpt: "From the Lawson triple product and 20-tesla REBCO superconductors to tungsten divertors and tritium breeding blankets—an engineering dissection of magnetic fusion.",
+      content: `Recreating the energy engine of a stellar core on Earth is arguably the most demanding multiphysics challenge in modern engineering. Inside the Sun, immense gravity compresses hydrogen plasma at roughly 15 million Kelvin. Lacking stellar gravity, a terrestrial deuterium–tritium reactor must heat plasma to 150 million Kelvin—ten times hotter than the solar core—while suspending it inside an invisible magnetic cage without letting it touch any solid wall.
+
+<StatHighlight stats={[
+  { value: "150M K", label: "Operating D–T plasma temperature" },
+  { value: "17.6 MeV", label: "Energy released per D–T fusion event" },
+  { value: "20 Tesla", label: "Peak REBCO superconducting field" }
+]} />
+
+## The D–T Reaction & Lawson Triple Product
+
+Among light-element fusion pathways, fusing deuterium ($\\mathrm{D}$) and tritium ($\\mathrm{T}$) maximizes reaction cross-section at the lowest achievable temperature, yielding an alpha particle ($3.5\\ \\text{MeV}$) and an energetic neutron ($14.1\\ \\text{MeV}$):
+
+$$
+{}_{1}^{2}\\mathrm{H} + {}_{1}^{3}\\mathrm{H} \\longrightarrow {}_{2}^{4}\\mathrm{He}\\,(3.5\\ \\text{MeV}) + {}_{0}^{1}\\mathrm{n}\\,(14.1\\ \\text{MeV})
+$$
+
+Charged alpha particles remain magnetically trapped and self-heat the plasma toward ignition, whereas uncharged neutrons escape the magnetic field and deposit their kinetic energy as heat in the surrounding blanket. For fusion power to exceed radiation and transport losses, the triple product of plasma density $n$, ion temperature $T$, and energy confinement time $\\tau_E$ must clear the **Lawson criterion**:
+
+$$
+n\\,T\\,\\tau_E \\ge 3 \\times 10^{21}\\ \\mathrm{keV\\cdot s\\cdot m^{-3}}
+$$
+
+<Figure src="/images/articles/tokamak-fusion-core.webp" alt="Tokamak reactor interior showing luminous toroidal plasma suspended inside tungsten tiles" caption="Engineering visualization of a magnetically confined deuterium–tritium plasma torus floating inside hexagonal tungsten armor tiles." wide aspect="wide" />
+
+## Magnetic Pressure & High-Temperature Superconductors
+
+A tokamak suppresses particle drift by combining a strong toroidal magnetic field $B_\\phi$ from external D-shaped coils with a poloidal field $B_\\theta$ driven by multi-megaampere plasma current, weaving helical field lines across nested flux surfaces. Confinement efficiency is measured by **plasma beta** ($\\beta$), the ratio of plasma thermal pressure to magnetic pressure:
+
+$$
+\\beta = \\frac{p}{B^2 / (2\\mu_0)} = \\frac{2\\mu_0\\, n k_B T}{B^2}
+$$
+
+Because fusion power density scales roughly as the fourth power of magnetic field ($P_{\\text{fus}} \\propto \\beta^2 B^4$), doubling $B$ shrinks the required reactor volume by up to sixteen-fold. Rare-earth barium copper oxide (**REBCO**) high-temperature superconducting tapes capable of sustaining 20-tesla fields have therefore transformed fusion engineering from monumental reactors toward compact high-field designs.
+
+<PullQuote attribution="John Lawson, 1957">
+Achieving fusion power is never just about temperature; it demands holding density, temperature, and confinement time simultaneously above the ignition threshold.
+</PullQuote>
+
+## Three Hard Engineering Bottlenecks
+
+| Subsystem | Critical Operating Load | Current Engineering Solution |
+| --- | --- | --- |
+| Divertor | 10–20 MW/m² steady exhaust heat flux | Monoblock tungsten tiles with pressurized cooling |
+| Tritium Breeding Blanket | Tritium Breeding Ratio $TBR > 1.05$ | Molten FLiBe salt & enriched lithium-6 ceramics |
+| First Wall Armor | Continuous $14.1\\ \\text{MeV}$ neutron flux | Reduced-activation ferritic-martensitic steels |
+
+## Comparing Magnetic Confinement Architectures
+
+<ComparisonCards columns={[
+  { title: "ITER (France)", rows: ["5.3 T on-axis field (Nb3Sn magnets)", "6.2 m major radius, 840 m³ plasma volume", "Research target: Q = 10 at 500 MW thermal"] },
+  { title: "SPARC (High-Field)", highlight: true, rows: ["12.2 T on-axis field (REBCO HTS)", "1.85 m compact major radius", "Engineering target: Q > 2–11 high power density"] },
+  { title: "Stellarator (W7-X)", rows: ["3D twisted coils with zero plasma current", "Inherently steady-state, disruption-free", "Extreme sub-millimeter coil manufacturing tolerances"] }
+]} />
+
+## Closed Energy & Tritium Fuel Cycle
+
+\`\`\`mermaid
+flowchart LR
+    A[150M K D-T Plasma] --> B[17.6 MeV Fusion Event]
+    B --> C[3.5 MeV Alpha: Self-Heating]
+    B --> D[14.1 MeV Neutron: Escapes Field]
+    D --> E[Lithium-6 Blanket Breeds Fresh Tritium]
+    D --> F[Heat Exchanger & Steam Turbine]
+    E --> A
+\`\`\`
+
+## Milestones in Magnetic Fusion
+
+<Timeline events={[
+  { year: "1958", title: "T-1 Tokamak", description: "First toroidal magnetic confinement chamber built at the Kurchatov Institute." },
+  { year: "1997", title: "JET Fusion Record", description: "Reached 16 MW of fusion power and Q = 0.67 energy gain in Culham." },
+  { year: "2021", title: "20-Tesla REBCO Coil", description: "Full-scale high-temperature superconducting magnet validated by MIT & CFS." },
+  { year: "2024", title: "JET 69 MJ Pulse", description: "Sustained 69 megajoules of D–T fusion energy across a 5-second burn." }
+]} />
+
+<Callout type="tip" title="Intrinsic Safety of Fusion">
+Unlike fission cores, a tokamak holds only a few grams of plasma fuel at any instant. Any loss of confinement or cooling quenches the plasma within milliseconds, making a runaway chain reaction physically impossible.
+</Callout>
+
+## The Decade Ahead
+
+Combining high-field REBCO magnets, deep reinforcement learning controllers that stabilize plasma instabilities in real time, and radiation-tolerant blankets has moved magnetic fusion squarely from plasma physics exploration into pilot power-plant engineering.
+
+## References
+
+1. Wesson, J., *Tokamaks*, 4th Edition, Oxford University Press, 2011.
+2. Creely, A. J. et al., *Overview of the SPARC tokamak*, Journal of Plasma Physics, 86(5), 2020.
+3. Lawson, J. D., *Some Criteria for a Power Producing Thermonuclear Reactor*, Proc. Phys. Soc. B, 70, 1957.`,
+    },
+  },
+  {
+    slug: "euv-lithography-nanoscale-silicon",
+    field: "technology",
+    authorSlug: "navid-farhadi",
+    coverFilename: "euv-lithography-optics.webp",
+    tags: [
+      { slug: "semiconductors", name_fa: "نیمه‌رساناها", name_en: "Semiconductors" },
+      { slug: "euv-lithography", name_fa: "لیتوگرافی EUV", name_en: "EUV Lithography" },
+      { slug: "optics", name_fa: "اپتیک", name_en: "Optics" },
+    ],
+    featured: false,
+    trending: true,
+    views: 16280,
+    publishedAt: "2026-11-16 00:00:00",
+    fa: {
+      title: "لیتوگرافی فرابنفش فرین (EUV): حکاکی ترانزیستورها در مقیاس اتمی با نور ۱۳.۵ نانومتر",
+      excerpt: "چگونه برخورد پنجاه هزار قطره قلع در ثانیه با لیزر و آینه‌های چندلایه مولیبدن–سیلیکون، مسیر ساخت تراشه‌های ۲ نانومتری را هموار کرد؟",
+      content: `در قلب هر پردازنده مدرن هوش مصنوعی و تلفن هوشمند، ده‌ها میلیارد ترانزیستور با ابعاد تنها چند ده اتم کنار هم چیده شده‌اند. برای چاپ چنین مدارهایی روی ویفر سیلیکونی، صنعت نیمه‌رسانا ناچار شد دستگاهی بسازد که فیزیک‌دانان آن را پیچیده‌ترین ماشین تجاری تاریخ بشر می‌نامند: سامانه **لیتوگرافی فرابنفش فرین (EUV)** با طول موج نور $13.5\\ \\text{nm}$—یعنی بیش از چهارده برابر کوتاه‌تر از لیزرهای آرگون-فلوئورید نسل پیشین.
+
+<StatHighlight stats={[
+  { value: "۱۳.۵ نانومتر", label: "طول موج نور فرابنفش فرین" },
+  { value: "۵۰,۰۰۰ / ثانیه", label: "نرخ شلیک دوگانه لیزر به قطرات قلع" },
+  { value: "۰.۵۵ NA", label: "روزنه عددی نسل جدید High-NA" }
+]} />
+
+## قانون تفکیک رایلی و دوراهی عمق کانون
+
+حداقل اندازه ویژگی (Critical Dimension یا $CD$) که یک سامانه اپتیکی می‌تواند بر روی لایه فوتورزیست چاپ کند، مستقیماً از **معادله پراش رایلی** پیروی می‌کند:
+
+$$
+CD = k_1 \\frac{\\lambda}{\\mathrm{NA}}
+$$
+
+در این رابطه $\\lambda$ طول موج نور، $\\mathrm{NA}$ روزنه عددی (Numerical Aperture) سیستم عدسی یا آینه، و $k_1$ ضریب فرآیند است که از نظر فیزیکی در نوردهی تک‌مرحله‌ای نمی‌تواند کمتر از $0.25$ شود. اما افزایش $\\mathrm{NA}$ بهای سنگینی دارد؛ زیرا **عمق کانون (Depth of Focus)** به شکل معکوس با مجذور روزنه عددی کوچک می‌شود:
+
+$$
+\\mathrm{DoF} = k_2 \\frac{\\lambda}{\\mathrm{NA}^2}
+$$
+
+وقتی $\\lambda = 13.5\\ \\text{nm}$ و $\\mathrm{NA} = 0.55$ باشد، عمق کانون به چند ده نانومتر می‌رسد؛ به این معنا که سکوی ویفر باید هنگام حرکت با شتابی چند برابر شتاب جنگنده‌های جت، سطح ویفر را با دقت زیر چند نانومتر در صفحه کانونی نگه دارد!
+
+<Figure src="/images/articles/euv-lithography-optics.webp" alt="محفظه خلاء لیتوگرافی فرابنفش فرین با آینه‌های چندلایه و پرتو ۱۳.۵ نانومتر روی ویفر سیلیکونی" caption="مسیر بازتابی پرتو فرابنفش فرین (۱۳.۵ نانومتر) در محفظه خلاء و متمرکزسازی الگوی مدار بر روی ویفر سیلیکونی." wide aspect="wide" />
+
+## چرا عدسی شیشه‌ای کار نمی‌کند؟ آینه‌های براگ مولیبدن–سیلیکون
+
+نور $13.5\\ \\text{nm}$ انرژی فوتونی حدود $92\\ \\text{eV}$ دارد و تقریباً توسط همه مواد—حتی هوا و خالص‌ترین شیشه‌های کوارتز—در چند میکرومتر جذب می‌شود. بنابراین کل مسیر نور باید در خلاء کامل قرار گیرد و به جای عدسی، از **آینه‌های چندلایه براگ** تشکیل‌شده از ۴۰ تا ۵۰ جفت لایه متناوب مولیبدن ($\\mathrm{Mo}$) و سیلیکون ($\\mathrm{Si}$) با ضخامت هر دوره حدود $6.9\\ \\text{nm}$ استفاده شود تا تداخل سازنده رخ دهد:
+
+$$
+2\\,d\\,\\sin\\theta = m\\,\\lambda
+$$
+
+با وجود صیقل‌کاری سطح این آینه‌ها تا خطای زیر $0.1\\ \\text{nm}$ (معادل یک برآمدگی یک میلی‌متری در وسعت کل قاره اروپا)، هر آینه تنها حدود ۷۰ درصد نور EUV را بازتاب می‌دهد. از این رو پس از عبور از ده آینه، کمتر از ۲ درصد توان اولیه به سطح ویفر می‌رسد و منبع نور ناچار است پلاسمای بسیار درخشانی بسازد.
+
+<PullQuote attribution="فرانسوا-زاویه و تیم مهندسی اپتیک EUV">
+در طول موج ۱۳.۵ نانومتر دیگر با اپتیک کلاسیک سروکار ندارید؛ هر آینه یک ساختار نانوکوانتومی تداخلی است که اگر یک لایه اتمی آن خطا داشته باشد، تصویر ترانزیستور محو می‌شود.
+</PullQuote>
+
+## پلاسمای قلع با لیزر دوپالسی
+
+برای تولید نور ۱۳.۵ نانومتر، مولد منبع قطرات میکروسکوپی قلع مذاب (به قطر حدود ۲۵ میکرومتر) را با سرعت ۵۰ هزار قطره در ثانیه به درون محفظه خلاء شلیک می‌کند. ابتدا یک پیش‌پالس لیزر $\\mathrm{CO}_2$ هر قطره کروی را به شکل یک قرص تخت پهن می‌کند و سپس چند میکروثانیه بعد، پالس اصلی با توان ده‌ها کیلووات آن را به پلاسمایی با دمای حدود ۵۰۰ هزار کلوین تبخیر می‌کند؛ یون‌های قلع در این دما دقیقاً در طول موج $13.5\\ \\text{nm}$ می‌تابند.
+
+## مقایسه نسل‌های لیتوگرافی نیمه‌رسانا
+
+<ComparisonCards columns={[
+  { title: "DUV غوطه‌وری (193i)", rows: ["طول موج ۱۹۳ نانومتر با لایه آب فوق‌خالص", "نیاز به الگودهی چندمرحله‌ای پرهزینه زیر ۷ نانومتر", "عدسی‌های عبوری از جنس سیلیس ذوب‌شده"] },
+  { title: "EUV استاندارد (0.33 NA)", rows: ["طول موج ۱۳.۵ نانومتر در محفظه خلاء", "کاهش چشمگیر مراحل ماسک در گره‌های ۵ و ۳ نانومتر", "تفکیک‌پذیری تک‌نوردهی حدود ۱۳ نانومتر"] },
+  { title: "High-NA EUV (0.55 NA)", highlight: true, rows: ["اپتیک آنامورفیک با بزرگ‌نمایی متفاوت در دو محور", "تفکیک‌پذیری ۸ نانومتر برای گره‌های ۲ و ۱.۴ نانومتر", "طراحی شده برای ترانزیستورهای Gate-All-Around"] }
+]} />
+
+## زنجیره اپتیکی چاپ مدار روی ویفر
+
+\`\`\`mermaid
+flowchart LR
+    A[قطره قلع مذاب ۲۵ میکرومتر] --> B[پیش‌پالس و پالس اصلی لیزر CO2]
+    B --> C[پلاسمای قلع ۵۰۰ هزار K و تابش ۱۳.۵nm]
+    C --> D[آینه گردآورنده و ۱۰ آینه چندلایه Mo/Si]
+    D --> E[ماسک بازتابی مدار مجتمع]
+    E --> F[نوردهی فوتورزیست و حکاکی ویفر سیلیکونی]
+\`\`\`
+
+<Callout type="tip" title="چالش نویز شات فوتونی (Stochastic Noise)">
+چون هر فوتون EUV حدود چهارده برابر فوتون DUV انرژی دارد، برای یک دوز انرژی ثابت تعداد فوتون‌های کمتری به هر ترانزیستور می‌رسد. همین نوسان آماری پواسون می‌تواند باعث زبری لبه خط یا ایجاد پل‌های ناخواسته بین خطوط مدار شود که با فوتورزیست‌های اکسید فلزی مهار می‌گردد.
+</Callout>
+
+## مرز بعدی: فراتر از ۲ نانومتر
+
+با ترکیب لیتوگرافی High-NA EUV، معماری ترانزیستورهای **گیت فراگیر (GAA)** و تغذیه برق از پشت ویفر (Backside Power Delivery)، قانون مور با وجود موانع کوانتومی همچنان با تکیه بر اپتیک دقیق و فیزیک پلاسما به پیش می‌تازد.
+
+## منابع
+
+1. Bakshi, V., *EUV Lithography*, 2nd Edition, SPIE Press, 2018.
+2. van Schoot, J. et al., *High-NA EUV lithography exposure tool: advantages and program progress*, Proc. SPIE, 2023.
+3. Mack, C. A., *Fundamental Principles of Optical Lithography*, Wiley, 2007.`,
+    },
+    en: {
+      title: "Extreme Ultraviolet Lithography: Etching Atomic-Scale Transistors with 13.5 nm Light",
+      excerpt: "How 50,000 laser-vaporized tin droplets per second and atomic-precision Mo/Si Bragg mirrors unlocked 2-nanometer silicon manufacturing.",
+      content: `Inside every modern AI accelerator and flagship processor, tens of billions of transistors sit packed at scales of just a few dozen atoms. Printing those patterns onto silicon required what physicists routinely call the most intricate commercial machine ever built: **Extreme Ultraviolet (EUV) lithography**, operating at a wavelength of $13.5\\ \\text{nm}$—more than fourteen times shorter than prior argon-fluoride deep-ultraviolet lasers.
+
+<StatHighlight stats={[
+  { value: "13.5 nm", label: "Extreme ultraviolet operating wavelength" },
+  { value: "50,000 / sec", label: "Dual-pulse laser shots hitting tin droplets" },
+  { value: "0.55 NA", label: "Next-generation High-NA numerical aperture" }
+]} />
+
+## Rayleigh Resolution & the Depth-of-Focus Tradeoff
+
+The smallest printable Critical Dimension ($CD$) on photoresist is governed directly by the **Rayleigh diffraction equation**:
+
+$$
+CD = k_1 \\frac{\\lambda}{\\mathrm{NA}}
+$$
+
+Here $\\lambda$ is wavelength, $\\mathrm{NA}$ is the optical numerical aperture, and $k_1$ is a process factor physically bounded above $0.25$ for single-exposure patterning. Pushing $\\mathrm{NA}$ higher sharpens resolution, yet imposes a severe quadratic penalty on **Depth of Focus (DoF)**:
+
+$$
+\\mathrm{DoF} = k_2 \\frac{\\lambda}{\\mathrm{NA}^2}
+$$
+
+At $\\lambda = 13.5\\ \\text{nm}$ and $\\mathrm{NA} = 0.55$, the focal window narrows to tens of nanometers—forcing the wafer stage to track silicon topography within single-digit nanometers while accelerating faster than a fighter jet.
+
+<Figure src="/images/articles/euv-lithography-optics.webp" alt="Extreme ultraviolet vacuum chamber with multilayer mirrors focusing 13.5 nm light onto a silicon wafer" caption="All-reflective 13.5 nm optical train inside an EUV vacuum chamber projecting nanoscale circuit patterns onto a silicon wafer." wide aspect="wide" />
+
+## Why Glass Lenses Fail: Mo/Si Bragg Multilayer Mirrors
+
+Photons at $13.5\\ \\text{nm}$ carry $92\\ \\text{eV}$ of energy and are absorbed within micrometers by air and every known lens glass. The entire beam path must therefore run in vacuum using **Bragg multilayer mirrors** built from 40–50 alternating nanoscale bilayers of molybdenum ($\\mathrm{Mo}$) and silicon ($\\mathrm{Si}$) tuned to constructive interference:
+
+$$
+2\\,d\\,\\sin\\theta = m\\,\\lambda
+$$
+
+Even when polished to sub-$0.1\\ \\text{nm}$ surface flatness (equivalent to a 1 mm ripple scaled across Europe), each mirror reflects roughly 70% of incoming EUV light. Across ten reflections, less than 2% of source power survives to the wafer, demanding an extraordinarily bright light source.
+
+<PullQuote attribution="EUV Optical Engineering Consortium">
+At 13.5 nanometers you are no longer polishing classical glass; every mirror is a quantum interference crystal where a single misplaced atomic layer blurs the transistor edge.
+</PullQuote>
+
+## Dual-Pulse Laser-Produced Tin Plasma
+
+Inside the EUV source vessel, microscopic 25-micrometer molten tin droplets fly at 50,000 droplets per second. A first $\\mathrm{CO}_2$ laser pre-pulse flattens each spherical droplet into a pancake target; microseconds later, a multi-kilowatt main pulse vaporizes it into a 500,000-Kelvin plasma whose ionized tin transitions radiate intensely right at $13.5\\ \\text{nm}$.
+
+## Comparing Semiconductor Lithography Generations
+
+<ComparisonCards columns={[
+  { title: "Immersion DUV (193i)", rows: ["193 nm wavelength with ultrapure water film", "Requires complex multi-patterning below 7 nm", "Refractive fused-silica lens stacks"] },
+  { title: "Standard EUV (0.33 NA)", rows: ["13.5 nm light in vacuum optical path", "Drastically cuts mask count at 5 nm & 3 nm", "~13 nm single-exposure resolution"] },
+  { title: "High-NA EUV (0.55 NA)", highlight: true, rows: ["Anamorphic 4x/8x magnification mirror optics", "8 nm resolution enabling 2 nm & 1.4 nm nodes", "Built for Gate-All-Around nanosheet transistors"] }
+]} />
+
+## Optical Chain from Droplet to Silicon
+
+\`\`\`mermaid
+flowchart LR
+    A[25 um Molten Tin Droplet] --> B[Pre-Pulse + Main CO2 Laser]
+    B --> C[500,000 K Tin Plasma Emitting 13.5 nm]
+    C --> D[Collector + 10 Mo/Si Bragg Mirrors]
+    D --> E[Reflective Photomask Reticle]
+    E --> F[Photoresist Exposure & Silicon Etch]
+\`\`\`
+
+<Callout type="tip" title="Conquering Photon Shot Noise">
+Because each EUV photon packs fourteen times more energy than a DUV photon, far fewer photons arrive per transistor at the same exposure dose. Metal-oxide photoresists absorb EUV far more efficiently to curb Poisson stochastic roughness.
+</Callout>
+
+## Beyond 2 Nanometers
+
+By pairing High-NA EUV optics with Gate-All-Around nanosheets and backside power delivery networks, atomic-precision optical physics continues extending silicon scaling deep into the angstrom era.
+
+## References
+
+1. Bakshi, V., *EUV Lithography*, 2nd Edition, SPIE Press, 2018.
+2. van Schoot, J. et al., *High-NA EUV lithography exposure tool: advantages and program progress*, Proc. SPIE, 2023.
+3. Mack, C. A., *Fundamental Principles of Optical Lithography*, Wiley, 2007.`,
+    },
+  },
+  {
+    slug: "gravitational-wave-interferometry-ligo",
+    field: "physics",
+    authorSlug: "elham-rostami",
+    coverFilename: "gravitational-wave-ligo.webp",
+    tags: [
+      { slug: "gravitational-waves", name_fa: "امواج گرانشی", name_en: "Gravitational Waves" },
+      { slug: "interferometry", name_fa: "تداخل‌سنجی لیزری", name_en: "Laser Interferometry" },
+      { slug: "general-relativity", name_fa: "نسبیت عام", name_en: "General Relativity" },
+    ],
+    featured: true,
+    trending: true,
+    views: 22150,
+    publishedAt: "2026-11-14 00:00:00",
+    fa: {
+      title: "تداخل‌سنجی امواج گرانشی: شنیدن پژواک ادغام سیاه‌چاله‌ها با دقت یک‌ده‌هزارم قطر پروتون",
+      excerpt: "چگونه تداخل‌سنج‌های لیزری چهارکیلومتری LIGO با نور فشرده کوانتومی، کشیدگی فضازمان در مقیاس ۱۰⁻¹⁹ متر را از فاصله یک میلیارد سال نوری آشکار می‌کنند؟",
+      content: `قرن‌ها بود که تمام شناخت ما از کیهان بر امواج الکترومغناطیسی—از رادیو تا پرتو گاما—تکیه داشت. اما در چهاردهم سپتامبر ۲۰۱۵، دو بازوی چهارکیلومتری رصدخانه **LIGO** در ایالات متحده لرزشی به اندازه یک‌ده‌هزارم قطر یک پروتون را ثبت کردند و پنجره‌ای کاملاً تازه به جهان گشودند: شنیدن مستقیم ارتعاش بافت فضازمان ناشی از ادغام دو سیاه‌چاله به جرم ۳۶ و ۲۹ برابر خورشید در فاصله ۱.۳ میلیارد سال نوری.
+
+<StatHighlight stats={[
+  { value: "۱۰⁻²¹", label: "کرنش بی‌بعد فضازمان در سیگنال GW150914" },
+  { value: "۴ کیلومتر", label: "طول هر بازوی تداخل‌سنج فابری–پرو" },
+  { value: "۳ جرم خورشید", label: "انرژی تبدیل‌شده به موج گرانشی در ۰.۲ ثانیه" }
+]} />
+
+## کرنش فضازمان و جرم چیرپ (Chirp Mass)
+
+هنگامی که یک موج گرانشی از میان یک تداخل‌سنج مایکلسون می‌گذرد، به شکل چهارقطبی یکی از دو بازوی عمود بر هم را منبسط و بازوی دیگر را منقبض می‌کند. اندازه این تغییر نسبی طول با کمیت بی‌بعد **کرنش ($h$)** تعریف می‌شود:
+
+$$
+h = \\frac{2\\,\\Delta L}{L}
+$$
+
+برای $L = 4\\ \\text{km}$ و $h \\approx 10^{-21}$، جابه‌جایی آینه انتهایی تنها $\\Delta L \\approx 2 \\times 10^{-18}\\ \\text{m}$ است—رقمی هزار بار کوچک‌تر از هسته یک اتم! در فاز نزدیک‌شدن دو سیاه‌چاله (Inspiral)، فرکانس و دامنه موج به‌سرعت اوج می‌گیرند («صدای چیرپ») و نرخ افزایش فرکانس مستقیماً ترکیب ویژه‌ای از دو جرم به نام **جرم چیرپ ($\\mathcal{M}$)** را برملا می‌کند:
+
+$$
+\\mathcal{M} = \\frac{(m_1 m_2)^{3/5}}{(m_1 + m_2)^{1/5}}
+$$
+
+توان تابش گرانشی این سیستم دوتایی نیز از **فرمول چهارقطبی انیشتین** به دست می‌آید و با توان ششم بسامد مداری $\\omega$ افزایش می‌یابد:
+
+$$
+P = \\frac{32\\,G}{5\\,c^5} \\left(\\frac{m_1 m_2}{m_1 + m_2}\\right)^2 r^4 \\omega^6
+$$
+
+<Figure src="/images/articles/gravitational-wave-ligo.webp" alt="آینه سیلیس ذوب‌شده معلق در محفظه خلاء تداخل‌سنج امواج گرانشی در برخورد با پرتو لیزر" caption="جرم آزمونی ۴۰ کیلوگرمی از سیلیس فوق‌خالص معلق بر رشته‌های شیشه‌ای نازک که موقعیت آن با لیزر پایدارشده در مقیاس زیرپروتونی پایش می‌شود." wide aspect="wide" />
+
+## عبور از حد کوانتومی با نور فشرده (Squeezed Light)
+
+بزرگ‌ترین مانع برای اندازه‌گیری چنین جابه‌جایی‌های ناچیزی، نه تنها لرزش زمین یا ترافیک دوردست—که با آونگ‌های چهارمرحله‌ای ایزوله می‌شوند—بلکه خود **اصل عدم قطعیت هایزنبرگ** در پرتو لیزر است! در بسامدهای بالا، نوسان تعداد فوتون‌ها «نویز شات» می‌سازد و در بسامدهای پایین، ضربه تکانه فوتون‌ها به آینه «نویز فشار تابش» ایجاد می‌کند. فیزیک‌دانان LIGO با تزریق **حالات خلأ فشرده وابسته به بسامد (Frequency-Dependent Squeezing)** توانستند عدم قطعیت را در فاز نور کاهش داده و به مؤلفه دامنه منتقل کنند و حساسیت رصدخانه را فراتر از حد استاندارد کوانتومی ببرند.
+
+<PullQuote attribution="رایـنر وایس، برنده نوبل فیزیک ۲۰۱۷">
+سخت‌ترین بخش کار این نبود که باور کنیم امواج گرانشی وجود دارند؛ معجزه واقعی این بود که مهندسی نوری و کوانتومی را آن‌قدر دقیق کردیم که زمزمه دو سیاه‌چاله در آن سوی کیهان را بشنویم.
+</PullQuote>
+
+## مقایسه رصدخانه‌های موج گرانشی زمینی و فضایی
+
+<ComparisonCards columns={[
+  { title: "LIGO / Virgo / KAGRA", rows: ["بازوهای ۳ تا ۴ کیلومتری در خلاء زمینی", "باند حساسیت ۱۰ هرتز تا چند کیلوهرتز", "رصد ادغام سیاه‌چاله‌های ستاره‌ای و ستارگان نوترونی"] },
+  { title: "تلسکوپ انیشتین (نسل سوم)", rows: ["مثلث زیرزمینی با بازوهای ۱۰ کیلومتری", "آینه‌های برودتی برای حذف نویز حرارتی", "گسترش رصد تا لبه کیهان نخستین (z > 10)"] },
+  { title: "LISA (رصدخانه فضایی)", highlight: true, rows: ["سه فضاپیما در مدار خورشید با فاصله ۲.۵ میلیون کیلومتر", "باند میلی‌هرتزی بدون نویز لرزه‌ای زمین", "آشکارسازی ادغام سیاه‌چاله‌های ابرپرجرم کهکشانی"] }
+]} />
+
+## زنجیره آشکارسازی یک رویداد کیهانی
+
+\`\`\`mermaid
+flowchart LR
+    A[ادغام دوتایی سیاه‌چاله‌ها] --> B[انتشار موج چهارقطبی با سرعت c]
+    B --> C[کشش و تراکم نامتقارن بازوهای ۴ کیلومتری]
+    C --> D[تغییر فاز لیزر در کاواک‌های فابری-پرو]
+    D --> E[فیلتر تطبیقی نسبیت عددی و استخراج جرم چیرپ]
+    E --> F[هشدار هم‌زمان به تلسکوپ‌های نوری و رادیویی]
+\`\`\`
+
+## گاه‌شمار عصر نجوم امواج گرانشی
+
+<Timeline events={[
+  { year: "۱۹۱۶", title: "پیش‌بینی انیشتین", description: "استخراج جواب‌های موجی خطی‌شده معادلات میدان نسبیت عام." },
+  { year: "۱۹۷۴", title: "تپ‌اختر دوتایی هالس–تیلور", description: "اثبات غیرمستقیم تابش گرانشی از طریق کاهش دقیق دوره مداری." },
+  { year: "۲۰۱۵", title: "رویداد GW150914", description: "نخستین آشکارسازی مستقیم ادغام دو سیاه‌چاله توسط LIGO." },
+  { year: "۲۰۱۷", title: "رویداد GW170817", description: "نخستین رصد هم‌زمان موج گرانشی و پرتو گاما از ادغام دو ستاره نوترونی." }
+]} />
+
+<Callout type="tip" title="کالیبراسیون نجوم چندپیام‌رسانی">
+از سال ۲۰۱۵ تاکنون شبکه جهانی LIGO–Virgo–KAGRA بیش از صد رویداد ادغام اجرام فشرده را ثبت کرده و امکان اندازه‌گیری مستقل ثابت هابل و آزمودن نسبیت عام در میدان‌های گرانشی فوق‌قوی را فراهم آورده است.
+</Callout>
+
+## منابع
+
+1. Abbott, B. P. et al. (LIGO Scientific & Virgo Collaborations), *Observation of Gravitational Waves from a Binary Black Hole Merger*, Phys. Rev. Lett., 116, 061102, 2016.
+2. Ganapathy, D. et al., *Broadband Quantum Enhancement of the LIGO Detectors with Frequency-Dependent Squeezing*, Phys. Rev. X, 13, 041021, 2023.
+3. Maggiore, M., *Gravitational Waves: Volume 1 — Theory and Experiments*, Oxford University Press, 2007.`,
+    },
+    en: {
+      title: "Gravitational-Wave Interferometry: Hearing Black Hole Mergers to 10⁻¹⁹ Meters",
+      excerpt: "How 4-kilometer LIGO laser interferometers and frequency-dependent quantum squeezed light measure spacetime ripples ten-thousand times smaller than a proton.",
+      content: `For millennia, every piece of cosmic knowledge arrived via electromagnetic waves—from radio to gamma rays. On September 14, 2015, two L-shaped 4-kilometer laser arms at the **LIGO** observatories registered a displacement one ten-thousandth the width of a proton, opening an entirely new sense for astronomy: listening directly to spacetime vibrating from two black holes of 36 and 29 solar masses merging 1.3 billion light-years away.
+
+<StatHighlight stats={[
+  { value: "10⁻²¹", label: "Peak dimensionless spacetime strain in GW150914" },
+  { value: "4 km", label: "Length of each Fabry–Pérot interferometer arm" },
+  { value: "3 M☉", label: "Mass radiated as gravitational energy in 0.2 s" }
+]} />
+
+## Dimensionless Strain & Chirp Mass
+
+As a gravitational wave sweeps through a Michelson interferometer, its quadrupolar tide stretches one perpendicular arm while compressing the other. The fractional length change is the dimensionless **strain ($h$)**:
+
+$$
+h = \\frac{2\\,\\Delta L}{L}
+$$
+
+For $L = 4\\ \\text{km}$ and $h \\approx 10^{-21}$, the end mirror shifts by merely $\\Delta L \\approx 2 \\times 10^{-18}\\ \\text{m}$—a thousand times smaller than an atomic nucleus. During the inspiral, orbital frequency and amplitude sweep rapidly upward in a signature chirp whose phase evolution pins down the binary's **chirp mass ($\\mathcal{M}$)**:
+
+$$
+\\mathcal{M} = \\frac{(m_1 m_2)^{3/5}}{(m_1 + m_2)^{1/5}}
+$$
+
+The radiated gravitational power obeys Einstein's **quadrupole formula**, surging with the sixth power of orbital angular frequency $\\omega$:
+
+$$
+P = \\frac{32\\,G}{5\\,c^5} \\left(\\frac{m_1 m_2}{m_1 + m_2}\\right)^2 r^4 \\omega^6
+$$
+
+<Figure src="/images/articles/gravitational-wave-ligo.webp" alt="Suspended fused-silica test-mass mirror inside a gravitational-wave laser interferometer chamber" caption="A 40 kg ultrapure fused-silica test mass suspended on delicate glass fibers whose sub-proton motion is monitored by a stabilized laser beam." wide aspect="wide" />
+
+## Beating the Quantum Limit with Squeezed Light
+
+Beyond seismic isolation via quadruple pendulums, sensitivity runs directly into **Heisenberg's uncertainty principle** inside the laser beam itself: photon-counting shot noise dominates high frequencies, while radiation-pressure momentum kicks disturb the mirrors at low frequencies. By injecting **frequency-dependent squeezed vacuum states**, LIGO reshapes quantum phase uncertainty across the detection band, pushing sensitivity cleanly below the standard quantum limit.
+
+<PullQuote attribution="Rainer Weiss, 2017 Nobel Laureate in Physics">
+The triumph was not merely confirming Einstein's waves—it was mastering optical and quantum metrology well enough to hear two black holes whisper across a billion light-years.
+</PullQuote>
+
+## Ground vs. Space Gravitational Observatories
+
+<ComparisonCards columns={[
+  { title: "LIGO / Virgo / KAGRA", rows: ["3–4 km ultra-high-vacuum ground arms", "10 Hz to several kHz audio band", "Stellar-mass black holes & neutron stars"] },
+  { title: "Einstein Telescope (3G)", rows: ["10 km underground triangular tunnels", "Cryogenic mirrors suppressing thermal noise", "Detects mergers out to early cosmic dawn (z > 10)"] },
+  { title: "LISA (Space Mission)", highlight: true, rows: ["3 spacecraft separated by 2.5 million km", "Millihertz band free from seismic noise", "Supermassive galactic black hole mergers"] }
+]} />
+
+## Detection Pipeline from Merger to Alert
+
+\`\`\`mermaid
+flowchart LR
+    A[Binary Black Hole Merger] --> B[Quadrupole Wave Traveling at c]
+    B --> C[Differential Stretch of 4 km Arms]
+    C --> D[Optical Phase Shift in Fabry-Perot Cavities]
+    D --> E[Numerical-Relativity Matched Filtering]
+    E --> F[Multi-Messenger Telescope Alerts]
+\`\`\`
+
+## Timeline of Gravitational-Wave Astronomy
+
+<Timeline events={[
+  { year: "1916", title: "Einstein's Prediction", description: "Linearized general relativity predicts transverse waves propagating at light speed." },
+  { year: "1974", title: "Hulse–Taylor Binary Pulsar", description: "Orbital decay matches quadrupole gravitational radiation with high precision." },
+  { year: "2015", title: "GW150914 Discovery", description: "First direct detection of a binary black hole merger by LIGO." },
+  { year: "2017", title: "GW170817 Multi-Messenger", description: "Joint gravitational-wave and gamma-ray detection of colliding neutron stars." }
+]} />
+
+<Callout type="tip" title="Testing Strong-Field Gravity">
+With more than a hundred compact-object mergers cataloged by LIGO–Virgo–KAGRA, gravitational waves now serve as standard sirens for cosmology and the sharpest empirical probes of strong-field general relativity.
+</Callout>
+
+## References
+
+1. Abbott, B. P. et al. (LIGO Scientific & Virgo Collaborations), *Observation of Gravitational Waves from a Binary Black Hole Merger*, Phys. Rev. Lett., 116, 061102, 2016.
+2. Ganapathy, D. et al., *Broadband Quantum Enhancement of the LIGO Detectors with Frequency-Dependent Squeezing*, Phys. Rev. X, 13, 041021, 2023.
+3. Maggiore, M., *Gravitational Waves: Volume 1 — Theory and Experiments*, Oxford University Press, 2007.`,
+    },
+  },
+  {
+    slug: "transformer-attention-architecture-scaling",
+    field: "ai",
+    authorSlug: "kian-moradi",
+    coverFilename: "transformer-attention-geometry.webp",
+    tags: [
+      { slug: "transformers", name_fa: "معماری ترنسفورمر", name_en: "Transformers" },
+      { slug: "scaling-laws", name_fa: "قوانین مقیاس‌پذیری", name_en: "Scaling Laws" },
+      { slug: "deep-learning", name_fa: "یادگیری عمیق", name_en: "Deep Learning" },
+    ],
+    featured: false,
+    trending: true,
+    views: 24310,
+    publishedAt: "2026-11-20 00:00:00",
+    fa: {
+      title: "معماری ترنسفورمر و قوانین مقیاس‌پذیری: هندسه توجه در مدل‌های زبانی بزرگ",
+      excerpt: "چرا ضرب داخلی مقیاس‌شده، توجه چندسر و قانون بهینه محاسباتی چینچیلا مسیر هوش مصنوعی را از شبکه‌های بازگشتی به مدل‌های استدلال‌گر چندوجهی دگرگون کردند؟",
+      content: `پیش از سال ۲۰۱۷، پردازش زبان طبیعی بر دوش شبکه‌های بازگشتی (RNN و LSTM) بود که متن را کلمه‌به‌کلمه و به‌صورت ترتیبی می‌خواندند؛ این گلوگاه ترتیبی هم مانع موازی‌سازی روی پردازنده‌های گرافیکی می‌شد و هم اطلاعات دوردست را در مسیر گرادیان محو می‌کرد. معماری **ترنسفورمر (Transformer)** با حذف کامل بازگشت و جایگزینی آن با مکانیزم هندسی **خودتوجهی (Self-Attention)**، به هر توکن اجازه داد در یک گام ماتریسی مستقیم با تمام توکن‌های دیگر گفت‌وگو کند.
+
+<StatHighlight stats={[
+  { value: "O(1)", label: "طول مسیر وابستگی بین دو توکن دوردست" },
+  { value: "۲۰×", label: "نسبت بهینه توکن به پارامتر در قانون چینچیلا" },
+  { value: "۲۰۱۷", label: "انتشار مقاله «توجه تمام آن چیزی است که نیاز دارید»" }
+]} />
+
+## ریاضیات خودتوجهی با ضرب داخلی مقیاس‌شده
+
+در هر لایه ترنسفورمر، بردار نمایشی هر توکن از طریق سه ماتریس وزن یادگیرنده به سه فضای **پرس‌وجو ($Q$)**، **کلید ($K$)** و **مقدار ($V$)** نگاشت می‌شود. میزان هم‌راستایی معنایی هر جفت توکن با ضرب داخلی $Q K^\\top$ سنجیده می‌شود و برای جلوگیری از اشباع تابع سافت‌مکس در ابعاد بزرگ $d_k$، بر $\\sqrt{d_k}$ تقسیم می‌گردد:
+
+$$
+\\operatorname{Attention}(Q, K, V) = \\operatorname{softmax}\\!\\left(\\frac{Q K^\\top}{\\sqrt{d_k}}\\right) V
+$$
+
+از آنجا که یک فضای توجه تنها می‌تواند یک نوع رابطه (مثلاً تطابق نحوی) را برجسته کند، ترنسفورمر به شکل موازی $h$ «سر توجه» مستقل اجرا می‌کند تا هم‌زمان روابط مرجع ضمیر، منطق استدلالی و ساختار معنایی را استخراج کرده و سپس در یک فضای واحد ترکیب کند:
+
+$$
+\\operatorname{MultiHead}(Q, K, V) = \\operatorname{Concat}(\\mathrm{head}_1, \\dots, \\mathrm{head}_h)\\,W^O
+$$
+
+<Figure src="/images/articles/transformer-attention-geometry.webp" alt="تجسم هندسی چندلایه از قوس‌های توجه چندسر در معماری ترنسفورمر" caption="نمایش هندسی از نحوه اتصال لایه‌های نمایشی توکن‌ها از طریق سرهای متعدد توجه در فضای برداری با ابعاد بالا." wide aspect="wide" />
+
+## قوانین مقیاس‌پذیری و مرز بهینه چینچیلا
+
+یکی از شگفت‌انگیزترین یافته‌های تجربی یادگیری عمیق مدرن، **قوانین مقیاس‌پذیری عصبی (Neural Scaling Laws)** است: خطای آنتروپی متقاطع $L$ در مدل‌های ترنسفورمر در بازه‌ای به وسعت چندین مرتبه بزرگی، به شکل قانون توانی هموار با تعداد پارامترها $N$ و تعداد توکن‌های آموزشی $D$ کاهش می‌یابد:
+
+$$
+L(N, D) = E + \\frac{A}{N^\\alpha} + \\frac{B}{D^\\beta}
+$$
+
+پژوهش **چینچیلا (Chinchilla)** در سال ۲۰۲۲ نشان داد که بسیاری از مدل‌های اولیه بیش‌ازحد بزرگ و کم‌آموزش‌دیده بودند؛ برای یک بودجه محاسباتی ثابت $C \\approx 6 N D$، بهترین کارایی زمانی به دست می‌آید که تعداد پارامترها و حجم داده آموزش به نسبت تقریباً برابر مقیاس شوند (حدود ۲۰ توکن آموزشی به ازای هر پارامتر).
+
+<PullQuote attribution="اشیش واسوانی و همکاران، ۲۰۱۷">
+با رها کردن کامل زنجیره بازگشتی و تکیه انحصاری بر مکانیزم توجه، نه‌تنها کیفیت مدل‌سازی زبان جهش یافت، بلکه موازی‌سازی سخت‌افزاری در مقیاس ابررایانه‌ها ممکن شد.
+</PullQuote>
+
+## بهینه‌سازی سخت‌افزاری و گلوگاه حافظه
+
+| چالش معماری | پیچیدگی خام | راهکار مهندسی مدرن |
+| --- | --- | --- |
+| ماتریس توجه در بافت‌های بلند | حافظه $O(n^2)$ روی HBM | الگوریتم **FlashAttention** با بلوک‌بندی SRAM بدون ذخیره ماتریس کامل |
+| کش کلید–مقدار هنگام استنتاج | رشد خطی با طول متن و تعداد سرها | توجه پرس‌وجوی گروهی (**GQA**) و توجه نهفته چندسر (**MLA**) |
+| رمزگذاری موقعیت نسبی | تعمیم ضعیف به طول‌های جدید | چرخش برداری موقعیت (**RoPE**) در صفحه مختلط |
+
+## مقایسه معماری‌های مدل‌سازی دنباله
+
+<ComparisonCards columns={[
+  { title: "شبکه‌های بازگشتی (LSTM)", rows: ["حافظه استنتاج ثابت O(1)", "آموزش ترتیبی و نامناسب برای GPUهای مدرن", "فراموشی سریع در متن‌های طولانی"] },
+  { title: "ترنسفورمر (Dense / MoE)", highlight: true, rows: ["موازی‌سازی کامل در آموزش و استدلال دقیق", "دستیابی مستقیم به هر توکن در پنجره بافت", "مقیاس‌پذیری اثبات‌شده با ترکیب متخصصان (MoE)"] },
+  { title: "مدل‌های فضای حالت (Mamba)", rows: ["پیچیدگی خطی O(n) در طول دنباله", "گزینش پویا برای فیلتر کردن اطلاعات", "ترکیب هیبریدی نوظهور با لایه‌های توجه"] }
+]} />
+
+## جریان داده در یک بلوک مدرن ترنسفورمر
+
+\`\`\`mermaid
+flowchart LR
+    A[ورودی توکن + کدگذاری RoPE] --> B[نرمال‌سازی RMSNorm]
+    B --> C[خودتوجهی چندسر با FlashAttention]
+    C --> D[اتصال باقی‌مانده Residual]
+    D --> E[شبکه پیش‌خور SwiGLU یا لایه MoE]
+    E --> F[توزیع احتمال توکن بعدی]
+\`\`\`
+
+<Callout type="tip" title="مقیاس‌پذیری زمان استنتاج (Test-Time Compute)">
+مرز تازه پژوهش هوش مصنوعی تنها به بزرگ‌تر کردن مرحله آموزش محدود نیست؛ اختصاص محاسبات بیشتر در زمان پاسخ‌گویی برای زنجیره استدلال، راستی‌آزمایی ریاضی و جستجوی درختی، محور دومی از قوانین مقیاس‌پذیری را گشوده است.
+</Callout>
+
+## منابع
+
+1. Vaswani, A. et al., *Attention Is All You Need*, NeurIPS, 2017.
+2. Hoffmann, J. et al., *Training Compute-Optimal Large Language Models (Chinchilla)*, DeepMind, 2022.
+3. Dao, T. et al., *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*, NeurIPS, 2022.`,
+    },
+    en: {
+      title: "Transformer Architecture & Scaling Laws: The Geometry of Attention in Large Models",
+      excerpt: "Why scaled dot-product attention, multi-head projections, and Chinchilla compute-optimal scaling transformed AI from sequential RNNs into multimodal reasoning engines.",
+      content: `Before 2017, sequence modeling relied on recurrent neural networks (RNNs and LSTMs) that processed text one token at a time—creating a sequential bottleneck that starved modern GPUs of parallelism and eroded long-range gradients. The **Transformer** discarded recurrence entirely, replacing it with geometric **self-attention** so every token interacts directly with every other token in a single parallel matrix step.
+
+<StatHighlight stats={[
+  { value: "O(1)", label: "Maximum path length between distant tokens" },
+  { value: "20×", label: "Chinchilla compute-optimal tokens-per-parameter ratio" },
+  { value: "2017", label: "Publication of 'Attention Is All You Need'" }
+]} />
+
+## Mathematics of Scaled Dot-Product Attention
+
+Each Transformer layer projects token embeddings into learned **Query ($Q$)**, **Key ($K$)**, and **Value ($V$)** subspaces. Pairwise semantic alignment is computed via dot products $Q K^\\top$, scaled by $\\sqrt{d_k}$ so variance stays unit-bounded before entering the softmax distribution:
+
+$$
+\\operatorname{Attention}(Q, K, V) = \\operatorname{softmax}\\!\\left(\\frac{Q K^\\top}{\\sqrt{d_k}}\\right) V
+$$
+
+Because a single attention map highlights only one relational pattern at a time, **Multi-Head Attention** runs $h$ independent learned projections in parallel—capturing syntax, coreference, and logical structure simultaneously before recombining them:
+
+$$
+\\operatorname{MultiHead}(Q, K, V) = \\operatorname{Concat}(\\mathrm{head}_1, \\dots, \\mathrm{head}_h)\\,W^O
+$$
+
+<Figure src="/images/articles/transformer-attention-geometry.webp" alt="Geometric 3D visualization of multi-head transformer attention arcs across token layers" caption="Architectural visualization of multi-head attention rays linking layered token embeddings across high-dimensional vector spaces." wide aspect="wide" />
+
+## Neural Scaling Laws & the Chinchilla Frontier
+
+One of the most striking empirical discoveries in modern deep learning is that cross-entropy loss $L$ obeys smooth **power-law scaling** across many orders of magnitude in parameter count $N$ and training tokens $D$:
+
+$$
+L(N, D) = E + \\frac{A}{N^\\alpha} + \\frac{B}{D^\\beta}
+$$
+
+DeepMind's 2022 **Chinchilla** study demonstrated that earlier models were severely undertrained: for a fixed compute budget $C \\approx 6 N D$, optimal loss requires scaling model parameters and training tokens roughly equally—around 20 training tokens per parameter.
+
+<PullQuote attribution="Ashish Vaswani et al., 2017">
+Dispensing with recurrence entirely and relying solely on attention unlocked unprecedented parallelization and set a new trajectory for sequence modeling.
+</PullQuote>
+
+## Hardware-Aware Engineering & Memory Bottlenecks
+
+| Architectural Challenge | Naive Complexity | Modern Systems Solution |
+| --- | --- | --- |
+| Long-context attention matrix | $O(n^2)$ HBM memory | **FlashAttention** IO-aware SRAM tiling with $O(n)$ memory |
+| Inference KV-cache bandwidth | Linear in context & heads | Grouped-Query (**GQA**) & Multi-Head Latent Attention (**MLA**) |
+| Relative position encoding | Poor length extrapolation | Rotary Position Embeddings (**RoPE**) in complex planes |
+
+## Comparing Sequence Modeling Families
+
+<ComparisonCards columns={[
+  { title: "Recurrent (LSTM)", rows: ["Constant O(1) inference state", "Sequential training poorly utilizes GPUs", "Information fades over long contexts"] },
+  { title: "Transformer (Dense / MoE)", highlight: true, rows: ["Fully parallel training & sharp retrieval", "Direct constant-hop access across context", "Proven scaling via sparse Mixture-of-Experts"] },
+  { title: "State-Space (Mamba)", rows: ["Linear O(n) sequence scaling", "Selective input-dependent recurrence", "Emerging hybrids interleaved with attention"] }
+]} />
+
+## Signal Flow in a Modern Transformer Block
+
+\`\`\`mermaid
+flowchart LR
+    A[Token Embeddings + RoPE] --> B[RMSNorm Pre-Normalization]
+    B --> C[Multi-Head FlashAttention]
+    C --> D[Residual Addition]
+    D --> E[SwiGLU FFN or Sparse MoE Layer]
+    E --> F[Next-Token Logit Distribution]
+\`\`\`
+
+<Callout type="tip" title="The Second Axis: Test-Time Compute">
+Modern frontier scaling now extends beyond pretraining size: allocating dynamic test-time compute for structured reasoning chains, formal verification, and tree search unlocks a second orthogonal scaling axis.
+</Callout>
+
+## References
+
+1. Vaswani, A. et al., *Attention Is All You Need*, NeurIPS, 2017.
+2. Hoffmann, J. et al., *Training Compute-Optimal Large Language Models (Chinchilla)*, DeepMind, 2022.
+3. Dao, T. et al., *FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness*, NeurIPS, 2022.`,
     },
   },
 ];

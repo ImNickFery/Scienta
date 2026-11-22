@@ -97,7 +97,13 @@ export default async function LocaleLayout({
           {siteModes.designMode === "unslop-kinetic" && <KineticScrollRuler />}
           <Navbar locale={locale} dict={dict} fields={fields} designMode={siteModes.designMode} />
           <main id="main-content" className="overflow-x-clip">{children}</main>
-          <Footer locale={locale} dict={dict} fields={fields} numerals={numerals} designMode={siteModes.designMode} />
+          <Footer
+            locale={locale}
+            dict={dict}
+            fields={fields}
+            numerals={numerals}
+            designMode={siteModes.designMode}
+          />
         </NumeralsProvider>
       </body>
     </html>

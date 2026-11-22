@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin-analytics-pro";
 import { ensureAnalyticsTableReady } from "@/lib/analytics-store";
 import { ensureApiTablesReady } from "@/lib/ai-api-auth";
+import { formatSqlUtcCutoff } from "@/lib/db-optimizer-core";
 
 interface ArticleRawRow {
   id: string;
@@ -79,6 +80,13 @@ export async function GET(req: Request) {
     localeFilterRaw === "fa" || localeFilterRaw === "en" ? localeFilterRaw : "all";
 
   await Promise.all([ensureAnalyticsTableReady(), ensureApiTablesReady()]);
+
+  const now = new Date();
+  const nowMs = now.getTime();
+  // Bound time-series scans to the exact window needed (2x rangeDays for period-over-period delta;
+  // at least 85 days for the 12-week activity heatmap) so SQLite/MySQL use created_at index range scans.
+  const pageviewsCutoff = formatSqlUtcCutoff(rangeDays * 2 + 1, now);
+  const activityCutoff = formatSqlUtcCutoff(Math.max(85, rangeDays * 2 + 1), now);
 
   const [
     articlesRaw,
@@ -173,7 +181,11 @@ export async function GET(req: Request) {
       `SELECT mime_type, size_bytes FROM media WHERE deleted_at IS NULL`
     ),
     query<{ action: string; created_at: string }>(
-      `SELECT action, created_at FROM activity_logs ORDER BY created_at DESC LIMIT 2500`
+      `SELECT action, created_at
+       FROM activity_logs
+       WHERE created_at >= ?
+       ORDER BY created_at DESC LIMIT 2500`,
+      [activityCutoff]
     ),
     query<{
       article_id: string | null;
@@ -184,15 +196,14 @@ export async function GET(req: Request) {
     }>(
       `SELECT article_id, locale, referrer_host, device_type, created_at
        FROM analytics_pageviews
-       ORDER BY created_at DESC LIMIT 10000`
+       WHERE created_at >= ?
+       ORDER BY created_at DESC LIMIT 10000`,
+      [pageviewsCutoff]
     ).catch(() => []),
     query<{ status: string; request_count: number }>(
       `SELECT status, request_count FROM api_keys`
     ).catch(() => []),
   ]);
-
-  const now = new Date();
-  const nowMs = now.getTime();
 
   // Filter live pageviews & comments/subscribers when a specific locale is chosen
   const scopedPageviews =

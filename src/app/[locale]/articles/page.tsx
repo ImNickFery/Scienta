@@ -9,6 +9,12 @@ import { buildPageMetadata, breadcrumbJsonLd, collectionPageJsonLd, SITE_URL } f
 import { safeJsonLd } from "@/lib/security";
 import { Container } from "@/components/ui/container";
 import { ArticleCard } from "@/components/article/article-card";
+import {
+  KineticArticlesArchive,
+  type KineticArchiveArticleItem,
+} from "@/components/article/kinetic-articles-archive";
+import { analyzeArticleSpecimen, type ArchiveSortKey } from "@/lib/article-telemetry";
+import { getSiteModes } from "@/lib/site-modes-server";
 import { formatCount } from "@/lib/utils";
 import { getNumerals } from "@/lib/i18n/numerals-server";
 
@@ -46,11 +52,12 @@ export default async function ArticlesPage({
   const locale = rawLocale as Locale;
   const { field: activeField = "", sort = "latest" } = await searchParams;
 
-  const [dict, allArticles, fields, numerals] = await Promise.all([
+  const [dict, allArticles, fields, numerals, siteModes] = await Promise.all([
     getDictionary(locale),
     getAllArticles(locale),
     getFields(),
     getNumerals(),
+    getSiteModes(),
   ]);
 
   const activeFields = fields.filter((f) => (f.articleCount ?? 0) > 0);
@@ -89,6 +96,65 @@ export default async function ArticlesPage({
       url: `${SITE_URL}/${locale}/articles/${a.slug}`,
     })),
   });
+
+  if (siteModes.designMode === "unslop-kinetic") {
+    const fieldNameBySlug = new Map(fields.map((f) => [f.slug, f.name[locale]]));
+    const kineticArticles: KineticArchiveArticleItem[] = allArticles.map((art) => {
+      const specimen = analyzeArticleSpecimen(art.content, locale, {
+        field: art.field,
+        slug: art.slug,
+        publishedAt: art.publishedAt,
+      });
+      return {
+        slug: art.slug,
+        title: art.title,
+        excerpt: art.excerpt,
+        cover: art.cover,
+        field: art.field,
+        fieldColor: art.fieldColor,
+        fieldLabel:
+          fieldNameBySlug.get(art.field) ??
+          dict.fields[art.field as keyof typeof dict.fields] ??
+          art.field,
+        authorName: art.authorName,
+        tags: art.tagItems?.map((t) => t.name) ?? art.tags ?? [],
+        readingTimeMinutes: specimen.exactReadingMinutes,
+        views: art.views,
+        publishedAt: art.publishedAt,
+        specimenCode: specimen.specimenCode,
+        wordCount: specimen.wordCount,
+        displayEquationCount: specimen.displayEquationCount,
+        figureCount: specimen.figureCount,
+      };
+    });
+
+    const initialSort: ArchiveSortKey =
+      sort === "views" || sort === "quickest" || sort === "longest"
+        ? sort
+        : "latest";
+
+    return (
+      <Container className="py-12 sm:py-16">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumb) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(collection) }}
+        />
+        <KineticArticlesArchive
+          locale={locale}
+          dict={dict}
+          numerals={numerals}
+          articles={kineticArticles}
+          fields={fields}
+          initialField={activeField || "all"}
+          initialSort={initialSort}
+        />
+      </Container>
+    );
+  }
 
   return (
     <Container className="py-20">

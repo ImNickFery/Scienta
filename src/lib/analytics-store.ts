@@ -36,6 +36,9 @@ export async function ensureAnalyticsTableReady(): Promise<void> {
           created_at TEXT NOT NULL DEFAULT (datetime('now'))
         )`
       );
+      await execute(`CREATE INDEX IF NOT EXISTS idx_apv_created ON analytics_pageviews (created_at DESC)`);
+      await execute(`CREATE INDEX IF NOT EXISTS idx_apv_article_created ON analytics_pageviews (article_id, created_at DESC)`);
+      await execute(`CREATE INDEX IF NOT EXISTS idx_apv_locale_created ON analytics_pageviews (locale, created_at DESC)`);
     }
   } catch (err) {
     console.warn(

@@ -4,9 +4,7 @@ import { getNumerals } from "@/lib/i18n/numerals-server";
 import { getSiteModes } from "@/lib/site-modes-server";
 import {
   getAllArticles,
-  getFeaturedArticles,
-  getTrendingArticles,
-  getMostViewedArticles,
+  deriveHomeCollections,
   stripArticleContent,
 } from "@/lib/content";
 import { getFields } from "@/lib/taxonomy";
@@ -25,16 +23,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   if (!isValidLocale(rawLocale)) notFound();
   const locale = rawLocale as Locale;
 
-  const [dict, numerals, siteModes, all, featured, trending, mostViewed, fields] = await Promise.all([
+  const [dict, numerals, siteModes, all, fields] = await Promise.all([
     getDictionary(locale),
     getNumerals(),
     getSiteModes(),
     getAllArticles(locale),
-    getFeaturedArticles(locale),
-    getTrendingArticles(locale),
-    getMostViewedArticles(locale, 4),
     getFields(),
   ]);
+
+  const { featured, trending, mostViewed } = deriveHomeCollections(all);
 
   // Every stat is derived from what's actually in the database. The
   // equation count is a floor, not a guess: it counts display-math blocks

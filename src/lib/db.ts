@@ -54,7 +54,28 @@ function activateFallback(err: unknown) {
   }
 }
 
+function resolvePoolSize(): number {
+  const parsed = Number(process.env.DB_POOL_SIZE ?? 10);
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.min(50, Math.floor(parsed)) : 10;
+}
+
+export function getActiveDbEngine(): "sqlite" | "mysql" {
+  return shouldUseSqlite() ? "sqlite" : "mysql";
+}
+
+export function getDbPoolConfig() {
+  const connectionLimit = resolvePoolSize();
+  return {
+    connectionLimit,
+    maxIdle: connectionLimit,
+    idleTimeoutMs: 60_000,
+    keepAlive: true,
+    keepAliveInitialDelayMs: 10_000,
+  };
+}
+
 function createPool() {
+  const connectionLimit = resolvePoolSize();
   return mysql.createPool({
     host: process.env.DB_HOST ?? "localhost",
     port: Number(process.env.DB_PORT ?? 3306),
@@ -62,7 +83,11 @@ function createPool() {
     password: process.env.DB_PASSWORD ?? "",
     database: process.env.DB_NAME ?? "aurora_science",
     waitForConnections: true,
-    connectionLimit: Number(process.env.DB_POOL_SIZE ?? 10),
+    connectionLimit,
+    maxIdle: connectionLimit,
+    idleTimeout: 60_000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10_000,
     queueLimit: 0,
     connectTimeout: 2000,
     dateStrings: true,

@@ -142,7 +142,7 @@ export function UnslopKineticExplorer({
           </div>
 
           {/* Sort + View Mode Controls */}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
             <div
               role="group"
               aria-label={isFa ? "مرتب‌سازی مقالات" : "Sort essays"}
@@ -172,7 +172,7 @@ export function UnslopKineticExplorer({
             <div
               role="group"
               aria-label={isFa ? "حالت نمایش مقالات" : "Essay view layout"}
-              className="inline-flex items-center gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1"
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1"
             >
               <button
                 type="button"
@@ -206,11 +206,11 @@ export function UnslopKineticExplorer({
           </div>
         </div>
 
-        {/* Discipline Filter Tabs */}
+        {/* Discipline Filter Tabs — horizontal swipe strip on mobile, wrapped on md+ */}
         <div
           role="tablist"
           aria-label={isFa ? "فیلتر بر اساس حوزه علمی" : "Filter essays by scientific field"}
-          className="flex flex-wrap items-center gap-1.5"
+          className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:flex-wrap md:overflow-visible md:pb-0"
         >
           <button
             type="button"
@@ -218,7 +218,7 @@ export function UnslopKineticExplorer({
             aria-selected={selectedField === "all"}
             data-kinetic-field="all"
             onClick={() => setSelectedField("all")}
-            className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors duration-150 ${
+            className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-medium transition-colors duration-150 ${
               selectedField === "all"
                 ? "border-(--color-text-primary) bg-(--color-text-primary) text-(--color-bg-deep)"
                 : "border-(--color-border-subtle) bg-(--color-bg-elevated) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
@@ -243,7 +243,7 @@ export function UnslopKineticExplorer({
                 aria-selected={active}
                 data-kinetic-field={field.slug}
                 onClick={() => setSelectedField(field.slug)}
-                className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors duration-150 ${
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-medium transition-colors duration-150 ${
                   active
                     ? "border-(--color-text-primary) bg-(--color-text-primary) text-(--color-bg-deep)"
                     : "border-(--color-border-subtle) bg-(--color-bg-elevated) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Check, ChevronDown, Globe, Loader2 } from "lucide-react";
 import {
   LOCALE_COOKIE,
@@ -60,6 +61,7 @@ function useLocaleAndNumerals(currentLocale: Locale) {
 
 export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
   const [open, setOpen] = useState(false);
+  const reducedMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const { numerals, switchingTo, getLocaleHref, switchTo, chooseNumerals } =
     useLocaleAndNumerals(currentLocale);
@@ -91,16 +93,16 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
         aria-expanded={open}
         aria-label={currentLocale === "fa" ? "تغییر زبان و شکل اعداد" : "Change language"}
         className={cn(
-          "language-switcher-trigger flex h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm transition-colors",
+          "language-switcher-trigger flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple)",
           open
             ? "border-(--color-accent-purple)/60 bg-(--color-accent-purple)/10 text-(--color-text-primary)"
-            : "border-(--color-border-subtle) text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
+            : "border-(--color-border-subtle) bg-(--color-bg-elevated)/60 text-(--color-text-secondary) hover:border-(--color-border-strong) hover:text-(--color-text-primary)"
         )}
       >
         {switchingTo ? (
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-(--color-accent-purple)" />
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-(--color-accent-purple)" />
         ) : (
-          <Globe className="h-4 w-4 shrink-0" />
+          <Globe className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
         )}
         <span>{switchingTo ? localeLabels[switchingTo] : localeLabels[currentLocale]}</span>
         <ChevronDown
@@ -108,70 +110,78 @@ export function LanguageSwitcher({ currentLocale }: { currentLocale: Locale }) {
         />
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          className="language-switcher-menu absolute end-0 top-full z-50 mt-2 min-w-[12.5rem] rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated)/95 p-1.5 shadow-2xl backdrop-blur-xl"
-        >
-          {locales.map((locale) => {
-            const active = locale === currentLocale;
-            const href = getLocaleHref(locale);
-            return (
-              <a
-                key={locale}
-                href={href}
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={(e) => {
-                  e.preventDefault();
-                  setOpen(false);
-                  switchTo(locale);
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/[0.06]",
-                  active ? "font-medium text-(--color-accent-orange)" : "text-(--color-text-secondary)"
-                )}
-              >
-                <span>{localeLabels[locale]}</span>
-                {active && <Check className="h-3.5 w-3.5 shrink-0" />}
-              </a>
-            );
-          })}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+            transition={
+              reducedMotion ? { duration: 0.05 } : { duration: 0.15, ease: [0.16, 1, 0.3, 1] }
+            }
+            className="language-switcher-menu absolute end-0 top-full z-50 mt-2.5 min-w-[12.5rem] rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated) p-1.5 shadow-xl"
+          >
+            {locales.map((locale) => {
+              const active = locale === currentLocale;
+              const href = getLocaleHref(locale);
+              return (
+                <a
+                  key={locale}
+                  href={href}
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setOpen(false);
+                    switchTo(locale);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-(--color-bg-secondary)",
+                    active ? "font-medium text-(--color-accent-purple)" : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
+                  )}
+                >
+                  <span>{localeLabels[locale]}</span>
+                  {active && <Check className="h-3.5 w-3.5 shrink-0" />}
+                </a>
+              );
+            })}
 
-          {currentLocale === "fa" && (
-            <div className="mt-1.5 border-t border-(--color-border-subtle) pt-1.5">
-              <p className="px-3 pb-1 text-[11px] text-(--color-text-tertiary)">شکل اعداد</p>
-              {numeralOptions.map((option) => {
-                const active = option.value === numerals;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={active}
-                    onClick={() => {
-                      chooseNumerals(option.value);
-                      setOpen(false);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-white/[0.06]",
-                      active ? "font-medium text-(--color-accent-orange)" : "text-(--color-text-secondary)"
-                    )}
-                  >
-                    <span>{option.label}</span>
-                    <span
-                      className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)"
-                      dir="ltr"
+            {currentLocale === "fa" && (
+              <div className="mt-1.5 border-t border-(--color-border-subtle) pt-1.5">
+                <p className="px-3 pb-1 text-[11px] text-(--color-text-tertiary)">شکل اعداد</p>
+                {numeralOptions.map((option) => {
+                  const active = option.value === numerals;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        chooseNumerals(option.value);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-(--color-bg-secondary)",
+                        active ? "font-medium text-(--color-accent-purple)" : "text-(--color-text-secondary) hover:text-(--color-text-primary)"
+                      )}
                     >
-                      {option.sample}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                      <span>{option.label}</span>
+                      <span
+                        className="font-[family-name:var(--font-mono)] text-xs text-(--color-text-tertiary)"
+                        dir="ltr"
+                      >
+                        {option.sample}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

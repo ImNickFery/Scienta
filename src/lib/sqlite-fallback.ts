@@ -3,6 +3,12 @@ import path from "node:path";
 import bcrypt from "bcryptjs";
 import { v4 as uuid } from "uuid";
 import { SEED_ARTICLES, SEED_AUTHORS, SEED_FIELDS, SEED_MEDIA } from "./seed-data";
+import {
+  LruCache,
+  SQLITE_INDEX_STATEMENTS,
+  STATEMENT_CACHE_MAX_SIZE,
+  type LruCacheStats,
+} from "./db-optimizer-core";
 
 type SqliteParam = null | number | bigint | string | Uint8Array;
 
@@ -905,35 +911,126 @@ function openSqliteWithFallback(
   throw lastError;
 }
 
+interface CachedPreparedStatement {
+  translated: string;
+  stmt: SqliteStatement;
+  isMutation: boolean;
+}
+
+export interface SqlitePragmaDiagnostics {
+  journalMode: string;
+  synchronous: number;
+  cacheSizeKiB: number;
+  tempStore: number;
+  pageSize: number;
+  pageCount: number;
+  freelistCount: number;
+  estimatedBytes: number;
+  indexCount: number;
+  statementCache: LruCacheStats;
+}
+
+export interface SqliteMaintenanceSummary {
+  analyzed: boolean;
+  optimized: boolean;
+  walCheckpointed: boolean;
+  pageCount: number;
+  freelistCount: number;
+  estimatedBytes: number;
+}
+
+const DDL_OR_PRAGMA_RE = /^\s*(CREATE|ALTER|DROP|PRAGMA|ATTACH|DETACH|VACUUM|ANALYZE|REINDEX)\b/i;
+
+function applyPerformancePragmas(db: SqliteDatabase, openedPath: string) {
+  const pragmas: string[] = [
+    "PRAGMA foreign_keys = ON;",
+    "PRAGMA busy_timeout = 5000;",
+    "PRAGMA synchronous = NORMAL;",
+    "PRAGMA temp_store = MEMORY;",
+    "PRAGMA cache_size = -16000;",
+  ];
+  if (openedPath !== ":memory:") {
+    pragmas.unshift("PRAGMA journal_mode = WAL;");
+    pragmas.push("PRAGMA mmap_size = 67108864;");
+  }
+  for (const pragma of pragmas) {
+    try {
+      db.exec(pragma);
+    } catch {
+      // Ignore if filesystem/runtime restricts a specific pragma (e.g. WAL/mmap)
+    }
+  }
+}
+
+function ensureSqliteIndexes(db: SqliteDatabase) {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    for (const ddl of SQLITE_INDEX_STATEMENTS) {
+      db.exec(ddl);
+    }
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    throw err;
+  }
+}
+
 export class SqliteFallbackDb {
   private db: SqliteDatabase;
+  private readonly stmtCache: LruCache<CachedPreparedStatement>;
   public readonly filePath: string;
 
-  constructor(filename: string = DEFAULT_DB_PATH) {
+  constructor(filename: string = DEFAULT_DB_PATH, statementCacheSize: number = STATEMENT_CACHE_MAX_SIZE) {
     const { DatabaseSync } = loadSqliteModule();
     const { db, openedPath } = openSqliteWithFallback(DatabaseSync, filename);
     this.db = db;
     this.filePath = openedPath;
-    if (openedPath !== ":memory:") {
-      try {
-        this.db.exec("PRAGMA journal_mode = WAL;");
-      } catch {
-        // Ignore if filesystem does not support WAL
-      }
-    }
+    this.stmtCache = new LruCache<CachedPreparedStatement>(statementCacheSize);
+
+    applyPerformancePragmas(this.db, openedPath);
     this.db.exec(SCHEMA_SQL);
     seedIfEmpty(this.db);
     ensureCommentsSchemaAndSeed(this.db);
     ensureSeedArticleMedia(this.db);
     ensureApiKeysSchema(this.db);
+    ensureSqliteIndexes(this.db);
+    try {
+      this.db.exec("ANALYZE;");
+      this.db.exec("PRAGMA optimize;");
+    } catch {
+      // Non-fatal if planner statistics cannot be refreshed during startup
+    }
+  }
+
+  private getOrPrepare(sql: string): CachedPreparedStatement {
+    if (DDL_OR_PRAGMA_RE.test(sql)) {
+      const translated = translateMysqlToSqlite(sql);
+      const stmt = this.db.prepare(translated);
+      this.stmtCache.clear();
+      return {
+        translated,
+        stmt,
+        isMutation: true,
+      };
+    }
+
+    const cached = this.stmtCache.get(sql);
+    if (cached) return cached;
+
+    const translated = translateMysqlToSqlite(sql);
+    const entry: CachedPreparedStatement = {
+      translated,
+      stmt: this.db.prepare(translated),
+      isMutation: /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(translated),
+    };
+    this.stmtCache.set(sql, entry);
+    return entry;
   }
 
   query<T = unknown>(sql: string, params: unknown[] = []): T[] {
-    const translated = translateMysqlToSqlite(sql);
     const normalized = normalizeSqliteParams(params);
     try {
-      const stmt = this.db.prepare(translated);
-      const isMutation = /^\s*(INSERT|UPDATE|DELETE|REPLACE)\b/i.test(translated);
+      const { stmt, isMutation } = this.getOrPrepare(sql);
       if (isMutation) {
         stmt.run(...normalized);
         return [];
@@ -945,10 +1042,10 @@ export class SqliteFallbackDb {
   }
 
   execute(sql: string, params: unknown[] = []): SqliteResultHeader {
-    const translated = translateMysqlToSqlite(sql);
     const normalized = normalizeSqliteParams(params);
     try {
-      const res = this.db.prepare(translated).run(...normalized);
+      const { stmt } = this.getOrPrepare(sql);
+      const res = stmt.run(...normalized);
       return {
         affectedRows: Number(res.changes ?? 0),
         insertId: Number(res.lastInsertRowid ?? 0),
@@ -956,6 +1053,103 @@ export class SqliteFallbackDb {
     } catch (err) {
       throw mapSqliteError(err);
     }
+  }
+
+  explainQueryPlan(sql: string, params: unknown[] = []): Array<{ id: number; parent: number; detail: string }> {
+    const translated = translateMysqlToSqlite(sql);
+    const normalized = normalizeSqliteParams(params);
+    const stmt = this.db.prepare(`EXPLAIN QUERY PLAN ${translated}`);
+    return toPlainRows<{ id: number; parent: number; detail: string }>(stmt.all(...normalized));
+  }
+
+  getStatementCacheStats(): LruCacheStats {
+    return this.stmtCache.stats();
+  }
+
+  clearStatementCache(): void {
+    this.stmtCache.clear();
+  }
+
+  getPragmaDiagnostics(): SqlitePragmaDiagnostics {
+    const readScalar = <T>(pragma: string, key: string, fallback: T): T => {
+      try {
+        const row = this.db.prepare(`PRAGMA ${pragma}`).get() as Record<string, unknown> | undefined;
+        if (!row) return fallback;
+        const val = row[key] ?? Object.values(row)[0];
+        return (val as T) ?? fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
+    const journalMode = String(readScalar("journal_mode", "journal_mode", "unknown"));
+    const synchronous = Number(readScalar("synchronous", "synchronous", 0));
+    const rawCacheSize = Number(readScalar("cache_size", "cache_size", 0));
+    const tempStore = Number(readScalar("temp_store", "temp_store", 0));
+    const pageSize = Number(readScalar("page_size", "page_size", 4096));
+    const pageCount = Number(readScalar("page_count", "page_count", 0));
+    const freelistCount = Number(readScalar("freelist_count", "freelist_count", 0));
+    const cacheSizeKiB = rawCacheSize < 0 ? Math.abs(rawCacheSize) : Math.round((rawCacheSize * pageSize) / 1024);
+
+    const idxRow = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_autoindex_%'`)
+      .get() as { count?: number } | undefined;
+
+    return {
+      journalMode,
+      synchronous,
+      cacheSizeKiB,
+      tempStore,
+      pageSize,
+      pageCount,
+      freelistCount,
+      estimatedBytes: pageSize * pageCount,
+      indexCount: Number(idxRow?.count ?? 0),
+      statementCache: this.stmtCache.stats(),
+    };
+  }
+
+  runMaintenance(): SqliteMaintenanceSummary {
+    let analyzed = false;
+    let optimized = false;
+    let walCheckpointed = false;
+
+    ensureSqliteIndexes(this.db);
+
+    try {
+      this.db.exec("ANALYZE;");
+      analyzed = true;
+    } catch {
+      analyzed = false;
+    }
+
+    try {
+      this.db.exec("PRAGMA optimize;");
+      optimized = true;
+    } catch {
+      optimized = false;
+    }
+
+    if (this.filePath !== ":memory:") {
+      try {
+        this.db.exec("PRAGMA wal_checkpoint(PASSIVE);");
+        walCheckpointed = true;
+      } catch {
+        walCheckpointed = false;
+      }
+    }
+
+    this.stmtCache.clear();
+    const diag = this.getPragmaDiagnostics();
+
+    return {
+      analyzed,
+      optimized,
+      walCheckpointed,
+      pageCount: diag.pageCount,
+      freelistCount: diag.freelistCount,
+      estimatedBytes: diag.estimatedBytes,
+    };
   }
 
   async withTransaction<T>(fn: (conn: SqliteConnection) => Promise<T>): Promise<T> {
@@ -975,6 +1169,7 @@ export class SqliteFallbackDb {
   }
 
   close() {
+    this.stmtCache.clear();
     this.db.close();
   }
 }

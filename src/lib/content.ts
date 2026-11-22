@@ -1,3 +1,4 @@
+import { cache } from "react";
 import GithubSlugger from "github-slugger";
 import readingTime from "reading-time";
 import { query, queryOne, execute } from "./db";
@@ -111,25 +112,46 @@ export function stripArticleContent(article: Article): Article {
   return { ...article, content: "" };
 }
 
-export async function getAllArticles(locale: Locale, opts: { includeUnpublished?: boolean } = {}): Promise<Article[]> {
-  const statusClause = opts.includeUnpublished ? "" : `AND ${LIVE_STATUS_SQL}`;
+const getAllArticlesCached = cache(async (locale: Locale, includeUnpublished: boolean): Promise<Article[]> => {
+  const statusClause = includeUnpublished ? "" : `AND ${LIVE_STATUS_SQL}`;
   const rows = await query<ArticleRow>(
     `${BASE_SELECT} ${statusClause} ORDER BY a.published_at DESC, a.created_at DESC`,
     [locale]
   );
   return rows.map((r) => rowToArticle(r, locale));
+});
+
+export async function getAllArticles(locale: Locale, opts: { includeUnpublished?: boolean } = {}): Promise<Article[]> {
+  return getAllArticlesCached(locale, Boolean(opts.includeUnpublished));
 }
 
-export async function getArticle(locale: Locale, slug: string): Promise<Article | null> {
+/**
+ * Derives homepage featured, trending, and most-viewed collections directly from
+ * an already-fetched live article list (sorted by published_at DESC), eliminating
+ * 3 redundant full-MDX database queries on every homepage render.
+ */
+export function deriveHomeCollections(allLiveArticles: readonly Article[]): {
+  featured: Article[];
+  trending: Article[];
+  mostViewed: Article[];
+} {
+  const featured = allLiveArticles.filter((a) => a.featured).slice(0, 6);
+  const byViewsDesc = [...allLiveArticles].sort((a, b) => b.views - a.views);
+  const trending = byViewsDesc.filter((a) => a.trending).slice(0, 6);
+  const mostViewed = byViewsDesc.slice(0, 4);
+  return { featured, trending, mostViewed };
+}
+
+export const getArticle = cache(async (locale: Locale, slug: string): Promise<Article | null> => {
   const row = await queryOne<ArticleRow>(
     `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND t.slug = ? LIMIT 1`,
     [locale, slug]
   );
   return row ? rowToArticle(row, locale) : null;
-}
+});
 
 /** Returns the per-locale slugs for a given article id (used for hreflang SEO & locale switching). */
-export async function getArticleLocaleSlugs(articleId: string): Promise<Partial<Record<Locale, string>>> {
+export const getArticleLocaleSlugs = cache(async (articleId: string): Promise<Partial<Record<Locale, string>>> => {
   const rows = await query<{ locale: Locale; slug: string }>(
     `SELECT locale, slug FROM article_translations WHERE article_id = ?`,
     [articleId]
@@ -139,7 +161,7 @@ export async function getArticleLocaleSlugs(articleId: string): Promise<Partial<
     result[row.locale] = row.slug;
   }
   return result;
-}
+});
 
 export interface AdjacentArticleLink {
   slug: string;
@@ -147,25 +169,27 @@ export interface AdjacentArticleLink {
 }
 
 /** Fetches only the immediate previous and next article links without loading all MDX bodies. */
-export async function getAdjacentArticles(
-  locale: Locale,
-  articleId: string
-): Promise<{ prev: AdjacentArticleLink | null; next: AdjacentArticleLink | null }> {
-  const rows = await query<{ id: string; slug: string; title: string }>(
-    `SELECT a.id, t.slug, t.title
-     FROM articles a
-     JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
-     WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL}
-     ORDER BY a.published_at DESC, a.created_at DESC`,
-    [locale]
-  );
-  const idx = rows.findIndex((r) => r.id === articleId);
-  if (idx === -1) return { prev: null, next: null };
-  return {
-    prev: idx > 0 ? { slug: rows[idx - 1].slug, title: rows[idx - 1].title } : null,
-    next: idx < rows.length - 1 ? { slug: rows[idx + 1].slug, title: rows[idx + 1].title } : null,
-  };
-}
+export const getAdjacentArticles = cache(
+  async (
+    locale: Locale,
+    articleId: string
+  ): Promise<{ prev: AdjacentArticleLink | null; next: AdjacentArticleLink | null }> => {
+    const rows = await query<{ id: string; slug: string; title: string }>(
+      `SELECT a.id, t.slug, t.title
+       FROM articles a
+       JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
+       WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL}
+       ORDER BY a.published_at DESC, a.created_at DESC`,
+      [locale]
+    );
+    const idx = rows.findIndex((r) => r.id === articleId);
+    if (idx === -1) return { prev: null, next: null };
+    return {
+      prev: idx > 0 ? { slug: rows[idx - 1].slug, title: rows[idx - 1].title } : null,
+      next: idx < rows.length - 1 ? { slug: rows[idx + 1].slug, title: rows[idx + 1].title } : null,
+    };
+  }
+);
 
 /** Used by the admin panel — fetches regardless of status, keyed by article id. */
 export async function getArticleByIdAnyStatus(locale: Locale, articleId: string): Promise<Article | null> {
@@ -212,6 +236,15 @@ export async function getMostViewedArticles(locale: Locale, limit = 5): Promise<
   const rows = await query<ArticleRow>(
     `${BASE_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.views DESC LIMIT ?`,
     [locale, limit]
+  );
+  return rows.map((r) => rowToArticle(r, locale));
+}
+
+export async function getRecentArticles(locale: Locale, limit = 6): Promise<Article[]> {
+  const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+  const rows = await query<ArticleRow>(
+    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.published_at DESC, a.created_at DESC LIMIT ?`,
+    [locale, safeLimit]
   );
   return rows.map((r) => rowToArticle(r, locale));
 }
@@ -264,7 +297,7 @@ export interface TagRecord {
   count: number;
 }
 
-export async function getAllTagRecords(): Promise<TagRecord[]> {
+export const getAllTagRecords = cache(async (): Promise<TagRecord[]> => {
   const rows = await query<{ slug: string; name_fa: string; name_en: string; count: number }>(
     `SELECT tg.slug, tg.name_fa, tg.name_en, COUNT(a.id) AS count
      FROM tags tg
@@ -278,7 +311,7 @@ export async function getAllTagRecords(): Promise<TagRecord[]> {
     name: { fa: r.name_fa, en: r.name_en },
     count: Number(r.count ?? 0),
   }));
-}
+});
 
 export async function getTagBySlug(slug: string): Promise<TagRecord | null> {
   const row = await queryOne<{ slug: string; name_fa: string; name_en: string; count: number }>(

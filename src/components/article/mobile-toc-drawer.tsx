@@ -73,7 +73,7 @@ export function MobileTocDrawer({
         onClick={() => setOpen(true)}
         aria-label={dict.article.tableOfContents}
         aria-expanded={open}
-        className="glass-panel safe-bottom fixed bottom-5 end-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-(--color-accent-purple)/40 bg-(--color-bg-elevated)/90 px-4 py-2.5 text-xs font-medium text-(--color-text-primary) shadow-[0_12px_36px_-8px_rgba(var(--color-accent-glow-rgb),0.55)] transition-transform active:scale-95"
+        className="safe-bottom fixed bottom-5 right-4 z-40 flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-xl border border-(--color-border-strong) bg-(--color-bg-elevated)/95 px-3.5 py-2.5 text-xs font-medium text-(--color-text-primary) shadow-[0_12px_32px_-10px_rgba(0,0,0,0.45)] backdrop-blur-md transition-transform active:scale-95"
       >
         <ListTree className="h-4 w-4 shrink-0 text-(--color-accent-purple)" />
         <span className="shrink-0">{dict.article.tableOfContents}</span>
@@ -95,7 +95,7 @@ export function MobileTocDrawer({
             aria-modal="true"
             aria-label={dict.article.tableOfContents}
             onClick={(e) => e.stopPropagation()}
-            className="glass-panel safe-bottom flex max-h-[75dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border-t border-(--color-border-strong) bg-(--color-bg-secondary)/95 shadow-2xl"
+            className="safe-bottom flex max-h-[75dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border-t border-(--color-border-strong) bg-(--color-bg-secondary) shadow-2xl"
           >
             <div className="flex items-center justify-between border-b border-(--color-border-subtle) px-5 py-4">
               <div className="flex items-center gap-2">
@@ -108,7 +108,7 @@ export function MobileTocDrawer({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label={locale === "fa" ? "بستن فهرست مطالب" : "Close table of contents"}
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-(--color-border-subtle) text-(--color-text-secondary) hover:text-(--color-text-primary)"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-(--color-border-subtle) text-(--color-text-secondary) hover:text-(--color-text-primary)"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -128,7 +128,7 @@ export function MobileTocDrawer({
                           "flex w-full items-center justify-between gap-2 rounded-xl py-2.5 pe-3 text-start text-sm transition-colors",
                           isActive
                             ? "bg-(--color-accent-purple)/15 font-semibold text-(--color-accent-purple)"
-                            : "text-(--color-text-secondary) hover:bg-white/[0.04] hover:text-(--color-text-primary)"
+                            : "text-(--color-text-secondary) hover:bg-(--color-bg-elevated) hover:text-(--color-text-primary)"
                         )}
                       >
                         <span className="min-w-0 leading-relaxed">{item.text}</span>
