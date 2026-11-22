@@ -109,6 +109,12 @@ main() {
   activate_node_env
   cd "$TARGET_DIR"
 
+  if [ -d ".git" ] && command -v git >/dev/null 2>&1; then
+    git config pack.threads 1 || true
+    git config pack.windowMemory 64m || true
+    git config core.packedGitWindowSize 16m || true
+  fi
+
   mkdir -p data tmp
   link_persistent_uploads
 

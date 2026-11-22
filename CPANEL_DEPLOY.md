@@ -48,7 +48,7 @@ In **cPanel → Setup Node.js App** (auto-created when `cloudlinux-selector` is 
 Every push to `main` automatically rebuilds the `deploy` branch via `.github/workflows/deploy-cpanel.yml`. On cPanel Terminal run:
 
 ```bash
-cd ~/scienta-app && git fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh
+cd ~/scienta-app && git -c pack.threads=1 -c pack.windowMemory=64m fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh
 ```
 
 ### Optional: Fully Automatic Deploy on `git push`

@@ -306,7 +306,9 @@ main() {
 
   if [ -d "$APP_DIR/.git" ]; then
     log "Pulling latest '$BRANCH' in $APP_DIR..."
-    git -C "$APP_DIR" fetch --depth 1 origin "$BRANCH"
+    git -C "$APP_DIR" config pack.threads 1
+    git -C "$APP_DIR" config pack.windowMemory 64m
+    git -C "$APP_DIR" -c pack.threads=1 -c pack.windowMemory=64m fetch --depth 1 origin "$BRANCH"
     git -C "$APP_DIR" checkout -B "$BRANCH" "origin/$BRANCH"
     git -C "$APP_DIR" reset --hard "origin/$BRANCH"
   elif [ -d "$APP_DIR" ] && [ "$(ls -A "$APP_DIR" 2>/dev/null || true)" != "" ]; then
@@ -315,7 +317,9 @@ main() {
   else
     log "Shallow-cloning $REPO_URL (branch: $BRANCH) into $APP_DIR..."
     mkdir -p "$(dirname "$APP_DIR")"
-    git clone --depth 1 --branch "$BRANCH" --single-branch "$REPO_URL" "$APP_DIR"
+    git -c pack.threads=1 -c pack.windowMemory=64m clone --depth 1 --branch "$BRANCH" --single-branch "$REPO_URL" "$APP_DIR"
+    git -C "$APP_DIR" config pack.threads 1
+    git -C "$APP_DIR" config pack.windowMemory 64m
   fi
 
   ensure_cpanel_node_app "$APP_DIR"
@@ -371,7 +375,7 @@ main() {
   printf '  Startup file   : app.cjs\n'
   printf '  Admin Console  : https://%s%s/admin\n' "${CPANEL_DOMAIN:-yourdomain.com}" "${CPANEL_APP_URI%/}"
   printf '\nFor future updates on cPanel, run:\n'
-  printf '  cd %s && git fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh\n\n' "$APP_DIR"
+  printf '  cd %s && git -c pack.threads=1 -c pack.windowMemory=64m fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh\n\n' "$APP_DIR"
 }
 
 main

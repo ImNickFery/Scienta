@@ -834,7 +834,19 @@ export async function startSiteUpdateJob(triggeredBy: string): Promise<
         pushLog(`Fetching origin/${job.branch}...`);
         const fetchRes = await runStreamingCommand(
           "git",
-          ["fetch", "--depth", "1", "origin", job.branch],
+          [
+            "-c",
+            "pack.threads=1",
+            "-c",
+            "pack.windowMemory=64m",
+            "-c",
+            "core.packedGitWindowSize=16m",
+            "fetch",
+            "--depth",
+            "1",
+            "origin",
+            job.branch,
+          ],
           { cwd, env: gitEnv, timeoutMs: 90_000 },
           pushLog
         );

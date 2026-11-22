@@ -57,7 +57,7 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/cpanel_key
           chmod 600 ~/.ssh/cpanel_key
           ssh -o StrictHostKeyChecking=no -p "$SSH_PORT" -i ~/.ssh/cpanel_key "$SSH_USER@$SSH_HOST" \
-            "set -e; if [ ! -d \"$REPO_ROOT/.git\" ]; then mkdir -p \"\$(dirname \"$REPO_ROOT\")\" && git clone --depth 1 --branch deploy \"https://github.com/${{ github.repository }}.git\" \"$REPO_ROOT\"; fi; cd \"$REPO_ROOT\" && git fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh \"$REPO_ROOT\""
+            "set -e; if [ ! -d \"$REPO_ROOT/.git\" ]; then mkdir -p \"\$(dirname \"$REPO_ROOT\")\" && git -c pack.threads=1 -c pack.windowMemory=64m clone --depth 1 --branch deploy \"https://github.com/${{ github.repository }}.git\" \"$REPO_ROOT\"; fi; cd \"$REPO_ROOT\" && git -c pack.threads=1 -c pack.windowMemory=64m fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh \"$REPO_ROOT\""
 
       - name: Trigger cPanel UAPI pull (if API Token is set without SSH)
         env:
