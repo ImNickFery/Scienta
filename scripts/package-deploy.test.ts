@@ -33,6 +33,7 @@ test('shouldStripStandaloneFile identifies sourcemaps, type defs, env leaks, and
   assert.equal(shouldStripStandaloneFile('node_modules/postcss/lib/postcss.d.mts'), true);
   assert.equal(shouldStripStandaloneFile('node_modules/foo/README.md'), true);
   assert.equal(shouldStripStandaloneFile('.env.local'), true);
+  assert.equal(shouldStripStandaloneFile('.gitignore'), true);
   assert.equal(shouldStripStandaloneFile('.env.example'), false);
   assert.equal(shouldStripStandaloneFile('server.js'), false);
   assert.equal(shouldStripStandaloneFile('node_modules/next/dist/server/next.js'), false);
@@ -90,6 +91,7 @@ test('assembleDeployDir packages Next.js standalone, strips bloat/sharp, prunes 
     await fs.writeFile(path.join(tmpRoot, 'scripts', 'cpanel-slim-finalize.sh'), '#!/usr/bin/env bash\n');
     await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', 'server.js'), 'console.log("ok");\n');
     await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', '.env.local'), 'SECRET=leak\n');
+    await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', '.gitignore'), '/node_modules\n/.next/\n');
     await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', '.next', 'server', 'route.js'), '1');
     await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', '.next', 'server', 'route.js.map'), '{}');
     await fs.writeFile(path.join(tmpRoot, '.next', 'standalone', '.next', 'cache', 'x.bin'), 'cache');
@@ -168,6 +170,7 @@ test('assembleDeployDir packages Next.js standalone, strips bloat/sharp, prunes 
     assert.ok(!serverFiles.includes('route.js.map'));
     const standaloneTop = await fs.readdir(path.join(res.outDir, 'standalone'));
     assert.ok(!standaloneTop.includes('.env.local'));
+    assert.ok(!standaloneTop.includes('.gitignore'));
     const standaloneDotNext = await fs.readdir(path.join(res.outDir, 'standalone', '.next'));
     assert.ok(!standaloneDotNext.includes('cache'));
 

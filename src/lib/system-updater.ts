@@ -66,12 +66,12 @@ declare global {
 
 function getSshBaseDir(): string {
   const raw = process.env.SCIENTA_SSH_DIR?.trim();
-  return path.resolve(raw || "/tmp/scienta-ssh");
+  return path.resolve(/*turbopackIgnore: true*/ raw || "/tmp/scienta-ssh");
 }
 
 function resolveConfinedSshFile(filename: string): string {
   const baseDir = getSshBaseDir();
-  const resolved = path.resolve(baseDir, filename);
+  const resolved = path.resolve(/*turbopackIgnore: true*/ baseDir, filename);
   if (!resolved.startsWith(baseDir + path.sep)) {
     throw new Error("Invalid SSH key storage path.");
   }
@@ -294,7 +294,7 @@ export function getActiveDeployJob(): DeployJobRecord | null {
  */
 export async function getLocalGitStatus(): Promise<LocalGitStatus> {
   const cwd = process.cwd();
-  if (!fs.existsSync(path.join(cwd, ".git"))) {
+  if (!fs.existsSync(path.join(/*turbopackIgnore: true*/ cwd, ".git"))) {
     return {
       isGitRepo: false,
       currentBranch: null,
@@ -793,7 +793,7 @@ export async function startSiteUpdateJob(triggeredBy: string): Promise<
       });
 
       await runStep("fetch", async () => {
-        const hasGitDir = fs.existsSync(path.join(cwd, ".git"));
+        const hasGitDir = fs.existsSync(path.join(/*turbopackIgnore: true*/ cwd, ".git"));
         if (!hasGitDir) {
           pushLog("No local .git repository detected — initializing git repository cleanly...");
           const initRes = await runStreamingCommand("git", ["init"], { cwd, env: gitEnv, timeoutMs: 15_000 }, pushLog);

@@ -205,7 +205,7 @@ let cachedAppVersion: string | null = null;
 function readAppVersion(): string {
   if (cachedAppVersion) return cachedAppVersion;
   try {
-    const pkgPath = path.join(process.cwd(), "package.json");
+    const pkgPath = path.join(/*turbopackIgnore: true*/ process.cwd(), "package.json");
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8")) as { version?: string };
     cachedAppVersion = pkg.version || "1.0.0";
   } catch {

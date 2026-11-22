@@ -124,6 +124,12 @@ export function shouldStripStandaloneFile(relPosixPath: string): boolean {
     return true;
   }
 
+  // Strip nested .gitignore files (e.g. a traced root .gitignore containing `/node_modules`)
+  // so `git add -A` inside ./deploy never accidentally ignores standalone/node_modules/**
+  if (base === '.gitignore') {
+    return true;
+  }
+
   if (lower.startsWith('node_modules/') && STRIP_DOC_NAMES.has(base)) {
     return true;
   }
