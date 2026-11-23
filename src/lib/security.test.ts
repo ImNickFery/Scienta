@@ -228,6 +228,24 @@ test("verifySameOrigin blocks cross-site browser requests and allows same-origin
   });
   assert.equal(verifySameOrigin(forwardedHost), true);
 
+  const forwardedHostWithDefaultPort = new Request("http://127.0.0.1:3000/api/admin/auth/login", {
+    method: "POST",
+    headers: {
+      "x-forwarded-host": "scienta.ir:443",
+      origin: "https://scienta.ir",
+    },
+  });
+  assert.equal(verifySameOrigin(forwardedHostWithDefaultPort), true);
+
+  const mismatchedPort = new Request("https://scienta.ir/api/admin/auth/login", {
+    method: "POST",
+    headers: {
+      host: "scienta.ir:8443",
+      origin: "https://scienta.ir",
+    },
+  });
+  assert.equal(verifySameOrigin(mismatchedPort), false);
+
   const nonBrowserCaller = new Request("https://scienta.ir/api/public/contact", {
     method: "POST",
     headers: { host: "scienta.ir" },

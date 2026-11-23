@@ -221,7 +221,15 @@ export function verifySameOrigin(req: Request): boolean {
 
   try {
     const parsedCandidate = new URL(candidate);
-    return parsedCandidate.host.toLowerCase() === expectedHost;
+    const normalizeHost = (host: string, protocol: string) => {
+      const lower = host.toLowerCase();
+      if (protocol === "https:" && lower.endsWith(":443")) return lower.slice(0, -4);
+      if (protocol === "http:" && lower.endsWith(":80")) return lower.slice(0, -3);
+      return lower;
+    };
+    const normalizedExpected = normalizeHost(expectedHost, parsedCandidate.protocol);
+    const normalizedCandidate = normalizeHost(parsedCandidate.host, parsedCandidate.protocol);
+    return normalizedCandidate === normalizedExpected;
   } catch {
     return false;
   }

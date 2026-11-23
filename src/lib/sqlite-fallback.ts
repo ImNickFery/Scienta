@@ -491,9 +491,15 @@ function seedIfEmpty(db: SqliteDatabase) {
     }
 
     const adminId = uuid();
-    const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@scienta.ir";
-    const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe_2026!";
-    const passwordHash = bcrypt.hashSync(adminPassword, 10);
+    const adminEmail =
+      process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase() ||
+      process.env.ADMIN_EMAIL?.trim().toLowerCase() ||
+      "admin@scienta.ir";
+    const adminPassword =
+      process.env.SEED_ADMIN_PASSWORD?.trim() ||
+      process.env.ADMIN_PASSWORD?.trim() ||
+      "ChangeMe_2026!";
+    const passwordHash = bcrypt.hashSync(adminPassword, 12);
     db.prepare(
       `INSERT OR IGNORE INTO users (id, name, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, ?, 'active')`
     ).run(adminId, "Super Admin", adminEmail, passwordHash, roleIds.super_admin);

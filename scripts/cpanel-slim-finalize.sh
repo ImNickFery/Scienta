@@ -55,12 +55,12 @@ activate_node_env() {
 
 ensure_jwt_secret() {
   [ -f "$TARGET_DIR/.env" ] || return 0
-  if ! grep -q '^JWT_SECRET=' "$TARGET_DIR/.env" || grep -q '^JWT_SECRET=$' "$TARGET_DIR/.env"; then
+  if ! grep -qE '^[[:space:]]*JWT_SECRET=[^[:space:]"'"'"']{32,}' "$TARGET_DIR/.env"; then
     local generated
     generated="$(node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))")"
     local tmp_env
     tmp_env="$(mktemp)"
-    grep -v '^JWT_SECRET=' "$TARGET_DIR/.env" > "$tmp_env" || true
+    grep -vE '^[[:space:]]*JWT_SECRET=' "$TARGET_DIR/.env" > "$tmp_env" || true
     printf 'JWT_SECRET=%s\n' "$generated" >> "$tmp_env"
     mv "$tmp_env" "$TARGET_DIR/.env"
     chmod 600 "$TARGET_DIR/.env" || true

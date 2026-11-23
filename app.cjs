@@ -61,14 +61,17 @@ function loadDotEnv(filePath) {
     const eqIndex = line.indexOf('=');
     if (eqIndex <= 0) continue;
     const key = line.slice(0, eqIndex).trim();
-    if (!key || Object.prototype.hasOwnProperty.call(process.env, key)) continue;
+    if (!key) continue;
     let value = line.slice(eqIndex + 1).trim();
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
     ) {
-      value = value.slice(1, -1);
+      value = value.slice(1, -1).trim();
     }
+    if (!value) continue;
+    const existing = process.env[key];
+    if (typeof existing === 'string' && existing.trim().length > 0) continue;
     process.env[key] = value;
   }
 }

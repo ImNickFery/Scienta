@@ -75,18 +75,46 @@ async function main() {
   }
 
   // ---- Super admin user ----
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@scienta.ir";
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe_2026!";
-  const [existingAdmin] = await pool.query(`SELECT id FROM users WHERE email = ?`, [adminEmail]);
+  const envAdminEmail =
+    process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase() ||
+    process.env.ADMIN_EMAIL?.trim().toLowerCase() ||
+    "";
+  const envAdminPassword =
+    process.env.SEED_ADMIN_PASSWORD?.trim() ||
+    process.env.ADMIN_PASSWORD?.trim() ||
+    "";
+  const adminEmail = envAdminEmail || "admin@scienta.ir";
+  const adminPassword = envAdminPassword || "ChangeMe_2026!";
+  const [existingAdmin] = await pool.query(`SELECT id FROM users WHERE LOWER(email) = ? LIMIT 1`, [adminEmail]);
   let adminId = existingAdmin[0]?.id;
   if (!adminId) {
-    adminId = uuid();
+    const [legacyAdmin] = await pool.query(
+      `SELECT id FROM users WHERE role_id = ? AND (LOWER(email) = 'admin@scienta.ir' OR TRIM(email) = '') LIMIT 1`,
+      [roleByName.super_admin]
+    );
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    if (legacyAdmin[0]?.id) {
+      adminId = legacyAdmin[0].id;
+      await pool.execute(
+        `UPDATE users SET email = ?, password_hash = ?, role_id = ?, status = 'active', deleted_at = NULL WHERE id = ?`,
+        [adminEmail, passwordHash, roleByName.super_admin, adminId]
+      );
+      console.log(`  Updated super admin credentials for: ${adminEmail}`);
+    } else {
+      adminId = uuid();
+      await pool.execute(
+        `INSERT INTO users (id, name, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, ?, 'active')`,
+        [adminId, "Super Admin", adminEmail, passwordHash, roleByName.super_admin]
+      );
+      console.log(`  Created super admin: ${adminEmail}`);
+    }
+  } else if (envAdminPassword) {
     const passwordHash = await bcrypt.hash(adminPassword, 12);
     await pool.execute(
-      `INSERT INTO users (id, name, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, ?, 'active')`,
-      [adminId, "Super Admin", adminEmail, passwordHash, roleByName.super_admin]
+      `UPDATE users SET password_hash = ?, role_id = ?, status = 'active', deleted_at = NULL WHERE id = ?`,
+      [passwordHash, roleByName.super_admin, adminId]
     );
-    console.log(`  Created super admin: ${adminEmail} / ${adminPassword} (CHANGE THIS PASSWORD)`);
+    console.log(`  Synced super admin password for: ${adminEmail}`);
   } else {
     console.log(`  Super admin already exists: ${adminEmail}`);
   }

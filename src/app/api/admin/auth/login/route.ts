@@ -20,6 +20,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
 import { badRequest } from "@/lib/session";
 import { verifySameOrigin } from "@/lib/security";
+import { syncEnvSuperAdmin } from "@/lib/admin-env-sync";
 
 const loginSchema = z.object({
   email: z.string().trim().email().max(190),
@@ -69,6 +70,10 @@ export async function POST(req: Request) {
     );
   }
 
+  // Ensure SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD configured in cPanel or .env
+  // are reflected in the database even if the DB was already seeded earlier.
+  await syncEnvSuperAdmin();
+
   const user = await queryOne<UserRow>(
     `SELECT u.id, u.name, u.email, u.password_hash, u.status, r.name AS role_name
      FROM users u JOIN roles r ON r.id = u.role_id
@@ -84,12 +89,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 
-  const accessToken = await signAccessToken({
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role_name,
-  });
+  let accessToken: string;
+  try {
+    accessToken = await signAccessToken({
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role_name,
+    });
+  } catch (err) {
+    console.error("[auth/login] Failed to sign access token:", err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: "Server authentication is misconfigured. Set a 32+ character JWT_SECRET and restart the app." },
+      { status: 500 }
+    );
+  }
 
   const refreshToken = randomToken();
   const refreshHash = await hashToken(refreshToken);
