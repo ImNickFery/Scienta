@@ -144,17 +144,28 @@ function readLinuxMemoryMetrics(): {
   }
 }
 
-/**
- * Reads disk capacity & usage via Node's zero-subprocess `fs.statfsSync` syscall,
- * falling back to `df -kP` if unavailable on the host OS.
- */
-async function readDiskMetrics(): Promise<{
+type DiskMetrics = {
   totalBytes: number;
   usedBytes: number;
   freeBytes: number;
   percent: number;
   mountLabel: string;
-}> {
+};
+
+const DISK_CACHE_TTL_MS = 15_000;
+let cachedDiskMetrics: { value: DiskMetrics; expiresAt: number } | null = null;
+
+/**
+ * Reads disk capacity & usage via Node's zero-subprocess `fs.statfsSync` syscall,
+ * falling back to `df -kP` if unavailable on the host OS. Cached for 15s to avoid
+ * redundant filesystem calls on every telemetry tick.
+ */
+async function readDiskMetrics(): Promise<DiskMetrics> {
+  const now = Date.now();
+  if (cachedDiskMetrics && cachedDiskMetrics.expiresAt > now) {
+    return cachedDiskMetrics.value;
+  }
+
   const targetDir = process.cwd();
   try {
     if (typeof fs.statfsSync === "function") {
@@ -165,13 +176,15 @@ async function readDiskMetrics(): Promise<{
       const usedBytes = Math.max(0, totalBytes - Number(stat.bfree) * blockSize);
       const effectiveTotal = usedBytes + freeBytes;
       const percent = effectiveTotal > 0 ? Math.round((usedBytes / effectiveTotal) * 1000) / 10 : 0;
-      return {
+      const value: DiskMetrics = {
         totalBytes,
         usedBytes,
         freeBytes,
         percent: Math.max(0, Math.min(100, percent)),
         mountLabel: "/",
       };
+      cachedDiskMetrics = { value, expiresAt: now + DISK_CACHE_TTL_MS };
+      return value;
     }
   } catch {
     // Fallback to df below
@@ -186,13 +199,15 @@ async function readDiskMetrics(): Promise<{
       const usedBytes = Number(cols[2]) * 1024;
       const freeBytes = Number(cols[3]) * 1024;
       const percent = totalBytes > 0 ? Math.round((usedBytes / totalBytes) * 1000) / 10 : 0;
-      return {
+      const value: DiskMetrics = {
         totalBytes,
         usedBytes,
         freeBytes,
         percent: Math.max(0, Math.min(100, percent)),
         mountLabel: cols[5] || "/",
       };
+      cachedDiskMetrics = { value, expiresAt: now + DISK_CACHE_TTL_MS };
+      return value;
     }
   } catch {
     // Ignore fallback failure
@@ -272,10 +287,21 @@ export function computeNetworkRatesFromDeltas(
 
 let lastGlobalCpuTicks: CpuTickSnapshot | null = null;
 let lastGlobalNetTicks: NetworkTickSnapshot | null = null;
+const SNAPSHOT_COALESCE_MS = 800;
+let lastCoalescedResult: {
+  capturedAtMs: number;
+  result: {
+    snapshot: SystemTelemetrySnapshot;
+    cpuTicks: CpuTickSnapshot;
+    netTicks: NetworkTickSnapshot;
+  };
+} | null = null;
 
 /**
  * Collects a complete real-time hardware & runtime telemetry snapshot
  * (CPU %, RAM, Swap, Disk, Network I/O, Node Heap, Uptime, Engine).
+ * Coalesces bursts within 800ms when called in default snapshot mode so multiple
+ * open admin tabs share a single OS sample.
  */
 export async function collectSystemTelemetry(
   prevTicksOverride?: CpuTickSnapshot | null,
@@ -285,6 +311,16 @@ export async function collectSystemTelemetry(
   cpuTicks: CpuTickSnapshot;
   netTicks: NetworkTickSnapshot;
 }> {
+  const isDefaultSnapshot = prevTicksOverride === undefined && prevNetOverride === undefined;
+  const now = Date.now();
+  if (
+    isDefaultSnapshot &&
+    lastCoalescedResult &&
+    now - lastCoalescedResult.capturedAtMs < SNAPSHOT_COALESCE_MS
+  ) {
+    return lastCoalescedResult.result;
+  }
+
   const cpus = os.cpus();
   const currTicks = captureCpuTicks(cpus);
   const load = os.loadavg() as [number, number, number];
@@ -365,5 +401,9 @@ export async function collectSystemTelemetry(
     },
   };
 
-  return { snapshot, cpuTicks: currTicks, netTicks: currNet };
+  const result = { snapshot, cpuTicks: currTicks, netTicks: currNet };
+  if (isDefaultSnapshot) {
+    lastCoalescedResult = { capturedAtMs: now, result };
+  }
+  return result;
 }

@@ -61,9 +61,7 @@ export async function GET(req: Request) {
       controller.enqueue(encoder.encode(`: connected\n\n`));
       await pushSample();
 
-      timer = setInterval(() => {
-        void pushSample();
-      }, intervalMs);
+      let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
 
       const cleanup = () => {
         if (closed) return;
@@ -72,12 +70,23 @@ export async function GET(req: Request) {
           clearInterval(timer);
           timer = null;
         }
+        if (maxDurationTimer) {
+          clearTimeout(maxDurationTimer);
+          maxDurationTimer = null;
+        }
         try {
           controller.close();
         } catch {
           // Stream may already be closed
         }
       };
+
+      timer = setInterval(() => {
+        void pushSample();
+      }, intervalMs);
+
+      // Guard shared-host Entry Process limits by capping any SSE connection to 45s
+      maxDurationTimer = setTimeout(cleanup, 45_000);
 
       req.signal.addEventListener("abort", cleanup, { once: true });
     },

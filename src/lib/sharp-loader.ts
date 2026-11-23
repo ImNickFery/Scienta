@@ -25,6 +25,12 @@ export function loadSharp(): SharpFn | null {
     const mod = dynamicRequire(req, pkgName) as SharpFn | { default?: SharpFn };
     const fn = typeof mod === "function" ? mod : mod?.default;
     if (typeof fn === "function") {
+      try {
+        fn.concurrency(1);
+        fn.cache({ memory: 24, files: 0, items: 40 });
+      } catch {
+        // Ignore if sharp build exposes read-only concurrency/cache
+      }
       cachedSharp = fn;
       return cachedSharp;
     }

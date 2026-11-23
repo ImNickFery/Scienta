@@ -22,6 +22,7 @@ const uploadImageHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  cacheMaxMemorySize: 16 * 1024 * 1024,
   experimental: {
     inlineCss: true,
     optimizePackageImports: ["lucide-react", "framer-motion"],

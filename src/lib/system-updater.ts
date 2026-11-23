@@ -78,11 +78,17 @@ function resolveConfinedSshFile(filename: string): string {
   return resolved;
 }
 
+const binaryAvailabilityCache = new Map<string, boolean>();
+
 async function isBinaryAvailable(binary: "git" | "ssh" | "npm"): Promise<boolean> {
+  const cached = binaryAvailabilityCache.get(binary);
+  if (cached !== undefined) return cached;
   try {
     await execFileAsync("which", [binary], { timeout: 2500 });
+    binaryAvailabilityCache.set(binary, true);
     return true;
   } catch {
+    binaryAvailabilityCache.set(binary, false);
     return false;
   }
 }
@@ -289,13 +295,55 @@ export function getActiveDeployJob(): DeployJobRecord | null {
   return globalThis.__scientaActiveDeployJob ?? null;
 }
 
+const LOCAL_GIT_CACHE_TTL_MS = 15_000;
+let localGitStatusCache: { value: LocalGitStatus; expiresAt: number } | null = null;
+
+export function invalidateLocalGitStatusCache(): void {
+  localGitStatusCache = null;
+}
+
 /**
- * Inspects local working tree Git metadata safely via `execFile` (no shell).
+ * Parses `git status --porcelain --branch` output into active branch name and dirty entry count.
  */
-export async function getLocalGitStatus(): Promise<LocalGitStatus> {
+export function parseGitStatusBranchAndDirty(output: string | null): {
+  branch: string | null;
+  dirtyFilesCount: number;
+} {
+  if (!output) return { branch: null, dirtyFilesCount: 0 };
+  const lines = output.split(/\r?\n/).filter((l) => l.length > 0);
+  let branch: string | null = null;
+  let dirtyFilesCount = 0;
+
+  for (const line of lines) {
+    if (line.startsWith("## ")) {
+      const header = line.slice(3).trim();
+      if (header.startsWith("HEAD (no branch)") || header.startsWith("No commits yet on ")) {
+        const noCommitMatch = /^No commits yet on (.+)$/.exec(header);
+        branch = noCommitMatch ? noCommitMatch[1].trim() : "HEAD";
+      } else {
+        const dotIdx = header.indexOf("...");
+        branch = (dotIdx >= 0 ? header.slice(0, dotIdx) : header).trim() || null;
+      }
+    } else {
+      dirtyFilesCount += 1;
+    }
+  }
+  return { branch, dirtyFilesCount };
+}
+
+/**
+ * Inspects local working tree Git metadata safely via sequential `execFile` calls (no shell)
+ * with a 15-second in-memory TTL cache to avoid spiking CloudLinux NPROC limits.
+ */
+export async function getLocalGitStatus(forceRefresh = false): Promise<LocalGitStatus> {
+  const now = Date.now();
+  if (!forceRefresh && localGitStatusCache && localGitStatusCache.expiresAt > now) {
+    return localGitStatusCache.value;
+  }
+
   const cwd = process.cwd();
   if (!fs.existsSync(path.join(/*turbopackIgnore: true*/ cwd, ".git"))) {
-    return {
+    const empty: LocalGitStatus = {
       isGitRepo: false,
       currentBranch: null,
       currentCommit: null,
@@ -305,6 +353,8 @@ export async function getLocalGitStatus(): Promise<LocalGitStatus> {
       remoteOriginUrl: null,
       dirtyFilesCount: 0,
     };
+    localGitStatusCache = { value: empty, expiresAt: now + LOCAL_GIT_CACHE_TTL_MS };
+    return empty;
   }
 
   const runGit = async (args: string[]): Promise<string | null> => {
@@ -316,27 +366,27 @@ export async function getLocalGitStatus(): Promise<LocalGitStatus> {
     }
   };
 
-  const [branch, commit, message, commitDate, originUrl, porcelain] = await Promise.all([
-    runGit(["rev-parse", "--abbrev-ref", "HEAD"]),
-    runGit(["rev-parse", "HEAD"]),
-    runGit(["log", "-1", "--pretty=%s"]),
-    runGit(["log", "-1", "--pretty=%cI"]),
-    runGit(["remote", "get-url", "origin"]),
-    runGit(["status", "--porcelain"]),
-  ]);
+  // Run sequentially (never 6 concurrent forks) and coalesce commit hash + subject + date into 1 call
+  const logLine = await runGit(["log", "-1", "--pretty=%H%x1f%s%x1f%cI"]);
+  const [commitRaw, messageRaw, commitDateRaw] = logLine ? logLine.split("\x1f") : [];
+  const statusOut = await runGit(["status", "--porcelain", "--branch"]);
+  const originUrl = await runGit(["remote", "get-url", "origin"]);
 
-  const dirtyFilesCount = porcelain ? porcelain.split("\n").filter(Boolean).length : 0;
+  const { branch, dirtyFilesCount } = parseGitStatusBranchAndDirty(statusOut);
+  const commit = commitRaw?.trim() || null;
 
-  return {
+  const result: LocalGitStatus = {
     isGitRepo: true,
     currentBranch: branch,
     currentCommit: commit,
     currentCommitShort: commit ? commit.slice(0, 8) : null,
-    currentCommitMessage: message ? sanitizeDeployLogLine(message) : null,
-    currentCommitDate: commitDate,
+    currentCommitMessage: messageRaw?.trim() ? sanitizeDeployLogLine(messageRaw.trim()) : null,
+    currentCommitDate: commitDateRaw?.trim() || null,
     remoteOriginUrl: originUrl ? sanitizeDeployLogLine(originUrl) : null,
     dirtyFilesCount,
   };
+  localGitStatusCache = { value: result, expiresAt: now + LOCAL_GIT_CACHE_TTL_MS };
+  return result;
 }
 
 /**
@@ -867,7 +917,8 @@ export async function startSiteUpdateJob(triggeredBy: string): Promise<
         if (checkoutRes.code !== 0) {
           throw new Error(`git checkout failed with exit code ${checkoutRes.code}. Check for local uncommitted conflicts.`);
         }
-        const localAfter = await getLocalGitStatus();
+        invalidateLocalGitStatusCache();
+        const localAfter = await getLocalGitStatus(true);
         job.toCommit = localAfter.currentCommitShort;
         pushLog(`Active commit is now ${localAfter.currentCommitShort ?? "unknown"}`);
         return localAfter.currentCommitShort ?? "Updated";

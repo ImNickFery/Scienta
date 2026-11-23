@@ -205,34 +205,77 @@ export function SystemControlCenter() {
     };
   }, [isFa]);
 
-  // Real-time Server-Sent Events (SSE) hardware stream
+  // Real-time LiteSpeed/cPanel-safe telemetry polling (short-lived <10ms JSON snapshots
+  // instead of persistent SSE streams, preventing Entry Process & NPROC exhaustion on shared hosts).
   useEffect(() => {
     if (paused) return;
 
-    const source = new EventSource(`/api/admin/system/telemetry?interval=${intervalMs}`);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let activeController: AbortController | null = null;
 
-    const handleTelemetry = (event: MessageEvent<string>) => {
+    const scheduleNext = () => {
+      if (cancelled) return;
+      timer = setTimeout(() => {
+        void pollOnce();
+      }, intervalMs);
+    };
+
+    const pollOnce = async () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        scheduleNext();
+        return;
+      }
+
+      activeController = new AbortController();
       try {
-        const snap = JSON.parse(event.data) as SystemTelemetrySnapshot;
+        const res = await fetch("/api/admin/system/telemetry?mode=snapshot", {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: activeController.signal,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const snap = (await res.json()) as SystemTelemetrySnapshot;
+        if (cancelled) return;
         setTelemetry(snap);
         setStreamState("live");
         setCpuHistory((prev) => [...prev.slice(-29), snap.cpu.percent]);
         setRamHistory((prev) => [...prev.slice(-29), snap.memory.percent]);
         setDiskHistory((prev) => [...prev.slice(-29), snap.disk.percent]);
         setHeapHistory((prev) => [...prev.slice(-29), snap.runtime.heapPercent]);
-      } catch {
-        // Ignore malformed event
+      } catch (err) {
+        if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
+          setStreamState("reconnecting");
+        }
+      } finally {
+        activeController = null;
+        scheduleNext();
       }
     };
 
-    source.addEventListener("telemetry", handleTelemetry as EventListener);
-    source.onerror = () => {
-      setStreamState("reconnecting");
+    const handleVisibilityChange = () => {
+      if (cancelled || document.visibilityState !== "visible") return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      void pollOnce();
     };
 
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
+    void pollOnce();
+
     return () => {
-      source.removeEventListener("telemetry", handleTelemetry as EventListener);
-      source.close();
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      activeController?.abort();
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
     };
   }, [intervalMs, paused]);
 

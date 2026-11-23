@@ -57,6 +57,24 @@ export async function renderMdx(content: string, numerals: Numerals = DEFAULT_NU
   // Digits first, while fenced blocks are still fences — preprocessMermaid
   // rewrites those into JSX and the protection would no longer apply.
   const source = preprocessMermaid(numerals === "latn" ? toLatinDigits(content) : content);
+  const needsCodeHighlighter = source.includes("```") || source.includes("{:");
+  const rehypePlugins: NonNullable<
+    NonNullable<Parameters<typeof compileMDX>[0]["options"]>["mdxOptions"]
+  >["rehypePlugins"] = [
+    rehypeSlug,
+    [rehypeKatex, { trust: false, strict: false, maxExpand: 300, maxSize: 15 }],
+  ];
+
+  if (needsCodeHighlighter) {
+    rehypePlugins.push([
+      rehypePrettyCode,
+      {
+        theme: "one-dark-pro",
+        keepBackground: false,
+      },
+    ]);
+  }
+
   const { content: rendered } = await compileMDX({
     source,
     components: mdxComponents,
@@ -66,17 +84,7 @@ export async function renderMdx(content: string, numerals: Numerals = DEFAULT_NU
       blockJS: false,
       mdxOptions: {
         remarkPlugins: [remarkMath, remarkGfm],
-        rehypePlugins: [
-          rehypeSlug,
-          [rehypeKatex, { trust: false, strict: false, maxExpand: 300, maxSize: 15 }],
-          [
-            rehypePrettyCode,
-            {
-              theme: "one-dark-pro",
-              keepBackground: false,
-            },
-          ],
-        ],
+        rehypePlugins,
       },
     },
   });

@@ -55,8 +55,8 @@ function activateFallback(err: unknown) {
 }
 
 function resolvePoolSize(): number {
-  const parsed = Number(process.env.DB_POOL_SIZE ?? 10);
-  return Number.isFinite(parsed) && parsed >= 1 ? Math.min(50, Math.floor(parsed)) : 10;
+  const parsed = Number(process.env.DB_POOL_SIZE ?? 5);
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.min(50, Math.floor(parsed)) : 5;
 }
 
 export function getActiveDbEngine(): "sqlite" | "mysql" {
@@ -67,8 +67,8 @@ export function getDbPoolConfig() {
   const connectionLimit = resolvePoolSize();
   return {
     connectionLimit,
-    maxIdle: connectionLimit,
-    idleTimeoutMs: 60_000,
+    maxIdle: Math.min(connectionLimit, 3),
+    idleTimeoutMs: 30_000,
     keepAlive: true,
     keepAliveInitialDelayMs: 10_000,
   };
@@ -84,8 +84,8 @@ function createPool() {
     database: process.env.DB_NAME ?? "aurora_science",
     waitForConnections: true,
     connectionLimit,
-    maxIdle: connectionLimit,
-    idleTimeout: 60_000,
+    maxIdle: Math.min(connectionLimit, 3),
+    idleTimeout: 30_000,
     enableKeepAlive: true,
     keepAliveInitialDelay: 10_000,
     queueLimit: 0,

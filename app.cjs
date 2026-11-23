@@ -12,6 +12,20 @@ const { Readable, Writable } = require('node:stream');
 const APP_ROOT = __dirname;
 process.chdir(APP_ROOT);
 process.env.NODE_ENV = 'production';
+// Keep native thread pools & glibc arenas lean on CloudLinux / cPanel shared hosts
+// (prevents libuv, libvips/sharp, and glibc from spawning 32–64 threads on high-core hosts).
+if (!process.env.UV_THREADPOOL_SIZE) {
+  process.env.UV_THREADPOOL_SIZE = '2';
+}
+if (!process.env.VIPS_CONCURRENCY) {
+  process.env.VIPS_CONCURRENCY = '1';
+}
+if (!process.env.OMP_NUM_THREADS) {
+  process.env.OMP_NUM_THREADS = '1';
+}
+if (!process.env.MALLOC_ARENA_MAX) {
+  process.env.MALLOC_ARENA_MAX = '2';
+}
 
 // Under LiteSpeed `lsnode`, FD 0 (stdin) is already bound to LiteSpeed's LSAPI
 // listening socket. When ESM dependencies such as `vfile` (used by `next-mdx-remote`)

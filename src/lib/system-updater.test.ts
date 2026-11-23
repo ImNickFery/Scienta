@@ -22,7 +22,9 @@ import {
   deleteSshDeployKey,
   generateOrRotateSshDeployKey,
   getSshKeyStatus,
+  parseGitStatusBranchAndDirty,
 } from "./system-updater";
+import { getDbPoolConfig } from "./db";
 
 test("validateGithubRepoUrl accepts public HTTPS and private SSH GitHub URLs and normalizes visibility", () => {
   const pub = validateGithubRepoUrl("https://github.com/MHSanaei/3x-ui");
@@ -201,5 +203,34 @@ test("SSH key persistence enforces 0600 permissions, never exposes private key, 
     if (prevEnv === undefined) delete process.env.SCIENTA_SSH_DIR;
     else process.env.SCIENTA_SSH_DIR = prevEnv;
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("parseGitStatusBranchAndDirty parses branch headers and dirty counts without extra git forks", () => {
+  assert.deepEqual(
+    parseGitStatusBranchAndDirty("## main...origin/main\n M src/app.tsx\n?? tmp.txt\n"),
+    { branch: "main", dirtyFilesCount: 2 }
+  );
+  assert.deepEqual(parseGitStatusBranchAndDirty("## deploy...origin/deploy [ahead 1]\n"), {
+    branch: "deploy",
+    dirtyFilesCount: 0,
+  });
+  assert.deepEqual(parseGitStatusBranchAndDirty("## HEAD (no branch)\n"), {
+    branch: "HEAD",
+    dirtyFilesCount: 0,
+  });
+  assert.deepEqual(parseGitStatusBranchAndDirty(null), { branch: null, dirtyFilesCount: 0 });
+});
+
+test("getDbPoolConfig enforces lean shared-hosting defaults when DB_POOL_SIZE is unset", () => {
+  const prev = process.env.DB_POOL_SIZE;
+  delete process.env.DB_POOL_SIZE;
+  try {
+    const cfg = getDbPoolConfig();
+    assert.equal(cfg.connectionLimit, 5);
+    assert.equal(cfg.maxIdle, 3);
+    assert.equal(cfg.idleTimeoutMs, 30_000);
+  } finally {
+    if (prev !== undefined) process.env.DB_POOL_SIZE = prev;
   }
 });

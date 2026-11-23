@@ -123,6 +123,11 @@ main() {
     chmod 600 .env || true
   fi
   ensure_jwt_secret
+  if [ -f ".env" ]; then
+    grep -q '^UV_THREADPOOL_SIZE=' ".env" || printf 'UV_THREADPOOL_SIZE=2\n' >> ".env"
+    grep -q '^VIPS_CONCURRENCY=' ".env" || printf 'VIPS_CONCURRENCY=1\n' >> ".env"
+    grep -q '^MALLOC_ARENA_MAX=' ".env" || printf 'MALLOC_ARENA_MAX=2\n' >> ".env"
+  fi
 
   # Remove any stray sourcemaps on host
   if [ -d "$TARGET_DIR/standalone/.next" ]; then
