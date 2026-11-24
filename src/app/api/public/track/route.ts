@@ -6,11 +6,19 @@ import { ensureAnalyticsTableReady } from "@/lib/analytics-store";
 import { detectDeviceType, parseReferrerHost } from "@/lib/admin-analytics-pro";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { verifySameOrigin } from "@/lib/security";
+import { recordApiMetric, recordPageLoadMetric } from "@/lib/performance-telemetry";
 
 const trackSchema = z.object({
   slug: z.string().min(1).max(200),
   locale: z.enum(["fa", "en"]),
   referrer: z.string().max(500).optional(),
+  perf: z
+    .object({
+      ttfbMs: z.number().min(0).max(60_000),
+      fcpMs: z.number().min(0).max(60_000).nullable().optional(),
+      domLoadMs: z.number().min(0).max(60_000),
+    })
+    .optional(),
 });
 
 /**
@@ -20,6 +28,7 @@ const trackSchema = z.object({
  * Analytics Hub surfaces live daily traffic trends.
  */
 export async function POST(req: Request) {
+  const startedAt = performance.now();
   if (!verifySameOrigin(req)) {
     return NextResponse.json({ error: "Cross-origin tracking rejected." }, { status: 403 });
   }
@@ -42,7 +51,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  const { slug, locale, referrer } = parsed.data;
+  const { slug, locale, referrer, perf } = parsed.data;
 
   try {
     await ensureAnalyticsTableReady();
@@ -70,6 +79,25 @@ export async function POST(req: Request) {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [uuid(), row.article_id, locale, safePath, referrerHost, deviceType]
     );
+
+    if (perf) {
+      recordPageLoadMetric({
+        path: safePath,
+        locale,
+        ttfbMs: perf.ttfbMs,
+        fcpMs: perf.fcpMs ?? null,
+        domLoadMs: perf.domLoadMs,
+        deviceType,
+      });
+    }
+
+    recordApiMetric({
+      route: "/api/public/track",
+      method: "POST",
+      status: 200,
+      durationMs: performance.now() - startedAt,
+      source: "server",
+    });
 
     return NextResponse.json({ ok: true });
   } catch {

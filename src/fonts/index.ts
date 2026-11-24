@@ -1,5 +1,4 @@
 import localFont from "next/font/local";
-import { Newsreader, Space_Grotesk } from "next/font/google";
 
 /**
  * Vazirmatn — variable weight (100–900), Persian + Latin coverage.
@@ -32,11 +31,12 @@ export const inter = localFont({
 /**
  * Newsreader — refined editorial serif used exclusively for English display
  * headings when Unslop Editorial (Observatory Press) mode is active.
+ * Bundled locally to avoid Turbopack next/font/google import map resolution bugs.
  */
-export const newsreader = Newsreader({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal"],
+export const newsreader = localFont({
+  src: [
+    { path: "../fonts/Newsreader-Variable.woff2", weight: "300 700", style: "normal" },
+  ],
   variable: "--font-newsreader",
   display: "swap",
   preload: false,
@@ -46,11 +46,12 @@ export const newsreader = Newsreader({
 /**
  * Space Grotesk — geometric technical grotesque used for English display
  * headings when Unslop Kinetic (Living Optical Lab) mode is active.
+ * Bundled locally to avoid Turbopack next/font/google import map resolution bugs.
  */
-export const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal"],
+export const spaceGrotesk = localFont({
+  src: [
+    { path: "../fonts/SpaceGrotesk-Variable.woff2", weight: "300 700", style: "normal" },
+  ],
   variable: "--font-space-grotesk",
   display: "swap",
   preload: false,

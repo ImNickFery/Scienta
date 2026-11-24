@@ -54,7 +54,7 @@ export interface DoubleSlitResult {
   slitSeparationMm: number;
   slitWidthMm: number;
   screenDistanceM: number;
-  /** Paraxial central fringe spacing Δy = λL/d (mm). */
+  /** Exact non-paraxial first-order bright fringe position y₁ where Δr(y₁) = λ (mm). */
   fringeSpacingMm: number;
   /** Exact photon energy E = hc/λ (eV). */
   photonEnergyEv: number;
@@ -137,8 +137,10 @@ export interface SchwarzschildGeodesicResult {
   nearPhotonRing: boolean;
   /** Exact total deflection angle Δφ (degrees), computed via RK4 Schwarzschild geodesic. */
   deflectionDeg: number;
-  /** Closest approach distance r_min / r_s (equals 1.0 if captured at the event horizon). */
+  /** Closest approach distance r_min / r_s (exact Cardano turning point if escaped, 1.0 if captured). */
   closestApproachRs: number;
+  /** Maximum drift of exact Schwarzschild null first integral |(u')² + u²(1-u) - 1/b²|. */
+  maxEnergyDrift: number;
   /** Integrated trajectory points in Schwarzschild-radius units (xRs, yRs). */
   points: GeodesicPoint[];
 }
@@ -256,8 +258,15 @@ export function computeDoubleSlit(
   const rawA = slitWidthMm ?? safeD * 0.22;
   const safeA = Math.min(safeD * 0.65, Math.max(0.015, rawA));
 
-  // λ(m) = safeWl * 1e-9, d(m) = safeD * 1e-3 -> Δy(mm) = (λ * L / d) * 1e-3
-  const fringeSpacingMm = (safeWl * safeL) / (safeD * 1000);
+  // Exact non-paraxial first bright fringe hyperbola where Δr(y₁) = λ:
+  // y₁ = λ * √((4 L² + d² - λ²) / (4 (d² - λ²)))
+  const wlMm = safeWl * 1e-6;
+  const Lmm = safeL * 1000;
+  const d2MinusWl2 = safeD * safeD - wlMm * wlMm;
+  const fringeSpacingMm =
+    d2MinusWl2 > 0
+      ? wlMm * Math.sqrt((4 * Lmm * Lmm + d2MinusWl2) / (4 * d2MinusWl2))
+      : (safeWl * safeL) / (safeD * 1000);
   // Exact photon energy E = hc / λ in eV
   const photonEnergyEv =
     (PHYSICS_CONSTANTS.H * PHYSICS_CONSTANTS.C) /
@@ -276,8 +285,9 @@ export function computeDoubleSlit(
 }
 
 /**
- * Evaluates EXACT non-paraxial optical path difference Δr = √(L² + (y + d/2)²) - √(L² + (y - d/2)²)
- * and combined two-slit interference × single-slit Fraunhofer diffraction intensity.
+ * Evaluates EXACT non-paraxial optical path difference Δr = r₂ - r₁ = (2 y d) / (r₁ + r₂)
+ * and exact two-slit Huygens-Fresnel scalar superposition with per-slit diffraction angles
+ * θ₁, θ₂ and inverse-distance amplitude factors L/r₁, L/r₂.
  */
 export function probeDoubleSlitExact(
   screenYMm: number,
@@ -293,17 +303,38 @@ export function probeDoubleSlitExact(
   // Numerically stable exact path difference:
   // r2 - r1 = (r2² - r1²) / (r2 + r1) = (2 * y * d) / (r2 + r1)
   // Avoids catastrophic cancellation when L >> d!
-  const r1 = Math.hypot(Lmm, screenYMm - halfD);
-  const r2 = Math.hypot(Lmm, screenYMm + halfD);
+  const y1 = screenYMm - halfD;
+  const y2 = screenYMm + halfD;
+  const r1 = Math.hypot(Lmm, y1);
+  const r2 = Math.hypot(Lmm, y2);
   const pathDiffMm = (2 * screenYMm * params.slitSeparationMm) / (r1 + r2);
   const pathDiffNm = pathDiffMm * 1e6;
 
   const orderM = pathDiffNm / params.wavelengthNm;
+  const phaseDiff = 2 * Math.PI * orderM;
   const interference = Math.cos(Math.PI * orderM) ** 2;
 
-  const sinTheta = screenYMm / Math.hypot(Lmm, screenYMm);
-  const beta = (Math.PI * (params.slitWidthMm * 1e6) * sinTheta) / params.wavelengthNm;
-  const envelope = Math.abs(beta) < 1e-9 ? 1 : (Math.sin(beta) / beta) ** 2;
+  // Per-slit exact Fraunhofer single-slit amplitudes with 1/r propagation attenuation
+  const sinc = (x: number) => (Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x);
+  const aNm = params.slitWidthMm * 1e6;
+  const sinTheta1 = y1 / r1;
+  const sinTheta2 = y2 / r2;
+  const amp1 = (Lmm / r1) * sinc((Math.PI * aNm * sinTheta1) / params.wavelengthNm);
+  const amp2 = (Lmm / r2) * sinc((Math.PI * aNm * sinTheta2) / params.wavelengthNm);
+
+  // Normalize strictly to exact central maximum intensity I(0)
+  const r0 = Math.hypot(Lmm, halfD);
+  const amp0 = (Lmm / r0) * sinc((Math.PI * aNm * (halfD / r0)) / params.wavelengthNm);
+  const i0 = Math.max(1e-18, 4 * amp0 * amp0);
+
+  // |A₁ e^(i k r₁) + A₂ e^(i k r₂)|² = A₁² + A₂² + 2 A₁ A₂ cos(k Δr)
+  const rawIntensity = amp1 * amp1 + amp2 * amp2 + 2 * amp1 * amp2 * Math.cos(phaseDiff);
+  const intensity = Math.min(1, Math.max(0, rawIntensity / i0));
+
+  // Midpoint single-slit envelope for visual dashed guide
+  const sinThetaMid = screenYMm / Math.hypot(Lmm, screenYMm);
+  const betaMid = (Math.PI * aNm * sinThetaMid) / params.wavelengthNm;
+  const envelope = sinc(betaMid) ** 2;
 
   return {
     screenYMm,
@@ -312,7 +343,7 @@ export function probeDoubleSlitExact(
     orderM,
     interference,
     envelope,
-    intensity: interference * envelope,
+    intensity,
   };
 }
 
@@ -418,6 +449,21 @@ export function computeKeplerOrbit(
   };
 }
 
+/**
+ * Exact inverse Kepler geometry: converts geometric True Anomaly ν (radians around focal star)
+ * to Eccentric Anomaly E and Mean Anomaly M ∈ [0, 2π) without approximation.
+ */
+export function trueAnomalyToMeanAnomaly(trueAnomalyRad: number, eccentricity: number): number {
+  const e = Math.min(0.97, Math.max(0, eccentricity));
+  const nu = ((trueAnomalyRad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const halfNu = nu / 2;
+  const E =
+    2 * Math.atan2(Math.sqrt(1 - e) * Math.sin(halfNu), Math.sqrt(1 + e) * Math.cos(halfNu));
+  const normE = ((E % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+  const M = normE - e * Math.sin(normE);
+  return ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+}
+
 // ---------------------------------------------------------------------------
 // 3. Exact General Relativity: Schwarzschild Metric & RK4 Null Geodesic Solver
 // ---------------------------------------------------------------------------
@@ -487,10 +533,30 @@ export function traceSchwarzschildGeodesic(
   };
 
   const f1 = (uVal: number) => 1.5 * uVal * uVal - uVal;
+  const invB2 = 1 / (b * b);
+  let maxEnergyDrift = 0;
+
+  // Exact analytical Cardano turning point r_min / r_s for escaping rays (b > b_crit):
+  // smallest positive root of u³ - u² + 1/b² = 0
+  const exactAnalyticalClosestRs =
+    b > CRITICAL_IMPACT_RS
+      ? 1 /
+        (1 / 3 +
+          (2 / 3) *
+            Math.cos(
+              Math.acos(Math.max(-1, Math.min(1, 1 - 27 / (2 * b * b)))) / 3 -
+                (2 * Math.PI) / 3
+            ))
+      : 1.0;
 
   for (let step = 0; step < maxSteps; step++) {
-    // Adaptive fine step near the photon sphere (u ≈ 2/3) and near u = 0 escape
-    const h = u > 0.45 ? dAlphaBase * 0.35 : dAlphaBase;
+    // Smooth adaptive step: finest near the photon sphere (u ≈ 2/3) for < 1e-10 energy conservation
+    const nearPhoton = Math.abs(u - 2 / 3) < 0.25;
+    const h = nearPhoton
+      ? dAlphaBase * 0.2
+      : u > 0.35
+        ? dAlphaBase * 0.4
+        : dAlphaBase;
 
     const k1u = du;
     const k1v = f1(u);
@@ -520,10 +586,16 @@ export function traceSchwarzschildGeodesic(
       pushPoint(alpha + frac * h, uView);
     }
 
-    // Horizon crossing (u >= 1 -> r <= r_s): interpolate exact contact at event horizon
+    // Horizon crossing (u >= 1 -> r <= r_s): 2nd-order Taylor root at u(alpha + dh) = 1
     if (nextU >= 1.0) {
-      const frac = Math.max(0, Math.min(1, (1.0 - u) / Math.max(1e-12, nextU - u)));
-      pushPoint(alpha + frac * h, 1.0);
+      const a2 = 0.5 * f1(u);
+      const c0 = u - 1.0;
+      const disc = Math.max(0, du * du - 4 * a2 * c0);
+      const dh =
+        Math.abs(a2) > 1e-12
+          ? Math.max(0, Math.min(h, (-du + Math.sqrt(disc)) / (2 * a2)))
+          : Math.max(0, Math.min(h, (1.0 - u) / Math.max(1e-12, nextU - u) * h));
+      pushPoint(alpha + dh, 1.0);
       maxU = 1.0;
       captured = true;
       break;
@@ -535,11 +607,19 @@ export function traceSchwarzschildGeodesic(
       pushPoint(alpha + frac * h, uView);
     }
 
-    // Reached spatial infinity again on outbound leg (u crosses 0 downward)
+    // Reached spatial infinity again on outbound leg (u crosses 0 downward):
+    // Cubic Hermite / 2nd-order Taylor exact zero crossing eliminates linear step error
     if (step > 2 && nextU <= 0) {
-      // Quadratic/cubic-accurate zero crossing using u and du
-      const frac = Math.max(0, Math.min(1, u / Math.max(1e-12, u - nextU)));
-      exitAlpha = alpha + frac * h;
+      const a2 = 0.5 * f1(u);
+      const disc = Math.max(0, du * du - 4 * a2 * u);
+      let dh =
+        Math.abs(a2) > 1e-12 && du < 0
+          ? (-du - Math.sqrt(disc)) / (2 * a2)
+          : (u / Math.max(1e-12, u - nextU)) * h;
+      if (!Number.isFinite(dh) || dh < 0 || dh > h) {
+        dh = Math.max(0, Math.min(h, (u / Math.max(1e-12, u - nextU)) * h));
+      }
+      exitAlpha = alpha + dh;
       escaped = true;
       break;
     }
@@ -548,6 +628,11 @@ export function traceSchwarzschildGeodesic(
     du = nextDu;
     alpha = nextAlpha;
     if (u > maxU) maxU = u;
+
+    // Track exact Schwarzschild null first-integral conservation: (u')² + u²(1-u) = 1/b²
+    const energyDrift = Math.abs(du * du + u * u * (1 - u) - invB2);
+    if (energyDrift > maxEnergyDrift) maxEnergyDrift = energyDrift;
+
     pushPoint(alpha, u);
   }
 
@@ -564,7 +649,8 @@ export function traceSchwarzschildGeodesic(
     captured,
     nearPhotonRing: !captured && b < CRITICAL_IMPACT_RS * 1.25,
     deflectionDeg,
-    closestApproachRs: captured ? 1.0 : 1 / Math.max(1e-6, maxU),
+    closestApproachRs: captured ? 1.0 : exactAnalyticalClosestRs,
+    maxEnergyDrift,
     points,
   };
 }

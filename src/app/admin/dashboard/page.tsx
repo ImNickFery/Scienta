@@ -16,6 +16,7 @@ import {
 import { adminFetch } from "@/lib/admin-api-client";
 import { useAdminLocale } from "@/components/admin/admin-locale-context";
 import { DashboardTrendChart } from "@/components/admin/dashboard-trend-chart";
+import { DashboardPerformanceMonitor } from "@/components/admin/dashboard-performance-monitor";
 import {
   classifyActivitySource,
   computePipelineShares,
@@ -151,6 +152,7 @@ export default function DashboardPage() {
   const [queueTab, setQueueTab] = useState<QueueTab>("comments");
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
   const [moderatingId, setModeratingId] = useState<string | null>(null);
+  const [perfRefreshNonce, setPerfRefreshNonce] = useState(0);
 
   const fetchStats = useCallback(async (days: TrendWindowDays) => {
     return adminFetch<DashboardStats>(`/api/admin/dashboard/stats?days=${days}`);
@@ -184,6 +186,7 @@ export default function DashboardPage() {
   async function handleRefresh() {
     setRefreshing(true);
     setError(null);
+    setPerfRefreshNonce((n) => n + 1);
     try {
       const data = await fetchStats(rangeDays);
       setStats(data);
@@ -728,6 +731,9 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* Row 2.5: Live Performance Monitoring (API Response Times & Page Load Telemetry) */}
+      <DashboardPerformanceMonitor isFa={isFa} refreshNonce={perfRefreshNonce} />
 
       {/* Row 3: Top Articles Data Table (2 cols) + Field Share & Library Coverage (1 col) */}
       <div className="grid gap-6 lg:grid-cols-3">

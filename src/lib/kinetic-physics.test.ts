@@ -16,6 +16,7 @@ import {
   probeDoubleSlitExact,
   sampleQuantumSuperposition,
   traceSchwarzschildGeodesic,
+  trueAnomalyToMeanAnomaly,
   wavelengthToHex,
 } from "./kinetic-physics";
 
@@ -33,35 +34,56 @@ test("wavelengthToHex maps visible spectrum accurately", () => {
   assert.equal(wavelengthToHex(450).length, 7);
 });
 
-test("computeDoubleSlit & probeDoubleSlitExact obey exact non-paraxial geometry and photon energy", () => {
+test("computeDoubleSlit & probeDoubleSlitExact obey exact non-paraxial Huygens-Fresnel superposition", () => {
   const res = computeDoubleSlit(532, 0.5, 1.5, 0.1);
-  // Δy = (532e-9 * 1.5) / 0.5e-3 = 1.596e-3 m = 1.596 mm
-  assert.ok(Math.abs(res.fringeSpacingMm - 1.596) < 1e-9);
+  // Exact non-paraxial hyperbola y₁ where Δr(y₁) = λ identically:
+  const atY1 = probeDoubleSlitExact(res.fringeSpacingMm, 532, 0.5, 1.5, 0.1);
+  assert.ok(
+    Math.abs(atY1.pathDiffNm - 532) < 1e-9,
+    `Exact first bright fringe path diff must equal λ=532nm, got ${atY1.pathDiffNm}`
+  );
+  assert.ok(Math.abs(atY1.orderM - 1.0) < 1e-11);
+  // Close to paraxial 1.596 mm (exact non-paraxial differs by ~9e-7 mm)
+  assert.ok(Math.abs(res.fringeSpacingMm - 1.596) < 1e-5);
   // Photon energy hc/λ at 532 nm ≈ 2.33053 eV
   assert.ok(Math.abs(res.photonEnergyEv - 2.33053) < 1e-4);
   assert.ok(Math.abs(res.missingOrder - 5.0) < 1e-9);
 
-  // Central peak y = 0 -> intensity 1, path diff 0
+  // Central peak y = 0 -> normalized intensity = 1 exactly, path diff = 0
   const center = probeDoubleSlitExact(0, 532, 0.5, 1.5, 0.1);
-  assert.equal(center.intensity, 1);
+  assert.ok(Math.abs(center.intensity - 1) < 1e-14);
   assert.equal(center.pathDiffNm, 0);
 
-  // First dark fringe at y = Δy / 2 -> order ≈ 0.5, intensity ≈ 0
+  // Exact symmetry I(+y) === I(-y) to machine precision
+  for (const yMm of [0.42, 1.85, 5.75]) {
+    const pos = probeDoubleSlitExact(yMm, 532, 0.5, 1.5, 0.1);
+    const neg = probeDoubleSlitExact(-yMm, 532, 0.5, 1.5, 0.1);
+    assert.ok(Math.abs(pos.intensity - neg.intensity) < 1e-14);
+    assert.ok(Math.abs(pos.pathDiffNm + neg.pathDiffNm) < 1e-12);
+  }
+
+  // First dark fringe near y = Δy / 2: exact order = 0.5, tiny finite-distance (A₁ - A₂)² residual < 2e-4 at L=1.5m
   const firstMin = probeDoubleSlitExact(res.fringeSpacingMm / 2, 532, 0.5, 1.5, 0.1);
   assert.ok(Math.abs(firstMin.orderM - 0.5) < 1e-5);
-  assert.ok(firstMin.intensity < 1e-8);
+  assert.ok(firstMin.interference < 1e-10);
+  assert.ok(firstMin.intensity < 2e-4);
 
-  // Missing order m = d/a = 5: interference cos²(5π)=1 but single-slit sinc²(π)=0!
+  // In true far-field Fraunhofer limit (L = 50 m), A₁ -> A₂ so dark fringe vanishes to < 1e-7
+  const farRes = computeDoubleSlit(532, 0.5, 50, 0.1);
+  const farMin = probeDoubleSlitExact(farRes.fringeSpacingMm / 2, 532, 0.5, 50, 0.1);
+  assert.ok(farMin.intensity < 1e-7);
+
+  // Missing order m = d/a = 5: interference cos²(5π)=1 but single-slit sinc²(π)≈0!
   const missing = probeDoubleSlitExact(res.fringeSpacingMm * 5, 532, 0.5, 1.5, 0.1);
   assert.ok(missing.interference > 0.999);
   assert.ok(missing.envelope < 1e-6);
   assert.ok(missing.intensity < 1e-6);
 
   // Backwards-compatible wrapper
-  assert.equal(doubleSlitIntensity(0, 532, 0.5, 1.5), 1);
+  assert.ok(Math.abs(doubleSlitIntensity(0, 532, 0.5, 1.5) - 1) < 1e-14);
 });
 
-test("computeKeplerOrbit solves Halley-Newton to <1e-13 and conserves energy & angular momentum", () => {
+test("computeKeplerOrbit & trueAnomalyToMeanAnomaly achieve machine precision (<1e-13)", () => {
   // Earth circular benchmark
   const earth = computeKeplerOrbit(1.0, 0.0, 0.0);
   assert.ok(Math.abs(earth.periodYears - 1.0000174) < 1e-4);
@@ -85,6 +107,12 @@ test("computeKeplerOrbit solves Halley-Newton to <1e-13 and conserves energy & a
     // Specific angular momentum h = x*vy - y*vx
     const h = pt.xAU * pt.vyKmS - pt.yAU * pt.vxKmS;
     assert.ok(Math.abs(h - expectedH) < 1e-10, `angular momentum drift: ${h} vs ${expectedH}`);
+
+    // Exact inverse round-trip: trueAnomaly -> MeanAnomaly -> computeKeplerOrbit recovers same ν!
+    const recoveredM = trueAnomalyToMeanAnomaly(pt.trueAnomalyRad, e);
+    const roundTrip = computeKeplerOrbit(a, e, recoveredM);
+    const dPos = Math.hypot(roundTrip.xAU - pt.xAU, roundTrip.yAU - pt.yAU);
+    assert.ok(dPos < 1e-12, `Inverse Kepler round-trip error too high: ${dPos}`);
   }
 
   // Perihelion faster than aphelion
@@ -103,51 +131,68 @@ test("computeHorizonCurvature returns exact Schwarzschild, photon sphere, ISCO, 
   assert.ok(Math.abs(bh10.hawkingTempNanoK - 6.17024) < 1e-3);
 });
 
-test("traceSchwarzschildGeodesic & computePhotonDeflection match weak-field GR and strong-field photon ring", () => {
+test("traceSchwarzschildGeodesic obeys exact null first integral, Cardano turning point, and GR weak/strong limits", () => {
   // 1. Weak-field validation at b = 20 r_s:
-  // Exact Einstein + 2nd-order + 3rd-order Schwarzschild series:
-  // Δφ = 2/b + (15π/16)/b² + (16/3)/b³
+  // Exact 6th-order Keeton & Petters (2005) Schwarzschild deflection series in m/b = 1/(2b):
+  // Δφ = 4(m/b) + (15π/4)(m/b)² + (128/3)(m/b)³ + (3465π/64)(m/b)⁴ + (3584/5)(m/b)⁵ + (255255π/256)(m/b)⁶
   const bWeak = 20;
+  const mb = 1 / (2 * bWeak);
   const expectedWeakDeg =
-    ((2 / bWeak + ((15 * Math.PI) / 16) / (bWeak * bWeak) + (16 / 3) / (bWeak ** 3)) * 180) /
+    ((4 * mb +
+      ((15 * Math.PI) / 4) * mb ** 2 +
+      (128 / 3) * mb ** 3 +
+      ((3465 * Math.PI) / 64) * mb ** 4 +
+      (3584 / 5) * mb ** 5 +
+      ((255255 * Math.PI) / 256) * mb ** 6) *
+      180) /
     Math.PI;
   const weak = computePhotonDeflection(bWeak);
   assert.equal(weak.captured, false);
   assert.ok(
-    Math.abs(weak.deflectionDeg - expectedWeakDeg) < 0.005,
-    `Weak-field RK4 ${weak.deflectionDeg.toFixed(5)}° vs series ${expectedWeakDeg.toFixed(5)}°`
+    Math.abs(weak.deflectionDeg - expectedWeakDeg) < 1e-4,
+    `Weak-field RK4 ${weak.deflectionDeg.toFixed(6)}° vs 6th-order GR series ${expectedWeakDeg.toFixed(6)}°`
   );
 
   // 2. Strong-field photon ring just outside b_crit = 2.598076 r_s:
-  // Photon whips > 180° around photon sphere with closest approach just above 1.5 r_s!
-  const strong = computePhotonDeflection(2.605);
-  assert.equal(strong.captured, false);
-  assert.equal(strong.nearPhotonRing, true);
-  assert.ok(strong.deflectionDeg > 180, `Expected >180° photon-ring bend, got ${strong.deflectionDeg}`);
+  const strongGeo = traceSchwarzschildGeodesic(2.605, {
+    rViewRs: 16,
+    maxSteps: 4800,
+    stepRad: 0.008,
+  });
+  assert.equal(strongGeo.captured, false);
+  assert.equal(strongGeo.nearPhotonRing, true);
   assert.ok(
-    strong.closestApproachRs > 1.5 && strong.closestApproachRs < 1.62,
-    `Expected r_min near 1.5 r_s, got ${strong.closestApproachRs}`
+    strongGeo.deflectionDeg > 180,
+    `Expected >180° photon-ring bend, got ${strongGeo.deflectionDeg}`
+  );
+  // Exact Cardano root u_max must satisfy u³ - u² + 1/b² = 0 to machine epsilon!
+  const uMax = 1 / strongGeo.closestApproachRs;
+  const cardanoRes = Math.abs(uMax ** 3 - uMax ** 2 + 1 / (2.605 * 2.605));
+  assert.ok(cardanoRes < 1e-14, `Cardano turning point residual too large: ${cardanoRes}`);
+  // Exact Schwarzschild null first-integral conservation |(u')² + u²(1-u) - 1/b²| < 1e-9
+  assert.ok(
+    strongGeo.maxEnergyDrift < 1e-9,
+    `Schwarzschild null invariant drift too large: ${strongGeo.maxEnergyDrift}`
   );
 
   // 3. Exact capture threshold across b_crit = 3√3 / 2 ≈ 2.598076 r_s
-  const capturedRay = traceSchwarzschildGeodesic(2.58, { rViewRs: 16 });
+  const capturedRay = traceSchwarzschildGeodesic(2.595, { rViewRs: 16, maxSteps: 4800, stepRad: 0.008 });
   assert.equal(capturedRay.captured, true);
   const lastPt = capturedRay.points[capturedRay.points.length - 1];
-  assert.ok(Math.abs(lastPt.rRs - 1.0) < 0.02, `Captured ray should terminate at r=r_s, got ${lastPt.rRs}`);
+  assert.ok(Math.abs(lastPt.rRs - 1.0) < 1e-4, `Captured ray should terminate at r=r_s, got ${lastPt.rRs}`);
 
-  const escapedRay = traceSchwarzschildGeodesic(2.62, { rViewRs: 16 });
+  const escapedRay = traceSchwarzschildGeodesic(2.601, { rViewRs: 16, maxSteps: 4800, stepRad: 0.008 });
   assert.equal(escapedRay.captured, false);
   assert.ok(escapedRay.points.length > 30);
 });
 
-test("Quantum Well exact analytical observables match 4000-point numerical quadrature & obey Heisenberg principle", () => {
+test("Quantum Well exact analytical observables match 4000-point quadrature, Ehrenfest theorem & Heisenberg bound", () => {
   const m = computeQuantumWellMetrics(1, 2, 1.0);
   assert.equal(m.isSuperposition, true);
   assert.equal(m.isSloshingParity, true);
   assert.ok(Math.abs(m.energy2Ev - m.energy1Ev * 4) < 1e-12);
-  assert.ok(m.beatPeriodFs > 3.5 && m.beatPeriodFs < 3.8); // h / (3 * 0.37603 eV) ≈ 3.666 fs
+  assert.ok(m.beatPeriodFs > 3.5 && m.beatPeriodFs < 3.8);
 
-  // Numerical integration check for odd-parity sloshing (1, 2) and even-parity breathing (1, 3)
   const cases: Array<[number, number, number]> = [
     [1, 1, 0.7],
     [1, 2, 0.0],
@@ -188,10 +233,21 @@ test("Quantum Well exact analytical observables match 4000-point numerical quadr
       Math.abs(exact.sigmaU - numSigmaU) < 1e-6,
       `sigma_u(t) mismatch for (${n1},${n2}): exact=${exact.sigmaU} num=${numSigmaU}`
     );
-    // Heisenberg Uncertainty Principle: σ_x · σ_p >= ħ / 2
     assert.ok(
       exact.heisenbergProductHbar >= 0.5 - 1e-12,
       `Heisenberg violated for (${n1},${n2}): ${exact.heisenbergProductHbar}`
+    );
+
+    // Ehrenfest's theorem verification: d<u>/dτ = (2 / π²) · (<p> / (ħ/L))
+    const dt = 1e-6;
+    const dMeanUDt =
+      (computeQuantumObservables(n1, n2, t + dt).meanU -
+        computeQuantumObservables(n1, n2, t - dt).meanU) /
+      (2 * dt);
+    const ehrenfestRhs = (2 / (Math.PI * Math.PI)) * exact.meanPHbarOverL;
+    assert.ok(
+      Math.abs(dMeanUDt - ehrenfestRhs) < 1e-7,
+      `Ehrenfest violation for (${n1},${n2}): ${dMeanUDt} vs ${ehrenfestRhs}`
     );
   }
 

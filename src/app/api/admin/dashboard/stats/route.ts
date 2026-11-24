@@ -8,8 +8,10 @@ import {
   computeFieldAnalytics,
 } from "@/lib/admin-analytics";
 import { ensureApiTablesReady } from "@/lib/ai-api-auth";
+import { recordApiMetric } from "@/lib/performance-telemetry";
 
 export async function GET(req: Request) {
+  const startedAt = performance.now();
   const { response } = await requireApiAuth("dashboard.view");
   if (response) return response;
 
@@ -203,6 +205,14 @@ export async function GET(req: Request) {
 
   const totalArticles =
     (statusCounts.published ?? 0) + (statusCounts.draft ?? 0) + (statusCounts.scheduled ?? 0);
+
+  recordApiMetric({
+    route: "/api/admin/dashboard/stats",
+    method: "GET",
+    status: 200,
+    durationMs: performance.now() - startedAt,
+    source: "server",
+  });
 
   return NextResponse.json({
     rangeDays,

@@ -5,6 +5,7 @@ import {
   type CpuTickSnapshot,
   type NetworkTickSnapshot,
 } from "@/lib/system-telemetry";
+import { recordApiMetric } from "@/lib/performance-telemetry";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,12 +23,20 @@ function clampIntervalMs(raw: string | null): number {
  *   with accurate delta CPU %, RAM/Swap, Disk, Network I/O, and Node runtime metrics.
  */
 export async function GET(req: Request) {
+  const startedAt = performance.now();
   const { response } = await requireApiAuth("settings.manage");
   if (response) return response;
 
   const url = new URL(req.url);
   if (url.searchParams.get("mode") === "snapshot") {
     const { snapshot } = await collectSystemTelemetry();
+    recordApiMetric({
+      route: "/api/admin/system/telemetry",
+      method: "GET",
+      status: 200,
+      durationMs: performance.now() - startedAt,
+      source: "server",
+    });
     return NextResponse.json(snapshot, {
       headers: { "Cache-Control": "no-store" },
     });

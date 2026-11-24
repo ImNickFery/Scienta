@@ -19,10 +19,38 @@ export function ArticleViewTracker({ slug, locale }: { slug: string; locale: Loc
     }
 
     const timer = setTimeout(() => {
+      let perf: { ttfbMs: number; fcpMs: number | null; domLoadMs: number } | undefined;
+      try {
+        if (typeof performance !== "undefined") {
+          const nav = performance.getEntriesByType("navigation")[0] as
+            | PerformanceNavigationTiming
+            | undefined;
+          const paintEntries = performance.getEntriesByType("paint");
+          const fcpEntry = paintEntries.find((e) => e.name === "first-contentful-paint");
+          if (nav) {
+            const ttfbMs = Math.max(0, Math.round(nav.responseStart - nav.requestStart));
+            const domLoadMs = Math.max(
+              ttfbMs,
+              Math.round(
+                (nav.loadEventEnd > 0 ? nav.loadEventEnd : nav.domContentLoadedEventEnd) -
+                  nav.startTime
+              )
+            );
+            const fcpMs = fcpEntry ? Math.max(0, Math.round(fcpEntry.startTime)) : null;
+            if (domLoadMs > 0) {
+              perf = { ttfbMs, fcpMs, domLoadMs };
+            }
+          }
+        }
+      } catch {
+        // Ignore Performance API restrictions
+      }
+
       const payload = JSON.stringify({
         slug,
         locale,
         referrer: typeof document !== "undefined" ? document.referrer || "" : "",
+        ...(perf ? { perf } : {}),
       });
 
       if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
