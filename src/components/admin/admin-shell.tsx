@@ -30,6 +30,8 @@ import {
   ChevronLeft,
   Palette,
   ServerCog,
+  Send,
+  HardDriveDownload,
 } from "lucide-react";
 import { useAdminAuth } from "./admin-auth-context";
 import { useAdminLocale } from "./admin-locale-context";
@@ -56,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/media", labelEn: "Media Library", labelFa: "کتابخانه رسانه", icon: ImageIcon, permission: "media.manage", group: "editorial" },
 
   { href: "/admin/comments", labelEn: "Comments", labelFa: "دیدگاه‌ها", icon: MessageSquare, permission: "comments.manage", group: "audience" },
+  { href: "/admin/email", labelEn: "Email Center", labelFa: "مرکز ایمیل", icon: Send, permission: "email.manage", group: "audience" },
   { href: "/admin/messages", labelEn: "Messages", labelFa: "پیام‌های تماس", icon: Inbox, permission: "messages.manage", group: "audience" },
   { href: "/admin/subscribers", labelEn: "Subscribers", labelFa: "مشترکین خبرنامه", icon: Mail, permission: "subscribers.manage", group: "audience" },
 
@@ -65,6 +68,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/admin/logs", labelEn: "Activity Logs", labelFa: "گزارش فعالیت‌ها", icon: Activity, permission: "logs.view", group: "platform" },
   { href: "/admin/trash", labelEn: "Recycle Bin", labelFa: "سطل بازیافت", icon: Trash2, permission: "articles.manage", group: "platform" },
 
+  { href: "/admin/backups", labelEn: "Telegram Backups", labelFa: "پشتیبان‌گیری تلگرام", icon: HardDriveDownload, permission: "backup.manage", group: "system" },
   { href: "/admin/system", labelEn: "System & Updates", labelFa: "سیستم و بروزرسانی", icon: ServerCog, permission: "settings.manage", group: "system" },
 ];
 

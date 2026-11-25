@@ -363,6 +363,96 @@ CREATE TABLE IF NOT EXISTS analytics_pageviews (
   path TEXT NOT NULL,
   referrer_host TEXT NOT NULL DEFAULT 'Direct',
   device_type TEXT NOT NULL DEFAULT 'desktop',
+  country_code TEXT NOT NULL DEFAULT 'ZZ',
+  country_name TEXT NOT NULL DEFAULT 'Unknown',
+  city TEXT NULL,
+  region_name TEXT NULL,
+  timezone TEXT NULL,
+  traffic_channel TEXT NOT NULL DEFAULT 'direct',
+  search_engine TEXT NULL,
+  browser_name TEXT NOT NULL DEFAULT 'Unknown',
+  browser_version TEXT NOT NULL DEFAULT '',
+  os_name TEXT NOT NULL DEFAULT 'Unknown',
+  os_version TEXT NOT NULL DEFAULT '',
+  device_vendor TEXT NOT NULL DEFAULT 'Unknown',
+  screen_bucket TEXT NOT NULL DEFAULT 'Unknown',
+  browser_lang TEXT NOT NULL DEFAULT 'Unknown',
+  utm_source TEXT NULL,
+  utm_medium TEXT NULL,
+  utm_campaign TEXT NULL,
+  visitor_hash TEXT NULL,
+  is_bot INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  id TEXT NOT NULL PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL DEFAULT 'newsletter',
+  locale TEXT NOT NULL DEFAULT 'fa',
+  subject TEXT NOT NULL,
+  preheader TEXT NULL,
+  html_body TEXT NOT NULL,
+  text_body TEXT NULL,
+  variables_json TEXT NULL,
+  is_system INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS email_campaigns (
+  id TEXT NOT NULL PRIMARY KEY,
+  name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  preheader TEXT NULL,
+  template_id TEXT NULL,
+  audience_segment TEXT NOT NULL DEFAULT 'all',
+  custom_recipients_json TEXT NULL,
+  html_body TEXT NOT NULL,
+  text_body TEXT NULL,
+  direction TEXT NOT NULL DEFAULT 'rtl',
+  status TEXT NOT NULL DEFAULT 'draft',
+  total_recipients INTEGER NOT NULL DEFAULT 0,
+  sent_count INTEGER NOT NULL DEFAULT 0,
+  failed_count INTEGER NOT NULL DEFAULT 0,
+  suppressed_count INTEGER NOT NULL DEFAULT 0,
+  sent_at TEXT NULL,
+  created_by TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS email_logs (
+  id TEXT NOT NULL PRIMARY KEY,
+  campaign_id TEXT NULL,
+  template_id TEXT NULL,
+  contact_message_id TEXT NULL,
+  kind TEXT NOT NULL DEFAULT 'direct',
+  recipient_email TEXT NOT NULL,
+  cc_json TEXT NULL,
+  bcc_json TEXT NULL,
+  reply_to TEXT NULL,
+  from_email TEXT NOT NULL,
+  from_name TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  html_body TEXT NOT NULL,
+  text_body TEXT NULL,
+  provider_mode TEXT NOT NULL DEFAULT 'sandbox',
+  status TEXT NOT NULL DEFAULT 'sandbox',
+  provider_message_id TEXT NULL,
+  error_message TEXT NULL,
+  sent_by TEXT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  id TEXT NOT NULL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  reason TEXT NOT NULL DEFAULT 'manual',
+  note TEXT NULL,
+  created_by TEXT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 `;

@@ -75,6 +75,164 @@ export function buildDailyTrend(
   return orderedKeys.map((k) => buckets.get(k)!);
 }
 
+export interface SubscriberGrowthRecord {
+  created_at: string | Date | null | undefined;
+  status?: string | null;
+  locale?: string | null;
+}
+
+export interface SubscriberGrowthPoint {
+  date: string; // YYYY-MM-DD (UTC)
+  label: string; // e.g. "Nov 18"
+  newSubscribers: number;
+  cumulativeSubscribers: number;
+  faNew: number;
+  enNew: number;
+}
+
+export interface SubscriberGrowthSummary {
+  days: number;
+  totalActive: number;
+  previousBaseline: number;
+  addedLast30d: number;
+  growthRatePct: number;
+  avgDaily: number;
+  peakDay: {
+    date: string;
+    label: string;
+    count: number;
+  };
+  points: SubscriberGrowthPoint[];
+}
+
+function extractUtcDayKey(raw: string | Date | null | undefined): string | null {
+  if (!raw) return null;
+  if (raw instanceof Date) {
+    return Number.isNaN(raw.getTime()) ? null : formatUtcDay(raw);
+  }
+  const trimmed = raw.trim();
+  const directMatch = /^(\d{4}-\d{2}-\d{2})/.exec(trimmed);
+  if (directMatch) return directMatch[1];
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : formatUtcDay(parsed);
+}
+
+/**
+ * Builds a 30-day daily & cumulative active subscriber growth series ending at `now` (UTC).
+ * Excludes unsubscribed rows and preserves historical pre-window subscribers in the cumulative baseline.
+ */
+export function buildSubscriberGrowth30d(
+  records: SubscriberGrowthRecord[],
+  options?: { now?: Date; totalActiveOverride?: number }
+): SubscriberGrowthSummary {
+  const days = 30;
+  const now = options?.now ?? new Date();
+  const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  const orderedKeys: string[] = [];
+  const buckets = new Map<
+    string,
+    { date: string; label: string; newSubscribers: number; faNew: number; enNew: number }
+  >();
+
+  for (let i = days - 1; i >= 0; i--) {
+    const day = new Date(endUtc.getTime() - i * 86_400_000);
+    const key = formatUtcDay(day);
+    orderedKeys.push(key);
+    buckets.set(key, {
+      date: key,
+      label: formatShortLabel(day),
+      newSubscribers: 0,
+      faNew: 0,
+      enNew: 0,
+    });
+  }
+
+  const firstKey = orderedKeys[0];
+  const lastKey = orderedKeys[orderedKeys.length - 1];
+  let baselineFromRecords = 0;
+  let afterWindowCount = 0;
+
+  for (const rec of records) {
+    if (rec.status && rec.status !== "subscribed") continue;
+    const dayKey = extractUtcDayKey(rec.created_at);
+    if (!dayKey) continue;
+
+    if (buckets.has(dayKey)) {
+      const bucket = buckets.get(dayKey)!;
+      bucket.newSubscribers += 1;
+      if (rec.locale === "fa") {
+        bucket.faNew += 1;
+      } else {
+        bucket.enNew += 1;
+      }
+    } else if (dayKey < firstKey) {
+      baselineFromRecords += 1;
+    } else if (dayKey > lastKey) {
+      afterWindowCount += 1;
+    }
+  }
+
+  let addedLast30d = 0;
+  for (const key of orderedKeys) {
+    addedLast30d += buckets.get(key)!.newSubscribers;
+  }
+
+  const overrideTotal =
+    typeof options?.totalActiveOverride === "number" && Number.isFinite(options.totalActiveOverride)
+      ? Math.max(0, Math.floor(options.totalActiveOverride))
+      : null;
+
+  const previousBaseline =
+    overrideTotal !== null
+      ? Math.max(baselineFromRecords, overrideTotal - addedLast30d - afterWindowCount)
+      : baselineFromRecords;
+
+  let runningTotal = previousBaseline;
+  let peakDay = {
+    date: orderedKeys[orderedKeys.length - 1] ?? "",
+    label: buckets.get(orderedKeys[orderedKeys.length - 1] ?? "")?.label ?? "-",
+    count: 0,
+  };
+
+  const points: SubscriberGrowthPoint[] = orderedKeys.map((key) => {
+    const b = buckets.get(key)!;
+    runningTotal += b.newSubscribers;
+    if (b.newSubscribers > 0 && b.newSubscribers >= peakDay.count) {
+      peakDay = { date: b.date, label: b.label, count: b.newSubscribers };
+    }
+    return {
+      date: b.date,
+      label: b.label,
+      newSubscribers: b.newSubscribers,
+      cumulativeSubscribers: runningTotal,
+      faNew: b.faNew,
+      enNew: b.enNew,
+    };
+  });
+
+  const totalActive = overrideTotal !== null ? Math.max(runningTotal, overrideTotal) : runningTotal + afterWindowCount;
+  const growthRatePct =
+    previousBaseline > 0
+      ? Math.round((addedLast30d / previousBaseline) * 1000) / 10
+      : addedLast30d > 0
+        ? 100
+        : 0;
+  const avgDaily = Math.round((addedLast30d / days) * 10) / 10;
+
+  return {
+    days,
+    totalActive,
+    previousBaseline,
+    addedLast30d,
+    growthRatePct,
+    avgDaily,
+    peakDay,
+    points,
+  };
+}
+
+
 export interface FieldAnalyticsInput {
   name: string;
   nameFa?: string;

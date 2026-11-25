@@ -5,6 +5,7 @@ import { execute } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
 import { verifySameOrigin } from "@/lib/security";
+import { triggerAutomationEmail } from "@/lib/email-service";
 
 const schema = z.object({
   email: z.string().trim().email().max(190),
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
   );
 
   await logActivity({ userId: null, action: "subscriber.subscribe", ipAddress: ip });
+  void triggerAutomationEmail({ event: "welcome_subscriber", to: email, locale });
 
   return NextResponse.json({ ok: true });
 }

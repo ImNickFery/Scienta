@@ -16,6 +16,7 @@ import {
 import { adminFetch } from "@/lib/admin-api-client";
 import { useAdminLocale } from "@/components/admin/admin-locale-context";
 import { DashboardTrendChart } from "@/components/admin/dashboard-trend-chart";
+import { DashboardSubscriberGrowthChart } from "@/components/admin/dashboard-subscriber-growth-chart";
 import { DashboardPerformanceMonitor } from "@/components/admin/dashboard-performance-monitor";
 import {
   classifyActivitySource,
@@ -24,6 +25,7 @@ import {
   type DailyTrendPoint,
   type EditorialCoverageSummary,
   type FieldAnalyticsItem,
+  type SubscriberGrowthSummary,
   type TrendWindowDays,
 } from "@/lib/admin-analytics";
 
@@ -66,6 +68,7 @@ interface DashboardStats {
   byField: FieldAnalyticsItem[];
   activityTrend: DailyTrendPoint[];
   subscriberTrend: DailyTrendPoint[];
+  subscriberGrowth30d: SubscriberGrowthSummary;
   pendingCommentsList: {
     id: string;
     author_name: string;
@@ -731,6 +734,9 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* Row 2.25: 30-Day Subscriber Growth Line Chart (Recharts) */}
+      <DashboardSubscriberGrowthChart data={stats.subscriberGrowth30d} isFa={isFa} />
 
       {/* Row 2.5: Live Performance Monitoring (API Response Times & Page Load Telemetry) */}
       <DashboardPerformanceMonitor isFa={isFa} refreshNonce={perfRefreshNonce} />

@@ -15,6 +15,7 @@ import { getNumerals } from "@/lib/i18n/numerals-server";
 import { getSiteModes } from "@/lib/site-modes-server";
 import { NumeralsProvider } from "@/components/i18n/numerals-provider";
 import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
+import { SiteAnalyticsTracker } from "@/components/analytics/site-analytics-tracker";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -79,6 +80,7 @@ export default async function LocaleLayout({
     >
       <body className="min-h-dvh bg-(--color-bg-deep) antialiased">
         <AnalyticsScripts />
+        <SiteAnalyticsTracker locale={locale} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLd(organizationJsonLd(locale)) }}

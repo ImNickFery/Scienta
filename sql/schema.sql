@@ -419,4 +419,91 @@ CREATE TABLE IF NOT EXISTS analytics_pageviews (
   INDEX idx_apv_article_created (article_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------
+-- EMAIL OPERATIONS CENTER (templates, campaigns, logs, suppressions)
+-- ---------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS email_templates (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  slug VARCHAR(120) NOT NULL UNIQUE,
+  name VARCHAR(160) NOT NULL,
+  category VARCHAR(40) NOT NULL DEFAULT 'newsletter',
+  locale VARCHAR(16) NOT NULL DEFAULT 'fa',
+  subject VARCHAR(255) NOT NULL,
+  preheader VARCHAR(255) NULL,
+  html_body LONGTEXT NOT NULL,
+  text_body LONGTEXT NULL,
+  variables_json TEXT NULL,
+  is_system TINYINT(1) NOT NULL DEFAULT 0,
+  created_by CHAR(36) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_et_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_et_category (category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_campaigns (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  name VARCHAR(180) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  preheader VARCHAR(255) NULL,
+  template_id CHAR(36) NULL,
+  audience_segment VARCHAR(32) NOT NULL DEFAULT 'all',
+  custom_recipients_json LONGTEXT NULL,
+  html_body LONGTEXT NOT NULL,
+  text_body LONGTEXT NULL,
+  direction VARCHAR(8) NOT NULL DEFAULT 'rtl',
+  status VARCHAR(24) NOT NULL DEFAULT 'draft',
+  total_recipients INT NOT NULL DEFAULT 0,
+  sent_count INT NOT NULL DEFAULT 0,
+  failed_count INT NOT NULL DEFAULT 0,
+  suppressed_count INT NOT NULL DEFAULT 0,
+  sent_at DATETIME NULL,
+  created_by CHAR(36) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ec_template FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL,
+  CONSTRAINT fk_ec_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_ec_status_created (status, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_logs (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  campaign_id CHAR(36) NULL,
+  template_id CHAR(36) NULL,
+  contact_message_id CHAR(36) NULL,
+  kind VARCHAR(24) NOT NULL DEFAULT 'direct',
+  recipient_email VARCHAR(190) NOT NULL,
+  cc_json TEXT NULL,
+  bcc_json TEXT NULL,
+  reply_to VARCHAR(190) NULL,
+  from_email VARCHAR(190) NOT NULL,
+  from_name VARCHAR(120) NOT NULL,
+  subject VARCHAR(255) NOT NULL,
+  html_body LONGTEXT NOT NULL,
+  text_body LONGTEXT NULL,
+  provider_mode VARCHAR(16) NOT NULL DEFAULT 'sandbox',
+  status VARCHAR(24) NOT NULL DEFAULT 'sandbox',
+  provider_message_id VARCHAR(255) NULL,
+  error_message TEXT NULL,
+  sent_by CHAR(36) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_el_campaign FOREIGN KEY (campaign_id) REFERENCES email_campaigns(id) ON DELETE SET NULL,
+  CONSTRAINT fk_el_template FOREIGN KEY (template_id) REFERENCES email_templates(id) ON DELETE SET NULL,
+  CONSTRAINT fk_el_sender FOREIGN KEY (sent_by) REFERENCES users(id) ON DELETE SET NULL,
+  INDEX idx_el_status_created (status, created_at),
+  INDEX idx_el_recipient (recipient_email),
+  INDEX idx_el_campaign (campaign_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS email_suppressions (
+  id CHAR(36) NOT NULL PRIMARY KEY,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  reason VARCHAR(32) NOT NULL DEFAULT 'manual',
+  note VARCHAR(300) NULL,
+  created_by CHAR(36) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_es_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;

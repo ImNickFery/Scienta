@@ -103,3 +103,28 @@ src/
     i18n/                  # locale config + dictionaries
   types/
 ```
+
+## Updating the Site (Terminal Commands)
+
+### 1. cPanel Shared Hosting (Recommended — Prebuilt Slim `deploy` Branch)
+
+Every push to `main` automatically builds the lightweight `deploy` branch via GitHub Actions. Run this single command in **cPanel → Terminal** (replace `~/scienta-app` if your app folder has a different path):
+
+```bash
+cd ~/scienta-app && git -c pack.threads=1 -c pack.windowMemory=64m fetch --depth 1 origin deploy && git reset --hard origin/deploy && bash scripts/cpanel-slim-finalize.sh
+```
+
+> Preserves `.env`, `data/`, `uploads/`, and `node_modules/`, updates the runtime bundle safely within low shared-host RAM/disk limits, and restarts Passenger via `tmp/restart.txt`.
+
+### 2. cPanel Fallback (If Cloned Directly from `main`)
+
+```bash
+cd ~/scienta-app && git pull origin main && bash scripts/cpanel-deploy.sh
+```
+
+### 3. VPS / Standard Node.js Server
+
+```bash
+git pull origin main && npm ci && npm run build && touch tmp/restart.txt
+```
+

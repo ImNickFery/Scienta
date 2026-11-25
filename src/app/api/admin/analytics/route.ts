@@ -14,6 +14,12 @@ import {
 import { ensureAnalyticsTableReady } from "@/lib/analytics-store";
 import { ensureApiTablesReady } from "@/lib/ai-api-auth";
 import { formatSqlUtcCutoff } from "@/lib/db-optimizer-core";
+import {
+  aggregateVisitorIntelligence,
+  filterPageviewRows,
+  type StoredPageviewRow,
+  type VisitorFilterCriteria,
+} from "@/lib/visitor-telemetry";
 
 interface ArticleRawRow {
   id: string;
@@ -78,6 +84,15 @@ export async function GET(req: Request) {
   const localeFilterRaw = url.searchParams.get("locale");
   const localeFilter: "all" | "fa" | "en" =
     localeFilterRaw === "fa" || localeFilterRaw === "en" ? localeFilterRaw : "all";
+
+  const visitorFilters: VisitorFilterCriteria = {
+    country: url.searchParams.get("country")?.trim().slice(0, 8) || null,
+    channel: url.searchParams.get("channel")?.trim().slice(0, 24) || null,
+    searchEngine: url.searchParams.get("searchEngine")?.trim().slice(0, 48) || null,
+    browser: url.searchParams.get("browser")?.trim().slice(0, 48) || null,
+    os: url.searchParams.get("os")?.trim().slice(0, 48) || null,
+    device: url.searchParams.get("device")?.trim().slice(0, 16) || null,
+  };
 
   await Promise.all([ensureAnalyticsTableReady(), ensureApiTablesReady()]);
 
@@ -187,17 +202,17 @@ export async function GET(req: Request) {
        ORDER BY created_at DESC LIMIT 2500`,
       [activityCutoff]
     ),
-    query<{
-      article_id: string | null;
-      locale: string;
-      referrer_host: string;
-      device_type: string;
-      created_at: string;
-    }>(
-      `SELECT article_id, locale, referrer_host, device_type, created_at
+    query<StoredPageviewRow>(
+      `SELECT id, article_id, locale, path, referrer_host, device_type,
+              country_code, country_name, city, region_name, timezone,
+              traffic_channel, search_engine,
+              browser_name, browser_version, os_name, os_version,
+              device_vendor, screen_bucket, browser_lang,
+              utm_source, utm_medium, utm_campaign,
+              visitor_hash, is_bot, created_at
        FROM analytics_pageviews
        WHERE created_at >= ?
-       ORDER BY created_at DESC LIMIT 10000`,
+       ORDER BY created_at DESC LIMIT 15000`,
       [pageviewsCutoff]
     ).catch(() => []),
     query<{ status: string; request_count: number }>(
@@ -449,9 +464,19 @@ export async function GET(req: Request) {
   const subsLocaleFa = subscribersRaw.filter((s) => s.status === "subscribed" && s.locale === "fa").length;
   const subsLocaleEn = subscribersRaw.filter((s) => s.status === "subscribed" && s.locale === "en").length;
 
-  // Live traffic breakdown (locale, device, referrers) within selected window
+  // Live traffic breakdown (locale, device, referrers + deep visitor intelligence) within selected window
   const cutoffMs = nowMs - rangeDays * 86_400_000;
   const recentPageviews = scopedPageviews.filter((p) => {
+    const ms = toTimestampMs(p.created_at);
+    return !Number.isNaN(ms) && ms >= cutoffMs;
+  });
+
+  const visitorIntelligence = aggregateVisitorIntelligence(recentPageviews, visitorFilters);
+
+  // Apply the same active visitor filters to the full 2x window for accurate deltas & trends
+  const humanScopedPageviews = scopedPageviews.filter((p) => p.is_bot !== 1 && p.is_bot !== true);
+  const filteredWindowPageviews = filterPageviewRows(humanScopedPageviews, visitorFilters);
+  const filteredRecentPageviews = filteredWindowPageviews.filter((p) => {
     const ms = toTimestampMs(p.created_at);
     return !Number.isNaN(ms) && ms >= cutoffMs;
   });
@@ -460,7 +485,7 @@ export async function GET(req: Request) {
   const liveLocaleCounts = { fa: 0, en: 0 };
   const referrerMap = new Map<string, number>();
 
-  for (const p of recentPageviews) {
+  for (const p of filteredRecentPageviews) {
     if (p.device_type === "mobile") deviceCounts.mobile += 1;
     else if (p.device_type === "tablet") deviceCounts.tablet += 1;
     else deviceCounts.desktop += 1;
@@ -476,17 +501,30 @@ export async function GET(req: Request) {
     .map(([host, count]) => ({
       host,
       count,
-      share: recentPageviews.length > 0 ? Math.round((count / recentPageviews.length) * 100) : 0,
+      share: filteredRecentPageviews.length > 0 ? Math.round((count / filteredRecentPageviews.length) * 100) : 0,
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
   // Period-over-period deltas
   const pvWin = countInWindows(
-    scopedPageviews.map((p) => p.created_at),
+    filteredWindowPageviews.map((p) => p.created_at),
     rangeDays,
     nowMs
   );
+
+  // Compute unique visitors period delta (current window vs previous window)
+  const prevCutoffMs = nowMs - rangeDays * 2 * 86_400_000;
+  const curVisitorSet = new Set<string>();
+  const prevVisitorSet = new Set<string>();
+  filteredWindowPageviews.forEach((p, idx) => {
+    const ms = toTimestampMs(p.created_at);
+    if (Number.isNaN(ms)) return;
+    const vid = p.visitor_hash || `anon-${p.id || idx}`;
+    if (ms >= cutoffMs && ms <= nowMs) curVisitorSet.add(vid);
+    else if (ms >= prevCutoffMs && ms < cutoffMs) prevVisitorSet.add(vid);
+  });
+  const uniqueVisitorsDelta = computePeriodDelta(curVisitorSet.size, prevVisitorSet.size);
   const subWin = countInWindows(
     scopedSubscribers.map((s) => s.created_at),
     rangeDays,
@@ -527,10 +565,28 @@ export async function GET(req: Request) {
 
   // Time-series trends
   const pageviewTrend = buildDailyTrend(
-    scopedPageviews.map((p) => p.created_at),
+    filteredWindowPageviews.map((p) => p.created_at),
     rangeDays,
     now
   );
+  // Build daily unique visitors aligned 1:1 with pageviewTrend dates
+  const visitorsByDay = new Map<string, Set<string>>();
+  for (const pt of pageviewTrend) {
+    visitorsByDay.set(pt.date, new Set<string>());
+  }
+  filteredWindowPageviews.forEach((p, idx) => {
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec((p.created_at || "").trim());
+    const dayKey = m ? m[1] : null;
+    if (dayKey && visitorsByDay.has(dayKey)) {
+      visitorsByDay.get(dayKey)!.add(p.visitor_hash || `anon-${p.id || idx}`);
+    }
+  });
+  const uniqueVisitorsTrend = pageviewTrend.map((pt) => ({
+    date: pt.date,
+    label: pt.label,
+    count: visitorsByDay.get(pt.date)?.size ?? 0,
+  }));
+
   const activityTrend = buildDailyTrend(
     activityRaw.map((a) => a.created_at),
     rangeDays,
@@ -560,11 +616,13 @@ export async function GET(req: Request) {
   return NextResponse.json({
     rangeDays,
     localeFilter,
+    activeFilters: visitorFilters,
     generatedAt: now.toISOString(),
     kpis: {
       totalViews,
       avgViewsPerEssay: publishedCount > 0 ? Math.round(totalViews / publishedCount) : 0,
       livePageviewsDelta: computePeriodDelta(pvWin.current, pvWin.previous),
+      uniqueVisitorsDelta,
       publishedCount,
       draftCount,
       scheduledCount,
@@ -595,17 +653,19 @@ export async function GET(req: Request) {
     },
     trends: {
       pageviews: pageviewTrend,
+      visitors: uniqueVisitorsTrend,
       activity: activityTrend,
       subscribers: subscriberTrend,
       comments: commentTrend,
     },
     audience: {
-      livePageviewsInRange: recentPageviews.length,
+      livePageviewsInRange: filteredRecentPageviews.length,
       liveLocales: liveLocaleCounts,
       subscriberLocales: { fa: subsLocaleFa, en: subsLocaleEn },
       devices: deviceCounts,
       topReferrers,
     },
+    visitorIntelligence,
     fieldsMatrix,
     authorLeaderboard,
     articles,

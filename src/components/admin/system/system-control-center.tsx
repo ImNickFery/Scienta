@@ -32,6 +32,7 @@ import { useAdminLocale } from "@/components/admin/admin-locale-context";
 import { adminFetch } from "@/lib/admin-api-client";
 import { ResourceGauge } from "./resource-gauge";
 import { TelemetryOverviewBar } from "./telemetry-overview-bar";
+import { AccountQuotaSection } from "./account-quota-section";
 import {
   formatBytesCompact,
   validateGithubRepoUrl,
@@ -100,6 +101,10 @@ export function SystemControlCenter() {
   const [ramHistory, setRamHistory] = useState<number[]>([]);
   const [diskHistory, setDiskHistory] = useState<number[]>([]);
   const [heapHistory, setHeapHistory] = useState<number[]>([]);
+  const [accountDiskHistory, setAccountDiskHistory] = useState<number[]>([]);
+  const [accountRamHistory, setAccountRamHistory] = useState<number[]>([]);
+  const [accountCpuHistory, setAccountCpuHistory] = useState<number[]>([]);
+  const [accountInodeHistory, setAccountInodeHistory] = useState<number[]>([]);
 
   // Updater & SSH state
   const [loadingState, setLoadingState] = useState(true);
@@ -244,6 +249,12 @@ export function SystemControlCenter() {
         setRamHistory((prev) => [...prev.slice(-29), snap.memory.percent]);
         setDiskHistory((prev) => [...prev.slice(-29), snap.disk.percent]);
         setHeapHistory((prev) => [...prev.slice(-29), snap.runtime.heapPercent]);
+        if (snap.accountQuota) {
+          setAccountDiskHistory((prev) => [...prev.slice(-29), snap.accountQuota.disk.percent]);
+          setAccountRamHistory((prev) => [...prev.slice(-29), snap.accountQuota.memory.percent]);
+          setAccountCpuHistory((prev) => [...prev.slice(-29), snap.accountQuota.cpu.percent]);
+          setAccountInodeHistory((prev) => [...prev.slice(-29), snap.accountQuota.inodes.percent]);
+        }
       } catch (err) {
         if (!cancelled && !(err instanceof DOMException && err.name === "AbortError")) {
           setStreamState("reconnecting");
@@ -290,6 +301,12 @@ export function SystemControlCenter() {
       setRamHistory((prev) => [...prev.slice(-29), snap.memory.percent]);
       setDiskHistory((prev) => [...prev.slice(-29), snap.disk.percent]);
       setHeapHistory((prev) => [...prev.slice(-29), snap.runtime.heapPercent]);
+      if (snap.accountQuota) {
+        setAccountDiskHistory((prev) => [...prev.slice(-29), snap.accountQuota.disk.percent]);
+        setAccountRamHistory((prev) => [...prev.slice(-29), snap.accountQuota.memory.percent]);
+        setAccountCpuHistory((prev) => [...prev.slice(-29), snap.accountQuota.cpu.percent]);
+        setAccountInodeHistory((prev) => [...prev.slice(-29), snap.accountQuota.inodes.percent]);
+      }
     } catch {
       // Ignore transient manual sample error
     } finally {
@@ -601,8 +618,19 @@ export function SystemControlCenter() {
         </div>
       </div>
 
-      {/* Top Row: 3x-ui-style Real-Time Hardware Gauges */}
-      <section aria-label={isFa ? "منابع لحظه‌ای سرور" : "Real-time server resources"}>
+      {/* Top Row: 3x-ui-style Real-Time Hardware Gauges (Whole Host / Shared Server) */}
+      <section aria-label={isFa ? "منابع لحظه‌ای کل سرور" : "Real-time host server resources"}>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h2 className="font-[family-name:var(--font-display)] text-sm font-semibold text-(--color-text-primary)">
+              {isFa ? "منابع کل سرور (هاست اشتراکی)" : "Host Server Resources (Shared Node)"}
+            </h2>
+            <span className="text-xs text-(--color-text-tertiary)">·</span>
+            <span className="text-xs text-(--color-text-tertiary)">
+              {isFa ? "ظرفیت کلی سخت‌افزار سرور میزبان" : "Physical host node hardware totals"}
+            </span>
+          </div>
+        </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <ResourceGauge
             title={isFa ? "مصرف پردازنده (CPU)" : "CPU Usage"}
@@ -717,6 +745,17 @@ export function SystemControlCenter() {
           dbEngineFallback={dbDiag?.engine}
           isFa={isFa}
           formatUptime={formatUptime}
+        />
+
+        {/* Per-Account / Hosting Plan Resource Quota Gauges & Breakdown */}
+        <AccountQuotaSection
+          quota={telemetry?.accountQuota}
+          diskHistory={accountDiskHistory}
+          ramHistory={accountRamHistory}
+          cpuHistory={accountCpuHistory}
+          inodeHistory={accountInodeHistory}
+          isFa={isFa}
+          onQuotaSaved={handleSampleNow}
         />
       </section>
 

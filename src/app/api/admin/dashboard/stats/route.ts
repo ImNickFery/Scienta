@@ -3,6 +3,7 @@ import { query, queryOne } from "@/lib/db";
 import { requireApiAuth } from "@/lib/session";
 import {
   buildDailyTrend,
+  buildSubscriberGrowth30d,
   clampTrendDays,
   computeEditorialCoverage,
   computeFieldAnalytics,
@@ -120,8 +121,8 @@ export async function GET(req: Request) {
     query<{ created_at: string }>(
       `SELECT created_at FROM activity_logs ORDER BY created_at DESC LIMIT 1000`
     ),
-    query<{ created_at: string }>(
-      `SELECT created_at FROM subscribers ORDER BY created_at DESC LIMIT 1000`
+    query<{ created_at: string; status: string; locale: string }>(
+      `SELECT created_at, status, locale FROM subscribers ORDER BY created_at DESC LIMIT 5000`
     ),
     query<{ id: string; name: string; subject: string | null; created_at: string }>(
       `SELECT id, name, subject, created_at FROM contact_messages WHERE status='new' ORDER BY created_at DESC LIMIT 5`
@@ -273,6 +274,9 @@ export async function GET(req: Request) {
       subscriberTimestamps.map((r) => r.created_at),
       rangeDays
     ),
+    subscriberGrowth30d: buildSubscriberGrowth30d(subscriberTimestamps, {
+      totalActiveOverride: Number(totals?.subscribers ?? 0),
+    }),
     pendingCommentsList,
     recentDrafts: recentDrafts.map((d) => ({
       id: d.id,

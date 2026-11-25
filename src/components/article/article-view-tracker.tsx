@@ -5,8 +5,8 @@ import type { Locale } from "@/lib/i18n/config";
 
 /**
  * Fires a single, idle-deferred, session-deduplicated pageview beacon for an
- * article essay so the Admin Analytics Hub tracks real live traffic, locales,
- * device classes, and referrers with zero impact on LCP/FCP.
+ * article essay so the Admin Analytics Hub tracks live traffic, geography,
+ * search engines, browsers, OS, devices, and referrers with zero impact on LCP/FCP.
  */
 export function ArticleViewTracker({ slug, locale }: { slug: string; locale: Locale }) {
   useEffect(() => {
@@ -46,10 +46,48 @@ export function ArticleViewTracker({ slug, locale }: { slug: string; locale: Loc
         // Ignore Performance API restrictions
       }
 
+      let timezone: string | undefined;
+      try {
+        timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+      } catch {
+        // Ignore Intl restrictions
+      }
+
+      let screenWidth: number | undefined;
+      if (typeof window !== "undefined") {
+        const w = Math.round(window.screen?.width || window.innerWidth || 0);
+        if (w >= 100 && w <= 10_000) screenWidth = w;
+      }
+
+      const language =
+        typeof navigator !== "undefined" && navigator.language
+          ? navigator.language.slice(0, 32)
+          : undefined;
+
+      let utmSource: string | undefined;
+      let utmMedium: string | undefined;
+      let utmCampaign: string | undefined;
+      if (typeof window !== "undefined" && window.location.search) {
+        try {
+          const sp = new URLSearchParams(window.location.search);
+          utmSource = sp.get("utm_source")?.slice(0, 80) || undefined;
+          utmMedium = sp.get("utm_medium")?.slice(0, 80) || undefined;
+          utmCampaign = sp.get("utm_campaign")?.slice(0, 80) || undefined;
+        } catch {
+          // Ignore malformed query string
+        }
+      }
+
       const payload = JSON.stringify({
         slug,
         locale,
         referrer: typeof document !== "undefined" ? document.referrer || "" : "",
+        timezone,
+        screenWidth,
+        language,
+        utmSource,
+        utmMedium,
+        utmCampaign,
         ...(perf ? { perf } : {}),
       });
 

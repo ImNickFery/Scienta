@@ -5,6 +5,8 @@ import v8 from "node:v8";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { getActiveDbEngine } from "./db";
+import { collectAccountQuotaSnapshot } from "./account-quota";
+import type { AccountQuotaSnapshot } from "./account-quota-core";
 
 const execFileAsync = promisify(execFile);
 
@@ -67,6 +69,7 @@ export interface SystemTelemetrySnapshot {
     appVersion: string;
     dbEngine: "sqlite" | "mysql";
   };
+  accountQuota: AccountQuotaSnapshot;
 }
 
 /**
@@ -297,6 +300,10 @@ let lastCoalescedResult: {
   };
 } | null = null;
 
+export function invalidateTelemetryCoalesceCache(): void {
+  lastCoalescedResult = null;
+}
+
 /**
  * Collects a complete real-time hardware & runtime telemetry snapshot
  * (CPU %, RAM, Swap, Disk, Network I/O, Node Heap, Uptime, Engine).
@@ -344,6 +351,12 @@ export async function collectSystemTelemetry(
 
   const disk = await readDiskMetrics();
   const procMem = process.memoryUsage();
+  const accountQuota = await collectAccountQuotaSnapshot({
+    hostTotalMemBytes: totalBytes,
+    hostDiskTotalBytes: disk.totalBytes,
+    hostCores: cpus.length || 1,
+    processRssBytes: procMem.rss,
+  });
   const heapLimitBytes = Math.max(procMem.heapTotal, v8.getHeapStatistics().heap_size_limit || 0);
   const heapPercent =
     heapLimitBytes > 0 ? Math.round((procMem.heapUsed / heapLimitBytes) * 1000) / 10 : 0;
@@ -399,6 +412,7 @@ export async function collectSystemTelemetry(
       appVersion: readAppVersion(),
       dbEngine: getActiveDbEngine(),
     },
+    accountQuota,
   };
 
   const result = { snapshot, cpuTicks: currTicks, netTicks: currNet };

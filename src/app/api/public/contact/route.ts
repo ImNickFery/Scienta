@@ -6,6 +6,7 @@ import { stripHtml } from "@/lib/sanitize";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
 import { verifySameOrigin } from "@/lib/security";
+import { triggerAutomationEmail } from "@/lib/email-service";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(160),
@@ -36,13 +37,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Please check the form and try again." }, { status: 400 });
   }
   const { name, email, subject, message } = parsed.data;
+  const cleanName = stripHtml(name);
+  const cleanSubject = subject ? stripHtml(subject) : "";
 
   await execute(
     `INSERT INTO contact_messages (id, name, email, subject, message, ip_address) VALUES (?, ?, ?, ?, ?, ?)`,
-    [uuid(), stripHtml(name), email, subject ? stripHtml(subject) : null, stripHtml(message), ip]
+    [uuid(), cleanName, email, cleanSubject || null, stripHtml(message), ip]
   );
 
   await logActivity({ userId: null, action: "contact.submit", ipAddress: ip });
+  void triggerAutomationEmail({
+    event: "contact_receipt",
+    to: email.toLowerCase(),
+    variables: {
+      recipient_name: cleanName,
+      original_subject: cleanSubject || "General Inquiry",
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

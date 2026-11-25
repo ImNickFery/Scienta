@@ -12,6 +12,9 @@
     "deploy:push": "NODE_ENV=production npm run build && npm run deploy:package && tsx scripts/push-build.ts"
   },
   "dependencies": {
+    "@types/archiver": "^8.0.0",
+    "@types/nodemailer": "^8.0.2",
+    "archiver": "^8.0.0",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -27,10 +30,12 @@
     "next": "16.4.6",
     "next-mdx-remote": "^6.0.0",
     "next-themes": "^0.4.6",
+    "nodemailer": "^10.6.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
     "reading-time": "^1.5.0",
+    "recharts": "^3.11.1",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-pretty-code": "^0.14.5",
@@ -42,6 +47,7 @@
     "shiki": "^4.4.1",
     "slugify": "^1.6.9",
     "tailwind-merge": "^3.6.0",
+    "telegram": "^2.26.22",
     "uuid": "^14.0.1",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"

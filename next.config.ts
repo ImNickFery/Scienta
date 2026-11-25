@@ -22,6 +22,7 @@ const uploadImageHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  serverExternalPackages: ["telegram", "archiver"],
   cacheMaxMemorySize: 16 * 1024 * 1024,
   experimental: {
     inlineCss: true,
