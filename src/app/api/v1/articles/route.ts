@@ -4,6 +4,7 @@ import { hashToken } from "@/lib/auth";
 import { query, queryOne, withTransaction } from "@/lib/db";
 import { stripHtml } from "@/lib/sanitize";
 import { logActivity } from "@/lib/activity-log";
+import { isArticleSlugConflictError, toSqlUtcDateTime } from "@/lib/sql-dates";
 import {
   authenticateV1Request,
   computeArticleEtag,
@@ -471,8 +472,8 @@ export async function POST(req: Request) {
   }
 
   const articleId = uuid();
-  const publishedAt =
-    data.status === "published" ? new Date().toISOString().slice(0, 19).replace("T", " ") : null;
+  const normalizedScheduledAt = toSqlUtcDateTime(data.scheduledAt);
+  const publishedAt = data.status === "published" ? toSqlUtcDateTime(new Date()) : null;
 
   try {
     await withTransaction(async (conn) => {
@@ -489,7 +490,7 @@ export async function POST(req: Request) {
           data.status,
           data.featured ? 1 : 0,
           data.trending ? 1 : 0,
-          data.scheduledAt ?? null,
+          normalizedScheduledAt,
           publishedAt,
           auth.key.ownerUserId,
           auth.key.ownerUserId,
@@ -529,8 +530,7 @@ export async function POST(req: Request) {
       }
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Database error";
-    if (message.includes("uq_locale_slug")) {
+    if (isArticleSlugConflictError(err)) {
       return v1Error({
         status: 409,
         code: "slug_conflict",

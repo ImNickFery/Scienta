@@ -24,7 +24,8 @@ interface ArticleRow {
   title: string;
   slug: string;
   excerpt: string | null;
-  content: string;
+  content?: string | null;
+  content_len?: number | null;
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
@@ -35,6 +36,10 @@ interface ArticleRow {
 
 /** Matches published articles as well as scheduled articles whose publish time has arrived. */
 const LIVE_STATUS_SQL = "(a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= NOW()))";
+
+function escapeSqlLikePattern(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
 
 const BASE_SELECT = `
   SELECT
@@ -56,8 +61,33 @@ const BASE_SELECT = `
   WHERE a.deleted_at IS NULL
 `;
 
+/** Lightweight listing select omitting heavy MDX bodies while estimating reading time in SQL. */
+const SUMMARY_SELECT = `
+  SELECT
+    a.id, f.slug AS field_slug, f.color AS field_color, c.slug AS category_slug,
+    au.slug AS author_slug, au.name_fa AS author_name_fa, au.name_en AS author_name_en,
+    m.path AS cover_path,
+    a.status, a.featured, a.trending, a.views, a.published_at, a.updated_at,
+    t.title, t.slug, t.excerpt, LENGTH(t.content) AS content_len,
+    t.seo_title, t.seo_description, t.seo_keywords, t.canonical_url, t.twitter_card,
+    (SELECT GROUP_CONCAT(tg.slug, '::', tg.name_fa, '::', tg.name_en SEPARATOR '||')
+       FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id
+      WHERE atg.article_id = a.id) AS tags
+  FROM articles a
+  JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
+  LEFT JOIN fields f ON f.id = a.field_id
+  LEFT JOIN categories c ON c.id = a.category_id
+  LEFT JOIN authors au ON au.id = a.author_id
+  LEFT JOIN media m ON m.id = a.cover_media_id AND m.deleted_at IS NULL
+  WHERE a.deleted_at IS NULL
+`;
+
 function rowToArticle(row: ArticleRow, locale: Locale): Article {
-  const stats = readingTime(row.content);
+  const body = row.content ?? "";
+  const estimatedMinutes =
+    body.length > 0
+      ? readingTime(body).minutes
+      : Math.max(1, Math.ceil(Number(row.content_len ?? 0) / (locale === "fa" ? 1600 : 1200)));
   const tagItems = row.tags
     ? row.tags
         .split("||")
@@ -102,8 +132,8 @@ function rowToArticle(row: ArticleRow, locale: Locale): Article {
 
   return {
     ...frontmatter,
-    content: row.content,
-    readingTimeMinutes: Math.max(1, Math.ceil(stats.minutes)),
+    content: body,
+    readingTimeMinutes: Math.max(1, Math.ceil(estimatedMinutes)),
   };
 }
 
@@ -168,25 +198,55 @@ export interface AdjacentArticleLink {
   title: string;
 }
 
-/** Fetches only the immediate previous and next article links without loading all MDX bodies. */
+/** Fetches only the immediate previous and next article links via O(1) indexed LIMIT 1 lookups. */
 export const getAdjacentArticles = cache(
   async (
     locale: Locale,
     articleId: string
   ): Promise<{ prev: AdjacentArticleLink | null; next: AdjacentArticleLink | null }> => {
-    const rows = await query<{ id: string; slug: string; title: string }>(
-      `SELECT a.id, t.slug, t.title
-       FROM articles a
-       JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
-       WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL}
-       ORDER BY a.published_at DESC, a.created_at DESC`,
-      [locale]
+    const current = await queryOne<{ sort_ts: string; created_at: string }>(
+      `SELECT COALESCE(published_at, created_at) AS sort_ts, created_at
+       FROM articles
+       WHERE id = ? AND deleted_at IS NULL
+       LIMIT 1`,
+      [articleId]
     );
-    const idx = rows.findIndex((r) => r.id === articleId);
-    if (idx === -1) return { prev: null, next: null };
+    if (!current) return { prev: null, next: null };
+
+    const [prevRow, nextRow] = await Promise.all([
+      // Newer neighbor (earlier in published_at DESC order)
+      queryOne<AdjacentArticleLink>(
+        `SELECT t.slug, t.title
+         FROM articles a
+         JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
+         WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL} AND a.id != ?
+           AND (
+             COALESCE(a.published_at, a.created_at) > ?
+             OR (COALESCE(a.published_at, a.created_at) = ? AND a.created_at > ?)
+           )
+         ORDER BY COALESCE(a.published_at, a.created_at) ASC, a.created_at ASC
+         LIMIT 1`,
+        [locale, articleId, current.sort_ts, current.sort_ts, current.created_at]
+      ),
+      // Older neighbor (later in published_at DESC order)
+      queryOne<AdjacentArticleLink>(
+        `SELECT t.slug, t.title
+         FROM articles a
+         JOIN article_translations t ON t.article_id = a.id AND t.locale = ?
+         WHERE a.deleted_at IS NULL AND ${LIVE_STATUS_SQL} AND a.id != ?
+           AND (
+             COALESCE(a.published_at, a.created_at) < ?
+             OR (COALESCE(a.published_at, a.created_at) = ? AND a.created_at < ?)
+           )
+         ORDER BY COALESCE(a.published_at, a.created_at) DESC, a.created_at DESC
+         LIMIT 1`,
+        [locale, articleId, current.sort_ts, current.sort_ts, current.created_at]
+      ),
+    ]);
+
     return {
-      prev: idx > 0 ? { slug: rows[idx - 1].slug, title: rows[idx - 1].title } : null,
-      next: idx < rows.length - 1 ? { slug: rows[idx + 1].slug, title: rows[idx + 1].title } : null,
+      prev: prevRow ?? null,
+      next: nextRow ?? null,
     };
   }
 );
@@ -218,7 +278,7 @@ export async function getTrendingArticles(locale: Locale): Promise<Article[]> {
 
 export async function getArticlesByField(locale: Locale, field: FieldSlug): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? ORDER BY a.published_at DESC`,
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? ORDER BY a.published_at DESC`,
     [locale, field]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -226,7 +286,7 @@ export async function getArticlesByField(locale: Locale, field: FieldSlug): Prom
 
 export async function getRelatedArticles(locale: Locale, current: Article, limit = 3): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? AND t.slug != ? ORDER BY a.published_at DESC LIMIT ?`,
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} AND f.slug = ? AND t.slug != ? ORDER BY a.published_at DESC LIMIT ?`,
     [locale, current.field, current.slug, limit]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -234,7 +294,7 @@ export async function getRelatedArticles(locale: Locale, current: Article, limit
 
 export async function getMostViewedArticles(locale: Locale, limit = 5): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.views DESC LIMIT ?`,
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.views DESC LIMIT ?`,
     [locale, limit]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -243,7 +303,7 @@ export async function getMostViewedArticles(locale: Locale, limit = 5): Promise<
 export async function getRecentArticles(locale: Locale, limit = 6): Promise<Article[]> {
   const safeLimit = Math.max(1, Math.min(50, Math.floor(limit)));
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.published_at DESC, a.created_at DESC LIMIT ?`,
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} ORDER BY a.published_at DESC, a.created_at DESC LIMIT ?`,
     [locale, safeLimit]
   );
   return rows.map((r) => rowToArticle(r, locale));
@@ -252,14 +312,14 @@ export async function getRecentArticles(locale: Locale, limit = 6): Promise<Arti
 export async function searchArticles(locale: Locale, search: string): Promise<Article[]> {
   const q = search.trim();
   if (!q) return [];
-  const like = `%${q}%`;
+  const like = `%${escapeSqlLikePattern(q)}%`;
   const authorCol = locale === "fa" ? "au.name_fa" : "au.name_en";
   const tagCol = locale === "fa" ? "tg.name_fa" : "tg.name_en";
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND (
-       t.title LIKE ? OR t.excerpt LIKE ? OR t.content LIKE ? OR ${authorCol} LIKE ? OR EXISTS (
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} AND (
+       t.title LIKE ? ESCAPE '\\' OR t.excerpt LIKE ? ESCAPE '\\' OR t.content LIKE ? ESCAPE '\\' OR ${authorCol} LIKE ? ESCAPE '\\' OR EXISTS (
          SELECT 1 FROM article_tags atg2 JOIN tags tg ON tg.id = atg2.tag_id
-         WHERE atg2.article_id = a.id AND ${tagCol} LIKE ?
+         WHERE atg2.article_id = a.id AND ${tagCol} LIKE ? ESCAPE '\\'
        )
      )
      ORDER BY a.published_at DESC LIMIT 30`,
@@ -283,7 +343,7 @@ export async function getAllTags(locale: Locale): Promise<{ tag: string; count: 
 export async function getArticlesByTag(locale: Locale, tag: string): Promise<Article[]> {
   const nameCol = locale === "fa" ? "tg.name_fa" : "tg.name_en";
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
        SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE ${nameCol} = ? OR tg.slug = ?
      ) ORDER BY a.published_at DESC`,
     [locale, tag, tag]
@@ -334,7 +394,7 @@ export async function getTagBySlug(slug: string): Promise<TagRecord | null> {
 
 export async function getArticlesByTagSlug(locale: Locale, slug: string): Promise<Article[]> {
   const rows = await query<ArticleRow>(
-    `${BASE_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
+    `${SUMMARY_SELECT} AND ${LIVE_STATUS_SQL} AND a.id IN (
        SELECT atg.article_id FROM article_tags atg JOIN tags tg ON tg.id = atg.tag_id WHERE tg.slug = ?
      ) ORDER BY a.published_at DESC`,
     [locale, slug]

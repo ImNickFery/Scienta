@@ -33,8 +33,15 @@ export function Mermaid({ chart }: { chart: string }) {
           securityLevel: "strict",
         });
         const { svg } = await mermaid.render(`mermaid-${id}`, chart);
+        const DOMPurify = (await import("isomorphic-dompurify")).default;
+        const cleanSvg = DOMPurify.sanitize(svg, {
+          USE_PROFILES: { svg: true, svgFilters: true, html: true },
+          ADD_TAGS: ["foreignObject"],
+          FORBID_TAGS: ["script", "iframe", "object", "embed"],
+          FORBID_ATTR: ["onerror", "onload", "onclick", "onmouseover", "onfocus"],
+        });
         if (!cancelled && ref.current) {
-          ref.current.innerHTML = svg;
+          ref.current.innerHTML = cleanSvg;
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Diagram render failed");

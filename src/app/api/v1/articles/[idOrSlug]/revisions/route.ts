@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity-log";
 import {
   authenticateV1Request,
   computeArticleEtag,
+  hasScope,
   readTextBodyWithLimit,
   v1CorsPreflight,
   v1Error,
@@ -102,6 +103,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ idOrSlu
       status: 404,
       code: "article_not_found",
       message: `No active article found matching '${idOrSlug}'.`,
+      requestId: auth.requestId,
+      headers: auth.rateHeaders,
+    });
+  }
+
+  if (article.status === "published" && !hasScope(auth.key.scopes, "articles:publish")) {
+    return v1Error({
+      status: 403,
+      code: "insufficient_scope",
+      message: "Restoring a revision on a live published article requires the 'articles:publish' scope.",
+      hint: "Grant 'articles:publish' to this API key or switch the article back to draft before restoring.",
       requestId: auth.requestId,
       headers: auth.rateHeaders,
     });

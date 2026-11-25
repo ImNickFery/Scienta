@@ -46,9 +46,21 @@ export async function GET(req: Request) {
   const encoder = new TextEncoder();
 
   let timer: ReturnType<typeof setInterval> | null = null;
+  let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
   let prevCpuTicks: CpuTickSnapshot | null = null;
   let prevNetTicks: NetworkTickSnapshot | null = null;
+
+  const clearTimers = () => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
+    if (maxDurationTimer) {
+      clearTimeout(maxDurationTimer);
+      maxDurationTimer = null;
+    }
+  };
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -70,19 +82,10 @@ export async function GET(req: Request) {
       controller.enqueue(encoder.encode(`: connected\n\n`));
       await pushSample();
 
-      let maxDurationTimer: ReturnType<typeof setTimeout> | null = null;
-
       const cleanup = () => {
         if (closed) return;
         closed = true;
-        if (timer) {
-          clearInterval(timer);
-          timer = null;
-        }
-        if (maxDurationTimer) {
-          clearTimeout(maxDurationTimer);
-          maxDurationTimer = null;
-        }
+        clearTimers();
         try {
           controller.close();
         } catch {
@@ -101,10 +104,7 @@ export async function GET(req: Request) {
     },
     cancel() {
       closed = true;
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
-      }
+      clearTimers();
     },
   });
 

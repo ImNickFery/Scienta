@@ -3,6 +3,7 @@ import { execute, query, queryOne, withTransaction } from "@/lib/db";
 import { stripHtml } from "@/lib/sanitize";
 import { sanitizeUrl } from "@/lib/security";
 import { logActivity } from "@/lib/activity-log";
+import { isArticleSlugConflictError, toSqlUtcDateTime } from "@/lib/sql-dates";
 import {
   authenticateV1Request,
   computeArticleEtag,
@@ -350,6 +351,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ idOrSl
 
   let nextCoverMediaId = existing.cover_media_id;
   if (data.coverMediaId !== undefined) {
+    if (data.coverMediaId !== null) {
+      const found = await queryOne<{ id: string }>(
+        `SELECT id FROM media WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+        [data.coverMediaId]
+      );
+      if (!found) {
+        return v1Error({
+          status: 400,
+          code: "media_not_found",
+          message: `Media ID '${data.coverMediaId}' was not found.`,
+          hint: "Upload media via POST /api/v1/media or pass a valid media UUID.",
+          requestId: auth.requestId,
+          headers: auth.rateHeaders,
+        });
+      }
+    }
     nextCoverMediaId = data.coverMediaId;
   } else if (data.coverMediaUrl?.trim()) {
     const candidate = data.coverMediaUrl.trim();
@@ -436,7 +453,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ idOrSl
   const nextStatus = data.status ?? existing.status;
   const nextFeatured = data.featured !== undefined ? (data.featured ? 1 : 0) : existing.featured;
   const nextTrending = data.trending !== undefined ? (data.trending ? 1 : 0) : existing.trending;
-  const nextScheduledAt = data.scheduledAt !== undefined ? data.scheduledAt : existing.scheduled_at;
+  const nextScheduledAt =
+    data.scheduledAt !== undefined ? toSqlUtcDateTime(data.scheduledAt) : existing.scheduled_at;
   if (nextStatus === "scheduled" && !nextScheduledAt) {
     return v1Error({
       status: 400,
@@ -485,7 +503,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ idOrSl
         await conn.execute(
           `UPDATE article_translations
               SET title = ?, slug = ?, excerpt = ?, content = ?,
-                  seo_title = ?, seo_description = ?, seo_keywords = ?, canonical_url = ?, twitter_card = ?
+                  seo_title = ?, seo_description = ?, seo_keywords = ?, canonical_url = ?, twitter_card = ?, updated_at = NOW()
             WHERE article_id = ? AND locale = ?`,
           [
             tr.title,
@@ -514,8 +532,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ idOrSl
       }
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Database error";
-    if (message.includes("uq_locale_slug")) {
+    if (isArticleSlugConflictError(err)) {
       return v1Error({
         status: 409,
         code: "slug_conflict",

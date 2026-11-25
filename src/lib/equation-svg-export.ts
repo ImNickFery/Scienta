@@ -47,9 +47,10 @@ export function exportKatexElementToSvg(katexEl: HTMLElement): string | null {
       // guard against producing invalid XML.
       .replace(/&(?!amp;|lt;|gt;|quot;|#)/g, "&amp;");
 
+    const safeCss = css.replace(/\]\]>/g, "]]&gt;");
     const svg = [
       `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`,
-      `<style>${css}</style>`,
+      `<style><![CDATA[${safeCss}]]></style>`,
       `<foreignObject width="100%" height="100%">`,
       `<div xmlns="http://www.w3.org/1999/xhtml" style="color:#f5f5fa;font-size:${window.getComputedStyle(katexEl).fontSize};display:flex;align-items:center;justify-content:center;width:100%;height:100%;">${innerHtml}</div>`,
       `</foreignObject>`,

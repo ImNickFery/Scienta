@@ -60,7 +60,8 @@ export async function POST(req: Request) {
       `SELECT t.article_id
        FROM article_translations t
        JOIN articles a ON a.id = t.article_id
-       WHERE t.locale = ? AND t.slug = ? AND a.deleted_at IS NULL AND a.status = 'published'
+       WHERE t.locale = ? AND t.slug = ? AND a.deleted_at IS NULL
+         AND (a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= NOW()))
        LIMIT 1`,
       [locale, slug]
     );

@@ -148,6 +148,7 @@ async function callCpanelUapi({ host, authHeader, moduleName, functionName, para
 
 /**
  * Trigger Git pull + deployment on cPanel via UAPI.
+ * @param {Record<string, string | undefined>} [env]
  */
 export async function runCpanelDeploy(env = process.env) {
   const missing = getMissingConfigFields(env);

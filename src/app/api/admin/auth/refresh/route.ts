@@ -17,6 +17,7 @@ import { generateCsrfToken } from "@/lib/csrf";
 import { getClientIp, rateLimit } from "@/lib/rate-limit";
 import { logActivity } from "@/lib/activity-log";
 import { verifySameOrigin } from "@/lib/security";
+import { parseSqlUtcDate } from "@/lib/sql-dates";
 
 interface RefreshRow {
   id: string;
@@ -68,11 +69,14 @@ export async function POST(req: Request) {
     store.set(CSRF_COOKIE, "", buildAuthCookieOptions(req, { httpOnly: false, path: "/", maxAge: 0 }));
   };
 
+  const expiresAtDate = row ? parseSqlUtcDate(row.expires_at) : null;
+
   if (
     !row ||
     row.revoked_at ||
     row.deleted_at !== null ||
-    new Date(row.expires_at) < new Date() ||
+    !expiresAtDate ||
+    expiresAtDate < new Date() ||
     row.status !== "active"
   ) {
     // Reuse detection: if an already-revoked refresh token is replayed, revoke all

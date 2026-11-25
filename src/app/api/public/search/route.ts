@@ -25,8 +25,15 @@ export async function GET(req: Request) {
   }
 
   const matches = await searchArticles(rawLocale, q);
-  return NextResponse.json({
-    items: matches.map(stripArticleContent),
-    query: q,
-  });
+  return NextResponse.json(
+    {
+      items: matches.map(stripArticleContent),
+      query: q,
+    },
+    {
+      headers: {
+        "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60",
+      },
+    }
+  );
 }

@@ -67,7 +67,7 @@ export function AnalyticsTimeChart({ trends, rangeDays, isFa }: AnalyticsTimeCha
   const [showMovingAvg, setShowMovingAvg] = useState(true);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  const activeData = trends[series] ?? [];
+  const activeData = useMemo(() => trends[series] ?? [], [trends, series]);
   const meta = SERIES_META[series];
 
   const { totalCount, avgDaily, peakPoint, movingAvg, geom, maPath } = useMemo(() => {

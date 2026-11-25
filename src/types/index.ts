@@ -16,7 +16,7 @@ export interface Author {
   title: { fa: string; en: string };
   bio: { fa: string; en: string };
   avatar: string;
-  social?: { twitter?: string; website?: string; orcid?: string };
+  social?: { twitter?: string; website?: string; orcid?: string; github?: string };
 }
 
 export interface TagItem {

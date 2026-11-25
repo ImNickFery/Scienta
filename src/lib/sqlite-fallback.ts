@@ -984,6 +984,7 @@ function ensureSqliteIndexes(db: SqliteDatabase) {
 export class SqliteFallbackDb {
   private db: SqliteDatabase;
   private readonly stmtCache: LruCache<CachedPreparedStatement>;
+  private txQueue: Promise<void> = Promise.resolve();
   public readonly filePath: string;
 
   constructor(filename: string = DEFAULT_DB_PATH, statementCacheSize: number = STATEMENT_CACHE_MAX_SIZE) {
@@ -1159,18 +1160,35 @@ export class SqliteFallbackDb {
   }
 
   async withTransaction<T>(fn: (conn: SqliteConnection) => Promise<T>): Promise<T> {
+    const prev = this.txQueue;
+    let release!: () => void;
+    this.txQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    await prev;
+
     const conn: SqliteConnection = {
       query: async <R = unknown>(sql: string, params: unknown[] = []) => [this.query<R>(sql, params), []],
       execute: async (sql: string, params: unknown[] = []) => [this.execute(sql, params), []],
     };
-    this.db.exec("BEGIN");
+
     try {
-      const result = await fn(conn);
-      this.db.exec("COMMIT");
-      return result;
-    } catch (err) {
-      this.db.exec("ROLLBACK");
-      throw err;
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        const result = await fn(conn);
+        this.db.exec("COMMIT");
+        return result;
+      } catch (err) {
+        try {
+          this.db.exec("ROLLBACK");
+        } catch {
+          // Ignore if SQLite already rolled back the active transaction
+        }
+        throw err;
+      }
+    } finally {
+      release();
     }
   }
 

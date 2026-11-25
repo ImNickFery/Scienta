@@ -23,12 +23,14 @@ export async function GET(req: Request) {
   const pageSize = Math.min(60, Math.max(1, Number(url.searchParams.get("pageSize") ?? 30)));
   const offset = (page - 1) * pageSize;
 
-  const items = await query(
-    `SELECT id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, alt_text, created_at
-     FROM media WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [pageSize, offset]
-  );
-  const totalRow = await queryOne<{ count: number }>(`SELECT COUNT(*) AS count FROM media WHERE deleted_at IS NULL`);
+  const [items, totalRow] = await Promise.all([
+    query(
+      `SELECT id, filename, original_name, mime_type, size_bytes, width, height, path, thumbnail_path, alt_text, created_at
+       FROM media WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [pageSize, offset]
+    ),
+    queryOne<{ count: number }>(`SELECT COUNT(*) AS count FROM media WHERE deleted_at IS NULL`),
+  ]);
 
   return NextResponse.json({ items, page, pageSize, total: totalRow?.count ?? 0 });
 }

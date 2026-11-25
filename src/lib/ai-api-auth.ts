@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { v4 as uuid } from "uuid";
 import { execute, queryOne } from "./db";
+import { parseSqlUtcDate } from "./sql-dates";
 import { hashToken, randomToken } from "./auth";
 import { getClientIp, rateLimit, type RateLimitResult } from "./rate-limit";
 import { logActivity } from "./activity-log";
@@ -231,21 +232,45 @@ export function getPublicOrigin(req: Request): string {
   return `${proto}://${rawHost}`;
 }
 
-export function v1Headers(extra?: Record<string, string>): Headers {
+function resolveAllowedCorsOrigin(req?: Request): string | null {
+  const origin = req?.headers.get("origin")?.trim();
+  if (!origin) return null;
+  const rawAllowlist = process.env.API_ALLOWED_ORIGINS?.trim();
+  if (!rawAllowlist) return null;
+  const allowed = rawAllowlist
+    .split(",")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry && entry !== "*");
+  return allowed.includes(origin) ? origin : null;
+}
+
+export function v1Headers(
+  extra?: Record<string, string>,
+  options?: { publicCors?: boolean; req?: Request }
+): Headers {
   const headers = new Headers({
     "Cache-Control": "no-store",
-    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Authorization, Content-Type, X-API-Key, Idempotency-Key, If-Match, Mcp-Session-Id",
     "Access-Control-Expose-Headers":
       "X-Request-Id, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, X-Idempotency-Replayed, ETag, Location",
     ...extra,
   });
+
+  if (options?.publicCors) {
+    headers.set("Access-Control-Allow-Origin", "*");
+  } else {
+    const matchedOrigin = resolveAllowedCorsOrigin(options?.req);
+    if (matchedOrigin) {
+      headers.set("Access-Control-Allow-Origin", matchedOrigin);
+      headers.set("Vary", "Origin");
+    }
+  }
   return headers;
 }
 
-export function v1CorsPreflight() {
-  return new NextResponse(null, { status: 204, headers: v1Headers() });
+export function v1CorsPreflight(req?: Request, options?: { publicCors?: boolean }) {
+  return new NextResponse(null, { status: 204, headers: v1Headers(undefined, { req, publicCors: options?.publicCors }) });
 }
 
 export async function readTextBodyWithLimit(
@@ -480,8 +505,8 @@ export async function authenticateV1Request(
   }
 
   if (row.expires_at) {
-    const expMs = new Date(row.expires_at.includes("T") ? row.expires_at : `${row.expires_at}Z`).getTime();
-    if (!Number.isNaN(expMs) && expMs < Date.now()) {
+    const expDate = parseSqlUtcDate(row.expires_at);
+    if (expDate && expDate.getTime() < Date.now()) {
       await logActivity({
         userId: row.owner_user_id,
         action: "api.auth.failed",
@@ -598,8 +623,8 @@ export async function readIdempotencyRecord(
 
   if (!row) return { hit: false };
 
-  const expMs = new Date(row.expires_at.includes("T") ? row.expires_at : `${row.expires_at}Z`).getTime();
-  if (!Number.isNaN(expMs) && expMs < Date.now()) {
+  const expDate = parseSqlUtcDate(row.expires_at);
+  if (expDate && expDate.getTime() < Date.now()) {
     await execute(`DELETE FROM api_idempotency_keys WHERE api_key_id = ? AND idempotency_key = ?`, [
       apiKeyId,
       idempotencyKey,

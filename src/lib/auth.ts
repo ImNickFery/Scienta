@@ -15,23 +15,35 @@ export interface AccessTokenPayload {
   role: string; // role name: super_admin | admin | editor
 }
 
-const DEV_FALLBACK_JWT_SECRET = "scienta-local-dev-jwt-secret-change-in-production-2026";
 const JWT_ISSUER = "scienta";
 const JWT_AUDIENCE = "scienta-admin";
 const VALID_ROLES = new Set(["super_admin", "admin", "editor"]);
 
-function isPreviewRuntime(): boolean {
-  return Boolean(process.env.CSP_HEADER_VALUE?.trim() || process.env.K_SERVICE?.trim());
+declare global {
+  var __scientaEphemeralJwtSecret: Uint8Array | undefined;
 }
 
-function getSecret() {
+function isPreviewRuntime(): boolean {
+  return Boolean(process.env.CSP_HEADER_VALUE?.trim());
+}
+
+function getEphemeralDevSecret(): Uint8Array {
+  if (!globalThis.__scientaEphemeralJwtSecret) {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    globalThis.__scientaEphemeralJwtSecret = bytes;
+  }
+  return globalThis.__scientaEphemeralJwtSecret;
+}
+
+function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET?.trim();
   const minLength = process.env.NODE_ENV === "production" ? 32 : 16;
   if (secret && secret.length >= minLength) {
     return new TextEncoder().encode(secret);
   }
   if (process.env.NODE_ENV !== "production" || isPreviewRuntime()) {
-    return new TextEncoder().encode(DEV_FALLBACK_JWT_SECRET);
+    return getEphemeralDevSecret();
   }
   throw new Error(
     "JWT_SECRET is missing or too short (minimum 32 characters required in production). Set a long random value in your .env file."

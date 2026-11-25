@@ -19,6 +19,9 @@ interface FieldRow {
   article_count: number;
 }
 
+const LIVE_STATUS_SQL =
+  "(a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= NOW()))";
+
 export const getFields = cache(async (): Promise<FieldRecord[]> => {
   const rows = await query<FieldRow>(
     `SELECT f.slug, f.name_fa, f.name_en, f.color, f.icon,
@@ -26,7 +29,7 @@ export const getFields = cache(async (): Promise<FieldRecord[]> => {
      FROM fields f
      LEFT JOIN articles a
        ON a.field_id = f.id
-      AND a.status = 'published'
+      AND ${LIVE_STATUS_SQL}
       AND a.deleted_at IS NULL
      WHERE f.deleted_at IS NULL
      GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon, f.sort_order
@@ -48,7 +51,7 @@ export const getFieldBySlug = cache(async (slug: string): Promise<FieldRecord | 
      FROM fields f
      LEFT JOIN articles a
        ON a.field_id = f.id
-      AND a.status = 'published'
+      AND ${LIVE_STATUS_SQL}
       AND a.deleted_at IS NULL
      WHERE f.slug = ? AND f.deleted_at IS NULL
      GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon

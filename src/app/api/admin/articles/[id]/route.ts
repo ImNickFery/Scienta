@@ -8,6 +8,7 @@ import { generateSlug, stripHtml } from "@/lib/sanitize";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
 import { sanitizeUrl, validateMdxSafety } from "@/lib/security";
+import { isArticleSlugConflictError, toSqlUtcDateTime } from "@/lib/sql-dates";
 
 const translationSchema = z.object({
   title: z.string().min(3).max(255),
@@ -120,6 +121,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
 
+  const normalizedScheduledAt =
+    data.scheduledAt !== undefined ? toSqlUtcDateTime(data.scheduledAt) : existing.scheduled_at;
+  if (data.status === "scheduled" && !normalizedScheduledAt) {
+    return badRequest("Scheduled articles require a valid ISO-8601 scheduledAt timestamp.");
+  }
+
   try {
     await withTransaction(async (conn) => {
       // Snapshot the current content as a revision before overwriting.
@@ -145,7 +152,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           data.fieldId ?? null, data.categoryId ?? null, data.authorId ?? null,
           data.coverMediaId !== undefined ? data.coverMediaId : existing.cover_media_id,
           data.status,
-          data.featured ? 1 : 0, data.trending ? 1 : 0, data.scheduledAt ?? null,
+          data.featured ? 1 : 0, data.trending ? 1 : 0, normalizedScheduledAt,
           nowPublishing, wasPublished, session!.sub, id,
         ]
       );
@@ -153,15 +160,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       for (const locale of ["fa", "en"] as const) {
         const t = data.translations[locale];
         const slug = t.slug?.trim() || generateSlug(t.title, locale);
-        await conn.execute(
-          `UPDATE article_translations SET title=?, slug=?, excerpt=?, content=?, seo_title=?, seo_description=?, seo_keywords=?, canonical_url=?, twitter_card=?
-           WHERE article_id = ? AND locale = ?`,
-          [
-            stripHtml(t.title), slug, t.excerpt ?? "", t.content, t.seoTitle ?? t.title,
-            t.seoDescription ?? t.excerpt ?? "", t.seoKeywords ?? "", normalizedCanonical[locale],
-            t.twitterCard ?? "summary_large_image", id, locale,
-          ]
-        );
+        if (existing.translations[locale]) {
+          await conn.execute(
+            `UPDATE article_translations
+                SET title=?, slug=?, excerpt=?, content=?, seo_title=?, seo_description=?, seo_keywords=?, canonical_url=?, twitter_card=?, updated_at=NOW()
+              WHERE article_id = ? AND locale = ?`,
+            [
+              stripHtml(t.title), slug, t.excerpt ?? "", t.content, t.seoTitle ?? t.title,
+              t.seoDescription ?? t.excerpt ?? "", t.seoKeywords ?? "", normalizedCanonical[locale],
+              t.twitterCard ?? "summary_large_image", id, locale,
+            ]
+          );
+        } else {
+          await conn.execute(
+            `INSERT INTO article_translations
+               (id, article_id, locale, title, slug, excerpt, content, seo_title, seo_description, seo_keywords, canonical_url, twitter_card)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              uuid(), id, locale, stripHtml(t.title), slug, t.excerpt ?? "", t.content,
+              t.seoTitle ?? t.title, t.seoDescription ?? t.excerpt ?? "", t.seoKeywords ?? "",
+              normalizedCanonical[locale], t.twitterCard ?? "summary_large_image",
+            ]
+          );
+        }
       }
 
       await conn.execute(`DELETE FROM article_tags WHERE article_id = ?`, [id]);
@@ -170,8 +191,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    if (message.includes("uq_locale_slug")) {
+    if (isArticleSlugConflictError(err)) {
       return badRequest("That slug is already in use for one of the locales — please choose a different one.");
     }
     throw err;

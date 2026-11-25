@@ -38,7 +38,7 @@ const actionSchema = z.discriminatedUnion("action", [
 ]);
 
 export async function GET() {
-  const { response } = await requireApiAuth("settings.manage");
+  const { response } = await requireApiAuth("system.deploy");
   if (response) return response;
 
   const [config, localGit, sshKey, history] = await Promise.all([
@@ -63,7 +63,7 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
-  const { session, response } = await requireAdminMutation(req, "settings.manage");
+  const { session, response } = await requireAdminMutation(req, "system.deploy");
   if (response) return response;
 
   const body = await req.json().catch(() => null);
@@ -97,7 +97,7 @@ export async function PUT(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { session, response } = await requireAdminMutation(req, "settings.manage");
+  const { session, response } = await requireAdminMutation(req, "system.deploy");
   if (response) return response;
 
   const body = await req.json().catch(() => null);

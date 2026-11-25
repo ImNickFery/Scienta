@@ -9,6 +9,7 @@ import {
 } from "@/lib/admin-analytics";
 import { ensureApiTablesReady } from "@/lib/ai-api-auth";
 import { recordApiMetric } from "@/lib/performance-telemetry";
+import { parseSqlUtcDate } from "@/lib/sql-dates";
 
 export async function GET(req: Request) {
   const startedAt = performance.now();
@@ -196,8 +197,8 @@ export async function GET(req: Request) {
   let apiEventsInRange = 0;
   let authFailuresInRange = 0;
   for (const ev of aiRecentEvents) {
-    const ts = new Date(ev.created_at.includes("T") ? ev.created_at : `${ev.created_at}Z`).getTime();
-    if (!Number.isNaN(ts) && ts >= cutoffMs) {
+    const parsedTs = parseSqlUtcDate(ev.created_at);
+    if (parsedTs && parsedTs.getTime() >= cutoffMs) {
       if (ev.action === "api.auth.failed") authFailuresInRange += 1;
       else apiEventsInRange += 1;
     }

@@ -8,6 +8,7 @@ import { generateSlug, stripHtml } from "@/lib/sanitize";
 import { logActivity } from "@/lib/activity-log";
 import { getClientIp } from "@/lib/rate-limit";
 import { sanitizeUrl, validateMdxSafety } from "@/lib/security";
+import { isArticleSlugConflictError, toSqlUtcDateTime } from "@/lib/sql-dates";
 
 const translationSchema = z.object({
   title: z.string().min(3).max(255),
@@ -153,6 +154,11 @@ export async function POST(req: Request) {
     }
   }
 
+  const normalizedScheduledAt = toSqlUtcDateTime(data.scheduledAt);
+  if (data.status === "scheduled" && !normalizedScheduledAt) {
+    return badRequest("Scheduled articles require a valid ISO-8601 scheduledAt timestamp.");
+  }
+
   const articleId = uuid();
 
   try {
@@ -169,8 +175,8 @@ export async function POST(req: Request) {
           data.status,
           data.featured ? 1 : 0,
           data.trending ? 1 : 0,
-          data.scheduledAt ?? null,
-          data.status === "published" ? new Date().toISOString().slice(0, 19).replace("T", " ") : null,
+          normalizedScheduledAt,
+          data.status === "published" ? toSqlUtcDateTime(new Date()) : null,
           session!.sub,
           session!.sub,
         ]
@@ -196,8 +202,7 @@ export async function POST(req: Request) {
       }
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    if (message.includes("uq_locale_slug")) {
+    if (isArticleSlugConflictError(err)) {
       return badRequest("That slug is already in use for one of the locales — please choose a different one.");
     }
     throw err;

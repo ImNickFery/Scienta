@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { execute } from "@/lib/db";
 import { requireAdminMutation } from "@/lib/session";
 import { logActivity } from "@/lib/activity-log";
@@ -11,6 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   await execute(`UPDATE articles SET deleted_at = NULL WHERE id = ?`, [id]);
   await logActivity({ userId: session!.sub, action: "article.restore", entityType: "article", entityId: id, ipAddress: getClientIp(req) });
+  revalidatePath("/", "layout");
 
   return NextResponse.json({ ok: true });
 }

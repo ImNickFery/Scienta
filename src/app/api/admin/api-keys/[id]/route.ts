@@ -101,6 +101,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const nextScopes = data.scopes ? JSON.stringify(Array.from(new Set(data.scopes))) : existing.scopes_json;
   const nextAuthor =
     data.defaultAuthorId !== undefined ? data.defaultAuthorId : existing.default_author_id;
+  if (data.defaultAuthorId) {
+    const author = await queryOne<{ id: string }>(
+      `SELECT id FROM authors WHERE id = ? AND deleted_at IS NULL LIMIT 1`,
+      [data.defaultAuthorId]
+    );
+    if (!author) return badRequest("Selected default author does not exist.");
+  }
   const nextRate = data.rateLimitPerMin ?? existing.rate_limit_per_min;
 
   await execute(

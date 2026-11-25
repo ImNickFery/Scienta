@@ -5,6 +5,7 @@ import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import { mdxComponents } from "@/components/mdx/mdx-components";
 import { validateMdxSafety } from "./security";
+import { remarkStrictStaticMdx } from "./mdx-safety-ast";
 import { lintMdxEditorialQuality } from "./ai-api-articles";
 
 export { lintMdxEditorialQuality };
@@ -28,9 +29,9 @@ function preprocessMermaidSafe(source: string): string {
 
 /**
  * Runs both the security validator AND the actual `compileMDX` compiler
- * (remark-math, remark-gfm, rehype-slug, rehype-katex) so malformed JSX,
- * unclosed component tags, or broken expressions are rejected with HTTP 422
- * BEFORE saving to the database — never crashing the live article page.
+ * (remarkStrictStaticMdx, remark-math, remark-gfm, rehype-slug, rehype-katex)
+ * so malformed JSX, unclosed component tags, or executable JS expressions are
+ * rejected with HTTP 422 BEFORE saving to the database.
  */
 export async function validateMdxCompiles(params: {
   content: string;
@@ -60,7 +61,7 @@ export async function validateMdxCompiles(params: {
       options: {
         blockJS: false,
         mdxOptions: {
-          remarkPlugins: [remarkMath, remarkGfm],
+          remarkPlugins: [remarkStrictStaticMdx, remarkMath, remarkGfm],
           rehypePlugins: [
             rehypeSlug,
             [rehypeKatex, { trust: false, strict: false, maxExpand: 300, maxSize: 15 }],

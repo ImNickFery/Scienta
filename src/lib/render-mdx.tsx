@@ -7,6 +7,7 @@ import rehypePrettyCode from "rehype-pretty-code";
 import { mdxComponents } from "@/components/mdx/mdx-components";
 import { DEFAULT_NUMERALS, type Numerals } from "@/lib/i18n/numerals";
 import { validateMdxSafety } from "@/lib/security";
+import { remarkStrictStaticMdx } from "@/lib/mdx-safety-ast";
 
 function preprocessMermaid(source: string): string {
   return source.replace(/```mermaid\r?\n([\s\S]*?)```/g, (_match, code: string) => {
@@ -79,11 +80,11 @@ export async function renderMdx(content: string, numerals: Numerals = DEFAULT_NU
     source,
     components: mdxComponents,
     options: {
-      // Content is authored exclusively by authenticated admins/editors and
-      // validated by validateMdxSafety() above before compilation.
+      // JSX attribute expressions are restricted to pure static JSON-like literals
+      // at the ESTree AST level by `remarkStrictStaticMdx` before code generation.
       blockJS: false,
       mdxOptions: {
-        remarkPlugins: [remarkMath, remarkGfm],
+        remarkPlugins: [remarkStrictStaticMdx, remarkMath, remarkGfm],
         rehypePlugins,
       },
     },

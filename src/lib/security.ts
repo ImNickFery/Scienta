@@ -113,9 +113,11 @@ const DANGEROUS_MDX_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }>
   { pattern: /\b(?:javascript|vbscript)\s*:/i, reason: "Executable URI schemes are forbidden in MDX content." },
   { pattern: /\bdata\s*:\s*text\/html/i, reason: "HTML data URIs are forbidden in MDX content." },
   { pattern: /\bon[a-z]{2,20}\s*=/i, reason: "Inline DOM event handlers are forbidden in MDX content." },
+  { pattern: /\bdangerouslySetInnerHTML\b/, reason: "Raw HTML injection props are forbidden in MDX content." },
+  { pattern: /\{\s*\.\.\./, reason: "JSX spread attributes are forbidden in MDX content." },
   {
     pattern:
-      /\b(?:process\s*(?:\.|\[)|globalThis\b|global\s*(?:\.|\[)|require\s*\(|child_process\b|eval\s*\(|new\s+Function\b|Function\s*\(|Reflect\s*\.|__proto__\b|constructor\s*(?:\.|\[|\())/,
+      /\b(?:process\s*(?:\.|\[)|globalThis\b|global\s*(?:\.|\[)|require\s*\(|child_process\b|eval\s*\(|new\s+Function\b|Function\s*\(|Reflect\s*\.|Proxy\b|__proto__\b|constructor\s*(?:\.|\[|\()|getPrototypeOf\s*\(|fetch\s*\(|import\s*\.\s*meta)/,
     reason: "Server-side JavaScript execution primitives are forbidden in MDX content.",
   },
   {
@@ -129,17 +131,16 @@ const DANGEROUS_MDX_PATTERNS: ReadonlyArray<{ pattern: RegExp; reason: string }>
 ];
 
 /**
- * Strips fenced code blocks, inline code, and LaTeX math spans before inspecting
- * executable MDX markup/expressions so legitimate programming or math articles
- * never trigger false positives.
+ * Strips properly delimited fenced code blocks and inline code spans before
+ * inspecting executable MDX markup/expressions so legitimate programming
+ * examples never trigger false positives, while preventing `$...$` text
+ * (e.g. currency amounts like `$5 {process.env} $10`) from hiding executable JSX.
  */
 function stripCodeAndMathSpans(source: string): string {
   return source
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/~~~[\s\S]*?~~~/g, " ")
-    .replace(/`[^`\n]*`/g, " ")
-    .replace(/\$\$[\s\S]*?\$\$/g, " ")
-    .replace(/(?<!\\)\$[^$\n]+\$/g, " ");
+    .replace(/^[ ]{0,3}(`{3,})[^\n]*\n[\s\S]*?\n[ ]{0,3}\1[ \t]*(?=\n|$)/gm, "\n")
+    .replace(/^[ ]{0,3}(~{3,})[^\n]*\n[\s\S]*?\n[ ]{0,3}\1[ \t]*(?=\n|$)/gm, "\n")
+    .replace(/`[^`\n]*`/g, " ");
 }
 
 /**

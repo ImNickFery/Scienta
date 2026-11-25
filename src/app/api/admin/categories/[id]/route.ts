@@ -23,6 +23,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const parsed = schema.safeParse(body);
   if (!parsed.success) return badRequest("Invalid category data", parsed.error.flatten());
   const d = parsed.data;
+  if (d.parentId && d.parentId === id) {
+    return badRequest("A category cannot be its own parent.");
+  }
 
   await execute(
     `UPDATE categories SET name_fa=?, name_en=?, description_fa=?, description_en=?, parent_id=? WHERE id=?`,

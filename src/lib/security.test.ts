@@ -327,42 +327,48 @@ test("buildAuthCookieOptions adapts between plain HTTP localhost and HTTPS previ
 });
 
 test("JWT access tokens pin HS256, issuer, audience, and payload validation", async () => {
-  const token = await signAccessToken({
-    sub: "user-1",
-    email: "admin@scienta.ir",
-    name: "Admin",
-    role: "admin",
-  });
-  const verified = await verifyAccessToken(token);
-  assert.equal(verified?.sub, "user-1");
-  assert.equal(verified?.role, "admin");
+  const prevSecret = process.env.JWT_SECRET;
+  const testSecret = "unit-test-ephemeral-jwt-signing-secret-min-32-chars";
+  process.env.JWT_SECRET = testSecret;
+  try {
+    const token = await signAccessToken({
+      sub: "user-1",
+      email: "admin@scienta.ir",
+      name: "Admin",
+      role: "admin",
+    });
+    const verified = await verifyAccessToken(token);
+    assert.equal(verified?.sub, "user-1");
+    assert.equal(verified?.role, "admin");
 
-  // Tampered token must fail
-  assert.equal(await verifyAccessToken(token.slice(0, -3) + "xxx"), null);
+    // Tampered token must fail
+    assert.equal(await verifyAccessToken(token.slice(0, -3) + "xxx"), null);
 
-  const secretKey = new TextEncoder().encode(
-    process.env.JWT_SECRET?.trim() || "scienta-local-dev-jwt-secret-change-in-production-2026"
-  );
+    const secretKey = new TextEncoder().encode(testSecret);
 
-  // Token with wrong audience/issuer must fail
-  const wrongAud = await new SignJWT({ email: "a@b.c", name: "X", role: "super_admin" })
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject("user-1")
-    .setIssuer("other-app")
-    .setAudience("other-aud")
-    .setExpirationTime("60s")
-    .sign(secretKey);
-  assert.equal(await verifyAccessToken(wrongAud), null);
+    // Token with wrong audience/issuer must fail
+    const wrongAud = await new SignJWT({ email: "a@b.c", name: "X", role: "super_admin" })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject("user-1")
+      .setIssuer("other-app")
+      .setAudience("other-aud")
+      .setExpirationTime("60s")
+      .sign(secretKey);
+    assert.equal(await verifyAccessToken(wrongAud), null);
 
-  // Token with fabricated role must fail
-  const invalidRole = await new SignJWT({ email: "a@b.c", name: "X", role: "root" })
-    .setProtectedHeader({ alg: "HS256", typ: "JWT" })
-    .setSubject("user-1")
-    .setIssuer("scienta")
-    .setAudience("scienta-admin")
-    .setExpirationTime("60s")
-    .sign(secretKey);
-  assert.equal(await verifyAccessToken(invalidRole), null);
+    // Token with fabricated role must fail
+    const invalidRole = await new SignJWT({ email: "a@b.c", name: "X", role: "root" })
+      .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+      .setSubject("user-1")
+      .setIssuer("scienta")
+      .setAudience("scienta-admin")
+      .setExpirationTime("60s")
+      .sign(secretKey);
+    assert.equal(await verifyAccessToken(invalidRole), null);
+  } finally {
+    if (prevSecret === undefined) delete process.env.JWT_SECRET;
+    else process.env.JWT_SECRET = prevSecret;
+  }
 });
 
 test("RBAC matrix grants implied view permissions and enforces least privilege", () => {
