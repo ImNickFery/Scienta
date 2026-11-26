@@ -1,0 +1,23 @@
+module.exports=[500874,(e,r,t)=>{r.exports=e.x("buffer",()=>require("buffer"))},254799,(e,r,t)=>{r.exports=e.x("crypto",()=>require("crypto"))},427699,(e,r,t)=>{r.exports=e.x("events",()=>require("events"))},504446,(e,r,t)=>{r.exports=e.x("net",()=>require("net"))},270406,(e,r,t)=>{r.exports=e.x("next/dist/compiled/@opentelemetry/api",()=>require("next/dist/compiled/@opentelemetry/api"))},918622,(e,r,t)=>{r.exports=e.x("next/dist/compiled/next-server/app-page-turbo.runtime.prod.js",()=>require("next/dist/compiled/next-server/app-page-turbo.runtime.prod.js"))},120635,(e,r,t)=>{r.exports=e.x("next/dist/server/app-render/action-async-storage.external.js",()=>require("next/dist/server/app-render/action-async-storage.external.js"))},324725,(e,r,t)=>{r.exports=e.x("next/dist/server/app-render/after-task-async-storage.external.js",()=>require("next/dist/server/app-render/after-task-async-storage.external.js"))},556704,(e,r,t)=>{r.exports=e.x("next/dist/server/app-render/work-async-storage.external.js",()=>require("next/dist/server/app-render/work-async-storage.external.js"))},832319,(e,r,t)=>{r.exports=e.x("next/dist/server/app-render/work-unit-async-storage.external.js",()=>require("next/dist/server/app-render/work-unit-async-storage.external.js"))},559043,(e,r,t)=>{r.exports=e.x("next/dist/server/runtime-reacts.external.js",()=>require("next/dist/server/runtime-reacts.external.js"))},193695,(e,r,t)=>{r.exports=e.x("next/dist/shared/lib/no-fallback-error.external.js",()=>require("next/dist/shared/lib/no-fallback-error.external.js"))},677652,(e,r,t)=>{r.exports=e.x("node:diagnostics_channel",()=>require("node:diagnostics_channel"))},902157,(e,r,t)=>{r.exports=e.x("node:fs",()=>require("node:fs"))},750227,(e,r,t)=>{r.exports=e.x("node:path",()=>require("node:path"))},81111,(e,r,t)=>{r.exports=e.x("node:stream",()=>require("node:stream"))},814747,(e,r,t)=>{r.exports=e.x("path",()=>require("path"))},605365,(e,r,t)=>{r.exports=e.x("process",()=>require("process"))},688947,(e,r,t)=>{r.exports=e.x("stream",()=>require("stream"))},99348,(e,r,t)=>{r.exports=e.x("string_decoder",()=>require("string_decoder"))},137464,(e,r,t)=>{r.exports=e.x("timers",()=>require("timers"))},755004,(e,r,t)=>{r.exports=e.x("tls",()=>require("tls"))},792509,(e,r,t)=>{r.exports=e.x("url",()=>require("url"))},224361,(e,r,t)=>{r.exports=e.x("util",()=>require("util"))},406461,(e,r,t)=>{r.exports=e.x("zlib",()=>require("zlib"))},453153,e=>{"use strict";let r=["fa","en"];e.s(["b",0,function(e){return r.includes(e)},"V",0,r])},201590,e=>{"use strict";var r=e.i(347540),t=e.i(843793);let a="(a.status = 'published' OR (a.status = 'scheduled' AND a.scheduled_at IS NOT NULL AND a.scheduled_at <= NOW()))",s=(0,r.cache)(async()=>(await (0,t.query)(`SELECT f.slug, f.name_fa, f.name_en, f.color, f.icon,
+            COUNT(a.id) AS article_count
+     FROM fields f
+     LEFT JOIN articles a
+       ON a.field_id = f.id
+      AND ${a}
+      AND a.deleted_at IS NULL
+     WHERE f.deleted_at IS NULL
+     GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon, f.sort_order
+     ORDER BY f.sort_order ASC`)).map(e=>({slug:e.slug,name:{fa:e.name_fa,en:e.name_en},color:e.color,icon:e.icon,articleCount:Number(e.article_count??0)}))),n=(0,r.cache)(async e=>{let r=await (0,t.queryOne)(`SELECT f.slug, f.name_fa, f.name_en, f.color, f.icon,
+            COUNT(a.id) AS article_count
+     FROM fields f
+     LEFT JOIN articles a
+       ON a.field_id = f.id
+      AND ${a}
+      AND a.deleted_at IS NULL
+     WHERE f.slug = ? AND f.deleted_at IS NULL
+     GROUP BY f.id, f.slug, f.name_fa, f.name_en, f.color, f.icon
+     LIMIT 1`,[e]);return r?{slug:r.slug,name:{fa:r.name_fa,en:r.name_en},color:r.color,icon:r.icon,articleCount:Number(r.article_count??0)}:null});function i(e){return{slug:e.slug,name:{fa:e.name_fa,en:e.name_en},title:{fa:e.title_fa??"",en:e.title_en??""},bio:{fa:e.bio_fa??"",en:e.bio_en??""},avatar:e.avatar_url??"",social:function(e){if(e)try{let r=JSON.parse(e);if(!r||"object"!=typeof r||Array.isArray(r))return;return r}catch{return}}(e.social_json)}}let o=(0,r.cache)(async()=>(await (0,t.query)(`SELECT slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en, avatar_url, social_json
+     FROM authors WHERE deleted_at IS NULL ORDER BY name_en ASC`)).map(i));(0,r.cache)(async e=>{let r=await (0,t.queryOne)(`SELECT slug, name_fa, name_en, title_fa, title_en, bio_fa, bio_en, avatar_url, social_json
+     FROM authors WHERE slug = ? AND deleted_at IS NULL LIMIT 1`,[e]);return r?i(r):null}),e.s(["u",0,o,"i",0,n,"C",0,s])}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__1tizuny2fguw1._.js.map

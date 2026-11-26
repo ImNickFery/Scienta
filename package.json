@@ -1,0 +1,11 @@
+{
+  "name": "scienta-app",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node app.cjs"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.35.3"
+  }
+}

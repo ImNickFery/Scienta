@@ -1,0 +1,3 @@
+module.exports=[522734,(e,r,o)=>{r.exports=e.x("fs",()=>require("fs"))},666680,(e,r,o)=>{r.exports=e.x("node:crypto",()=>require("node:crypto"))},495879,(e,r,o)=>{r.exports=e.x("node:dns",()=>require("node:dns"))},743698,(e,r,o)=>{r.exports=e.x("node:https",()=>require("node:https"))},844376,(e,r,o)=>{r.exports=e.x("node:module",()=>require("node:module"))},753016,(e,r,o)=>{r.exports=e.x("telegram-aabf128148ad0727",()=>require("telegram-aabf128148ad0727"))},588107,e=>{"use strict";var r=e.i(562810);e.s(["z",0,r])}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__21a72touhklf9._.js.map

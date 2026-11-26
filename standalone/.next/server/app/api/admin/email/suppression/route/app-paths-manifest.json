@@ -1,0 +1,3 @@
+{
+  "/api/admin/email/suppression/route": "app/api/admin/email/suppression/route.js"
+}

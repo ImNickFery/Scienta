@@ -1,0 +1,3 @@
+{
+  "/api/admin/backups/cleanup/route": "app/api/admin/backups/cleanup/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/admin/system/ssh-key/route": "app/api/admin/system/ssh-key/route.js"
+}

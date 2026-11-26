@@ -1,0 +1,3 @@
+module.exports=[750709,e=>{"use strict";let i=(process.env.NEXT_PUBLIC_SITE_URL?.trim()||"https://scienta.ir").replace(/\/+$/,"");e.s(["A",0,"Explore deep, peer-reviewed scientific narratives in physics, astronomy, space, AI, quantum mechanics, and mathematics with interactive equations on Scienta.","i",0,"ساینتا پلتفرم علمی دوزبانه برای مطالعه مقالات تحلیلی و عمیق در فیزیک، نجوم، فضا، هوش مصنوعی، کوانتوم و ریاضیات با معادلات تعاملی و روایت بصری.","C",0,"Scienta","w",0,"ساینتا","B",0,i])}];
+
+//# sourceMappingURL=src_lib_seo_ts_0s66xvaqa8g04._.js.map

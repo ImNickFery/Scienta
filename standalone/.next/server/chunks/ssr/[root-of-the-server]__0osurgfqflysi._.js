@@ -1,0 +1,3 @@
+module.exports=[859664,(a,b,c)=>{b.exports=a.x("jsdom-4cccfac9827ebcfe",()=>require("jsdom-4cccfac9827ebcfe"))},597529,a=>{"use strict";var b=a.i(737132),c=new(a.i(859664)).JSDOM("<!DOCTYPE html>").window,d=(0,b.f)(c),e=new Proxy(a=>(0,b.f)(a),{get(a,b){let c=d[b];return"function"==typeof c?c.bind(d):c},apply:(a,c,[d])=>(0,b.f)(d)});e.isSupported,e.version,new Proxy([],{get:(a,b)=>Reflect.get(d.removed,b)}),a.s(["default",0,e])}];
+
+//# sourceMappingURL=%5Broot-of-the-server%5D__0osurgfqflysi._.js.map
