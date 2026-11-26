@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { SCIENTA_LOGO_PATHS } from "@/lib/brand-logo-geometry";
 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
@@ -14,52 +15,52 @@ export default function OpengraphImage() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "#05050A",
+          background: "#06060B",
           backgroundImage:
-            "radial-gradient(circle at 20% 20%, rgba(123,63,251,0.45) 0%, rgba(5,5,10,0) 55%), " +
-            "radial-gradient(circle at 85% 25%, rgba(255,122,0,0.32) 0%, rgba(5,5,10,0) 55%), " +
-            "radial-gradient(circle at 50% 100%, rgba(255,60,90,0.28) 0%, rgba(5,5,10,0) 55%)",
+            "radial-gradient(circle at 50% 35%, rgba(123,63,251,0.2) 0%, rgba(6,6,11,0) 58%)",
         }}
       >
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 110,
-            height: 110,
-            borderRadius: 26,
-            background: "linear-gradient(135deg, #7B3FFB 0%, #FF3C5A 100%)",
-            marginBottom: 36,
+            alignItems: "flex-end",
+            gap: 5,
           }}
         >
-          <svg width="60" height="60" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
-              fill="white"
-            />
+          <svg width="70" height="84" viewBox="12 8 40 48" fill="none" style={{ marginBottom: 11 }}>
+            <defs>
+              <linearGradient id="og-u" x1="15%" y1="10%" x2="85%" y2="70%">
+                <stop offset="0%" stopColor="#FFFFFF" />
+                <stop offset="100%" stopColor="#D8D8E4" />
+              </linearGradient>
+              <linearGradient id="og-l" x1="85%" y1="90%" x2="20%" y2="35%">
+                <stop offset="0%" stopColor="#B89BFF" />
+                <stop offset="100%" stopColor="#7B3FFB" />
+              </linearGradient>
+            </defs>
+            <path d={SCIENTA_LOGO_PATHS.prismUpper} fill="url(#og-u)" />
+            <path d={SCIENTA_LOGO_PATHS.prismLower} fill="url(#og-l)" />
           </svg>
+          <div
+            style={{
+              display: "flex",
+              fontSize: 108,
+              fontWeight: 700,
+              lineHeight: 0.82,
+              letterSpacing: -3.5,
+              color: "#F5F5FA",
+              fontFamily: "sans-serif",
+            }}
+          >
+            cienta
+          </div>
         </div>
         <div
           style={{
             display: "flex",
-            fontSize: 88,
-            fontWeight: 800,
-            letterSpacing: -2,
-            backgroundImage: "linear-gradient(110deg, #7B3FFB 0%, #FF7A00 55%, #FF3C5A 100%)",
-            backgroundClip: "text",
-            color: "transparent",
-            fontFamily: "sans-serif",
-          }}
-        >
-          Scienta
-        </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 20,
-            fontSize: 30,
-            color: "#a8a8bd",
+            marginTop: 28,
+            fontSize: 28,
+            color: "#9494AA",
             fontFamily: "sans-serif",
           }}
         >

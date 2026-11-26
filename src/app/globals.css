@@ -26,6 +26,12 @@
   --color-accent-secondary-rgb: 255, 122, 0;
   --color-aurora-3-rgb: 255, 60, 90;
 
+  /* Minimalist SVG Brand Monogram Tokens (Brushed Platinum + Luminous Accent) */
+  --logo-primary-1: #ffffff;
+  --logo-primary-2: #d8d8e4;
+  --logo-accent-1: #b89bff;
+  --logo-accent-2: #7b3ffb;
+
   /* Text */
   --color-text-primary: #f5f5fa;
   --color-text-secondary: #a8a8bd;
@@ -98,6 +104,11 @@
     --color-text-tertiary: #6e8f9c;
     --color-border-subtle: rgba(116, 198, 186, 0.12);
     --color-border-strong: rgba(116, 198, 186, 0.26);
+
+    --logo-primary-1: #f4fbfa;
+    --logo-primary-2: #cde3df;
+    --logo-accent-1: #5eead4;
+    --logo-accent-2: #158f69;
   }
 
   /* High-contrast reading mode — raises secondary/tertiary ink and border visibility */
@@ -158,6 +169,11 @@
     --color-text-tertiary: #5d6480;
     --color-border-subtle: rgba(16, 19, 35, 0.1);
     --color-border-strong: rgba(16, 19, 35, 0.2);
+
+    --logo-primary-1: #101323;
+    --logo-primary-2: #2c3250;
+    --logo-accent-1: #7b45f2;
+    --logo-accent-2: #551fd4;
   }
 
   html[data-color-scheme="light"][data-site-theme="emerald-blue"]:not([data-design-mode="unslop"]):not([data-design-mode="unslop-kinetic"]) {
@@ -176,6 +192,11 @@
     --color-gradient-start: #0c7555;
     --color-gradient-mid: #1269b0;
     --color-gradient-end: #0e6b6e;
+
+    --logo-primary-1: #0b2421;
+    --logo-primary-2: #234743;
+    --logo-accent-1: #14966e;
+    --logo-accent-2: #0a684b;
 
     --color-accent-glow-rgb: 13, 122, 89;
     --color-accent-secondary-rgb: 18, 105, 176;
@@ -379,6 +400,11 @@
     --color-border-subtle: rgba(17, 22, 27, 0.11);
     --color-border-strong: rgba(17, 22, 27, 0.24);
 
+    --logo-primary-1: #11161b;
+    --logo-primary-2: #2b3640;
+    --logo-accent-1: #e45e30;
+    --logo-accent-2: #b83d17;
+
     --ease-premium: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -405,6 +431,11 @@
     --color-text-tertiary: #536b67;
     --color-border-subtle: rgba(13, 28, 26, 0.11);
     --color-border-strong: rgba(13, 28, 26, 0.24);
+
+    --logo-primary-1: #0d1c1a;
+    --logo-primary-2: #24403c;
+    --logo-accent-1: #169a82;
+    --logo-accent-2: #0a6857;
   }
 
   html[data-design-mode="unslop-kinetic"][data-contrast-mode="high"] {
@@ -447,6 +478,11 @@
     --color-text-tertiary: #81919b;
     --color-border-subtle: rgba(237, 242, 245, 0.11);
     --color-border-strong: rgba(237, 242, 245, 0.23);
+
+    --logo-primary-1: #ffffff;
+    --logo-primary-2: #dce4e9;
+    --logo-accent-1: #ff9468;
+    --logo-accent-2: #e8592c;
   }
 
   html[data-design-mode="unslop-kinetic"][data-color-scheme="dark"][data-site-theme="emerald-blue"] {
@@ -472,6 +508,11 @@
     --color-text-tertiary: #75938e;
     --color-border-subtle: rgba(235, 245, 243, 0.11);
     --color-border-strong: rgba(235, 245, 243, 0.23);
+
+    --logo-primary-1: #f4fbfa;
+    --logo-primary-2: #cde3df;
+    --logo-accent-1: #5eead4;
+    --logo-accent-2: #158f69;
   }
 
   html[data-design-mode="unslop-kinetic"][data-color-scheme="dark"][data-contrast-mode="high"] {

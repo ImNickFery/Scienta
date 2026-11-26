@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { SCIENTA_LOGO_PATHS, SCIENTA_LOGO_VIEWBOX } from "@/lib/brand-logo-geometry";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
@@ -13,14 +14,22 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #7B3FFB 0%, #FF3C5A 100%)",
+          background: "linear-gradient(135deg, #13131E 0%, #07070C 100%)",
         }}
       >
-        <svg width="104" height="104" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
-            fill="white"
-          />
+        <svg width="132" height="132" viewBox={SCIENTA_LOGO_VIEWBOX} fill="none">
+          <defs>
+            <linearGradient id="ap-u" x1="15%" y1="10%" x2="85%" y2="70%">
+              <stop offset="0%" stopColor="#FFFFFF" />
+              <stop offset="100%" stopColor="#D8D8E4" />
+            </linearGradient>
+            <linearGradient id="ap-l" x1="85%" y1="90%" x2="20%" y2="35%">
+              <stop offset="0%" stopColor="#B89BFF" />
+              <stop offset="100%" stopColor="#7B3FFB" />
+            </linearGradient>
+          </defs>
+          <path d={SCIENTA_LOGO_PATHS.prismUpper} fill="url(#ap-u)" />
+          <path d={SCIENTA_LOGO_PATHS.prismLower} fill="url(#ap-l)" />
         </svg>
       </div>
     ),

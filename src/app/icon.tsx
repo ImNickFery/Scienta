@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { SCIENTA_LOGO_PATHS, SCIENTA_LOGO_VIEWBOX } from "@/lib/brand-logo-geometry";
 
 export const size = { width: 32, height: 32 };
 export const contentType = "image/png";
@@ -13,15 +14,14 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          borderRadius: 7,
-          background: "linear-gradient(135deg, #7B3FFB 0%, #FF3C5A 100%)",
+          borderRadius: 8,
+          background: "linear-gradient(135deg, #13131E 0%, #07070C 100%)",
+          border: "1px solid rgba(255, 255, 255, 0.16)",
         }}
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"
-            fill="white"
-          />
+        <svg width="24" height="24" viewBox={SCIENTA_LOGO_VIEWBOX} fill="none">
+          <path d={SCIENTA_LOGO_PATHS.prismUpper} fill="#FFFFFF" />
+          <path d={SCIENTA_LOGO_PATHS.prismLower} fill="#9B75FF" />
         </svg>
       </div>
     ),

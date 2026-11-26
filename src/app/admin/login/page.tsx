@@ -3,10 +3,11 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, Lock, Mail, Loader2, ArrowLeft } from "lucide-react";
+import { Lock, Mail, Loader2, ArrowLeft } from "lucide-react";
 import { adminFetch } from "@/lib/admin-api-client";
 import { sanitizeAdminRedirect } from "@/lib/security";
 import { AuroraBackground } from "@/components/animations/aurora-background";
+import { ScientaLogoMark } from "@/components/layout/scienta-logo-mark";
 
 export default function AdminLoginPage() {
   return (
@@ -45,9 +46,9 @@ function LoginForm() {
       <AuroraBackground />
       <div className="glass-panel relative w-full max-w-sm rounded-2xl p-8">
         <div className="mb-8 flex flex-col items-center text-center">
-          <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-(--color-accent-purple) to-(--color-accent-red)">
-            <Sparkles className="h-6 w-6 text-white" />
-          </span>
+          <div className="mb-4">
+            <ScientaLogoMark size={64} variant="luxury" framed label="Scienta" />
+          </div>
           <h1 className="font-[family-name:var(--font-display)] text-xl font-bold text-gradient-aurora">
             Scienta Admin
           </h1>

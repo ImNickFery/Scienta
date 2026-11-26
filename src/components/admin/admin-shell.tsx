@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ScientaLogoMark } from "@/components/layout/scienta-logo-mark";
 import {
   LayoutDashboard,
   BarChart3,
@@ -218,12 +219,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="flex h-14 shrink-0 items-center justify-between border-b border-(--color-border-subtle) px-4 sm:h-15 sm:px-5">
           <Link
             href="/admin/dashboard"
-            className="flex items-center gap-2.5 whitespace-nowrap font-[family-name:var(--font-display)] text-sm font-bold tracking-tight text-(--color-text-primary)"
+            aria-label={isFa ? "مدیریت ساینتا" : "Scienta Admin"}
+            className="group flex items-center gap-2.5 whitespace-nowrap font-[family-name:var(--font-display)] text-sm font-bold tracking-tight text-(--color-text-primary)"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-(--color-accent-purple) text-xs font-bold text-white">
-              S
-            </span>
-            <span>{isFa ? "مدیریت ساینتا" : "Scienta Admin"}</span>
+            {isFa ? (
+              <>
+                <ScientaLogoMark size={28} variant="luxury" framed interactive />
+                <span>مدیریت ساینتا</span>
+              </>
+            ) : (
+              <span dir="ltr" aria-hidden="true" className="inline-flex items-baseline gap-[1.5px]">
+                <ScientaLogoMark size={16} variant="luxury" tight interactive className="translate-y-[0.5px]" />
+                <span className="font-[family-name:var(--font-latin-display)] text-[19px] font-bold leading-none tracking-[-0.025em]">
+                  cienta
+                </span>
+                <span className="ms-1.5 text-[11px] font-medium leading-none tracking-wide text-(--color-text-tertiary) uppercase">
+                  Admin
+                </span>
+              </span>
+            )}
           </Link>
           <button
             type="button"

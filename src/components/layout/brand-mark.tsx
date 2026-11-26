@@ -1,13 +1,13 @@
 import Link from "next/link";
-import { Aperture, Compass, Sparkles } from "lucide-react";
+import { ScientaLogoMark } from "./scienta-logo-mark";
 import type { Locale } from "@/lib/i18n/config";
 import type { DesignMode } from "@/lib/site-modes";
 
 /**
- * Scienta brand wordmark.
- * - Classic mode preserves the original aurora gradient tile + gradient wordmark.
- * - Unslop Observatory Press renders a flat 1-ink compass mark + solid wordmark.
- * - Unslop Kinetic (Optical Lab) renders a flat precision aperture mark that subtly rotates on hover.
+ * Scienta integrated typographic logotype: the optical-refraction "S" emblem
+ * serves directly as the initial capital "S" of "Scienta" ([S]cienta).
+ * Always forced to `dir="ltr"` so the wordmark never reverses in Persian RTL layouts,
+ * while exposing clean accessible name "Scienta" for screen readers and SEO.
  */
 export function BrandMark({
   locale,
@@ -23,19 +23,14 @@ export function BrandMark({
       <Link
         href={`/${locale}`}
         onClick={onClick}
-        className="group inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-medium text-(--color-text-primary) transition-colors duration-150 hover:text-(--color-accent-purple) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple) focus-visible:rounded-md"
+        aria-label="Scienta"
+        className="group inline-flex shrink-0 items-center whitespace-nowrap text-(--color-text-primary) transition-colors duration-150 hover:text-(--color-accent-purple) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple) focus-visible:rounded-md"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-(--color-border-strong) bg-(--color-bg-elevated) text-(--color-accent-purple) transition-[border-color,background-color] duration-200 group-hover:border-(--color-accent-purple)"
-        >
-          <Aperture
-            className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-45 motion-reduce:transition-none"
-            strokeWidth={1.6}
-          />
-        </span>
-        <span className="font-[family-name:var(--font-display)] text-lg font-medium tracking-normal">
-          Scienta
+        <span dir="ltr" aria-hidden="true" className="inline-flex items-baseline gap-[1.5px]">
+          <ScientaLogoMark size={17} variant="kinetic" tight interactive className="translate-y-[0.5px]" />
+          <span className="font-[family-name:var(--font-latin-display)] text-[21px] font-semibold leading-none tracking-[-0.025em]">
+            cienta
+          </span>
         </span>
       </Link>
     );
@@ -46,19 +41,14 @@ export function BrandMark({
       <Link
         href={`/${locale}`}
         onClick={onClick}
-        className="group inline-flex shrink-0 items-center gap-2.5 whitespace-nowrap text-base font-medium text-(--color-text-primary) transition-colors duration-150 hover:text-(--color-accent-purple) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple) focus-visible:rounded-md"
+        aria-label="Scienta"
+        className="group inline-flex shrink-0 items-center whitespace-nowrap text-(--color-text-primary) transition-colors duration-150 hover:text-(--color-accent-purple) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple) focus-visible:rounded-md"
       >
-        <span
-          aria-hidden="true"
-          className="flex h-7 w-7 items-center justify-center rounded-md border border-(--color-border-strong) bg-(--color-bg-elevated) text-(--color-text-primary) transition-colors duration-200 group-hover:border-(--color-accent-purple) group-hover:text-(--color-accent-purple)"
-        >
-          <Compass
-            className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:rotate-12 motion-reduce:transition-none"
-            strokeWidth={1.5}
-          />
-        </span>
-        <span className="font-[family-name:var(--font-display)] text-lg font-medium tracking-normal">
-          Scienta
+        <span dir="ltr" aria-hidden="true" className="inline-flex items-baseline gap-[1.5px]">
+          <ScientaLogoMark size={17} variant="editorial" tight interactive className="translate-y-[0.5px]" />
+          <span className="font-[family-name:var(--font-latin-display)] text-[21px] font-semibold leading-none tracking-[-0.025em]">
+            cienta
+          </span>
         </span>
       </Link>
     );
@@ -68,12 +58,15 @@ export function BrandMark({
     <Link
       href={`/${locale}`}
       onClick={onClick}
-      className="group flex shrink-0 items-center gap-2 whitespace-nowrap font-[family-name:var(--font-display)] text-lg font-bold"
+      aria-label="Scienta"
+      className="group inline-flex shrink-0 items-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--color-accent-purple) focus-visible:rounded-md"
     >
-      <span className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-(--color-accent-purple) to-(--color-aurora-3) transition-transform duration-300 group-hover:scale-105">
-        <Sparkles className="h-4 w-4 text-white transition-transform duration-300 group-hover:rotate-12" />
+      <span dir="ltr" aria-hidden="true" className="inline-flex items-baseline gap-[1.5px]">
+        <ScientaLogoMark size={18} variant="luxury" tight interactive className="translate-y-[0.5px]" />
+        <span className="text-gradient-aurora font-[family-name:var(--font-latin-display)] text-[22px] font-bold leading-none tracking-[-0.03em]">
+          cienta
+        </span>
       </span>
-      <span className="text-gradient-aurora">Scienta</span>
     </Link>
   );
 }
