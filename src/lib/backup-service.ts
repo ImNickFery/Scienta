@@ -80,12 +80,14 @@ export interface ResolvedBackupSettings extends BackupSettingsStored {
   effectiveChatId: string;
   effectiveApiId: string;
   effectiveApiHash: string;
+  effectiveApiBaseUrl: string;
   effectiveCronSecret: string;
   envOverrides: {
     botToken: boolean;
     chatId: boolean;
     apiId: boolean;
     apiHash: boolean;
+    apiBaseUrl: boolean;
     cronSecret: boolean;
   };
 }
@@ -217,12 +219,14 @@ export async function getResolvedBackupSettings(): Promise<ResolvedBackupSetting
   const envChatId = process.env.TELEGRAM_BACKUP_CHAT_ID?.trim() || "";
   const envApiId = process.env.TELEGRAM_API_ID?.trim() || "";
   const envApiHash = process.env.TELEGRAM_API_HASH?.trim() || "";
+  const envApiBaseUrl = process.env.TELEGRAM_API_BASE_URL?.trim() || "";
   const envCronSecret = process.env.BACKUP_CRON_SECRET?.trim() || "";
 
   const effectiveBotToken = envBotToken || decryptBackupSecret(stored.telegramBotTokenEncrypted);
   const effectiveChatId = envChatId || stored.telegramChatId;
   const effectiveApiId = envApiId || stored.telegramApiId;
   const effectiveApiHash = envApiHash || decryptBackupSecret(stored.telegramApiHashEncrypted);
+  const effectiveApiBaseUrl = envApiBaseUrl || stored.telegramApiBaseUrl || "";
   const effectiveCronSecret = envCronSecret || decryptBackupSecret(stored.cronSecretEncrypted);
 
   return {
@@ -231,12 +235,14 @@ export async function getResolvedBackupSettings(): Promise<ResolvedBackupSetting
     effectiveChatId,
     effectiveApiId,
     effectiveApiHash,
+    effectiveApiBaseUrl,
     effectiveCronSecret,
     envOverrides: {
       botToken: Boolean(envBotToken),
       chatId: Boolean(envChatId),
       apiId: Boolean(envApiId),
       apiHash: Boolean(envApiHash),
+      apiBaseUrl: Boolean(envApiBaseUrl),
       cronSecret: Boolean(envCronSecret),
     },
   };
@@ -259,6 +265,7 @@ export function toPublicBackupSettings(resolved: ResolvedBackupSettings): Backup
     telegramChatId: resolved.effectiveChatId,
     telegramThreadId: resolved.telegramThreadId,
     telegramApiId: resolved.effectiveApiId,
+    telegramApiBaseUrl: resolved.effectiveApiBaseUrl,
     hasBotToken,
     hasApiHash,
     hasCronSecret: Boolean(resolved.effectiveCronSecret),
@@ -319,6 +326,7 @@ export async function updateBackupSettings(
     telegramBotTokenEncrypted,
     telegramApiId: parsed.telegramApiId,
     telegramApiHashEncrypted,
+    telegramApiBaseUrl: parsed.telegramApiBaseUrl,
     cronSecretEncrypted,
     includeEnvFile: parsed.includeEnvFile,
     includeNodeModules: parsed.includeNodeModules,
@@ -342,6 +350,7 @@ export async function updateBackupSettings(
       scheduleUtc: formatUtcClock(next.scheduleUtcHour, next.scheduleUtcMinute),
       transportMode: next.transportMode,
       cleanupVerifyPasses: next.cleanupVerifyPasses,
+      hasCustomApiBaseUrl: Boolean(next.telegramApiBaseUrl),
     },
   });
 
@@ -363,6 +372,7 @@ export async function rotateBackupCronSecret(
     telegramBotTokenEncrypted: current.telegramBotTokenEncrypted,
     telegramApiId: current.telegramApiId,
     telegramApiHashEncrypted: current.telegramApiHashEncrypted,
+    telegramApiBaseUrl: current.telegramApiBaseUrl,
     cronSecretEncrypted: encryptBackupSecret(rawSecret),
     includeEnvFile: current.includeEnvFile,
     includeNodeModules: current.includeNodeModules,
@@ -401,6 +411,7 @@ async function markLastScheduledUtcDate(utcDateStamp: string): Promise<void> {
     telegramBotTokenEncrypted: current.telegramBotTokenEncrypted,
     telegramApiId: current.telegramApiId,
     telegramApiHashEncrypted: current.telegramApiHashEncrypted,
+    telegramApiBaseUrl: current.telegramApiBaseUrl,
     cronSecretEncrypted: current.cronSecretEncrypted,
     includeEnvFile: current.includeEnvFile,
     includeNodeModules: current.includeNodeModules,
@@ -776,6 +787,7 @@ export async function executeBackupPipeline(options: {
     threadId: settings.telegramThreadId,
     apiId: settings.effectiveApiId,
     apiHash: settings.effectiveApiHash,
+    apiBaseUrl: settings.effectiveApiBaseUrl,
     transportMode: settings.transportMode,
   };
 
@@ -1199,19 +1211,73 @@ export async function manualPurgeBackupStaging(
   return { report, disk };
 }
 
+export interface TelegramConnectionTestInput {
+  sendPingMessage: boolean;
+  botToken?: string;
+  chatId?: string;
+  threadId?: string;
+  apiId?: string;
+  apiHash?: string;
+  apiBaseUrl?: string;
+  transportMode?: "auto" | "mtproto" | "bot_api";
+  clearBotToken?: boolean;
+  clearApiHash?: boolean;
+}
+
 export async function runTelegramConnectionTest(
-  sendPingMessage: boolean
+  input: boolean | TelegramConnectionTestInput
 ): Promise<TelegramConnectionTestResult> {
+  const opts: TelegramConnectionTestInput =
+    typeof input === "boolean" ? { sendPingMessage: input } : input;
   const settings = await getResolvedBackupSettings();
+
+  const resolvedBotToken = settings.envOverrides.botToken
+    ? settings.effectiveBotToken
+    : opts.botToken && opts.botToken.trim().length > 0
+      ? opts.botToken
+      : opts.clearBotToken
+        ? ""
+        : settings.effectiveBotToken;
+
+  const resolvedChatId = settings.envOverrides.chatId
+    ? settings.effectiveChatId
+    : opts.chatId !== undefined
+      ? opts.chatId
+      : settings.effectiveChatId;
+
+  const resolvedThreadId =
+    opts.threadId !== undefined ? opts.threadId : settings.telegramThreadId;
+
+  const resolvedApiId = settings.envOverrides.apiId
+    ? settings.effectiveApiId
+    : opts.apiId !== undefined
+      ? opts.apiId
+      : settings.effectiveApiId;
+
+  const resolvedApiHash = settings.envOverrides.apiHash
+    ? settings.effectiveApiHash
+    : opts.apiHash && opts.apiHash.trim().length > 0
+      ? opts.apiHash
+      : opts.clearApiHash
+        ? ""
+        : settings.effectiveApiHash;
+
+  const resolvedApiBaseUrl = settings.envOverrides.apiBaseUrl
+    ? settings.effectiveApiBaseUrl
+    : opts.apiBaseUrl !== undefined
+      ? opts.apiBaseUrl
+      : settings.effectiveApiBaseUrl;
+
   return testTelegramConnection(
     {
-      botToken: settings.effectiveBotToken,
-      chatId: settings.effectiveChatId,
-      threadId: settings.telegramThreadId,
-      apiId: settings.effectiveApiId,
-      apiHash: settings.effectiveApiHash,
-      transportMode: settings.transportMode,
+      botToken: resolvedBotToken,
+      chatId: resolvedChatId,
+      threadId: resolvedThreadId,
+      apiId: resolvedApiId,
+      apiHash: resolvedApiHash,
+      apiBaseUrl: resolvedApiBaseUrl,
+      transportMode: opts.transportMode ?? settings.transportMode,
     },
-    sendPingMessage
+    opts.sendPingMessage
   );
 }

@@ -11,6 +11,7 @@ export interface BackupSettingsPublic {
   telegramChatId: string;
   telegramThreadId: string;
   telegramApiId: string;
+  telegramApiBaseUrl: string;
   hasBotToken: boolean;
   hasApiHash: boolean;
   hasCronSecret: boolean;
@@ -21,6 +22,7 @@ export interface BackupSettingsPublic {
     chatId: boolean;
     apiId: boolean;
     apiHash: boolean;
+    apiBaseUrl: boolean;
     cronSecret: boolean;
   };
   includeEnvFile: boolean;
@@ -102,6 +104,8 @@ export interface TelegramConnectionTestResult {
   mtprotoOk: boolean;
   messageSent: boolean;
   messageId: string | null;
+  endpointUsed?: string;
+  networkHint?: string;
   warnings: string[];
   error?: string;
 }

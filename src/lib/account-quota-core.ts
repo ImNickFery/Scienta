@@ -6,6 +6,7 @@ export type QuotaSource =
   | "linux_quota"
   | "cgroup_v2"
   | "cgroup_v1"
+  | "rlimit"
   | "host_fallback";
 
 export interface AccountQuotaConfig {
@@ -145,30 +146,46 @@ export function computeQuotaMetric(params: {
 }
 
 /**
- * Parses Linux `quota -w -p` (or `quota -w`) stdout for the current user.
- * Handles soft/hard limits, `*` over-quota markers, and multi-filesystem rows.
+ * Parses Linux `quota -w -p` (or `quota -w` / `quota -v`) stdout for the current user.
+ * Handles soft/hard limits, `*` over-quota markers, multi-filesystem rows, and
+ * 2-line wrapped rows (where a long device path is on line 1 and numeric columns on line 2).
  */
 export function parseLinuxQuotaOutput(stdout: string): ParsedLinuxQuota | null {
   if (!stdout || !stdout.trim()) return null;
-  const lines = stdout.split(/\r?\n/);
+  const rawLines = stdout.split(/\r?\n/);
 
-  let best: ParsedLinuxQuota | null = null;
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
+  // Re-join 2-line wrapped quota rows: `<filesystem>\n   <blocks> <quota> <limit> ...`
+  const logicalLines: string[] = [];
+  for (let i = 0; i < rawLines.length; i += 1) {
+    const trimmed = rawLines[i].trim();
     if (
-      !line ||
-      line.startsWith("Disk quotas") ||
-      line.startsWith("Filesystem") ||
-      line.startsWith("none")
+      !trimmed ||
+      trimmed.startsWith("Disk quotas") ||
+      trimmed.startsWith("Filesystem") ||
+      trimmed.startsWith("none")
     ) {
       continue;
     }
+    const cols = trimmed.split(/\s+/);
+    if (cols.length === 1 && i + 1 < rawLines.length) {
+      const nextTrimmed = rawLines[i + 1].trim();
+      if (nextTrimmed && /^\d/.test(nextTrimmed)) {
+        logicalLines.push(`${trimmed} ${nextTrimmed}`);
+        i += 1;
+        continue;
+      }
+    }
+    logicalLines.push(trimmed);
+  }
 
+  let best: ParsedLinuxQuota | null = null;
+  for (const line of logicalLines) {
     const cols = line.split(/\s+/);
-    // Standard `quota -w -p` columns:
+    // Standard `quota -w -p` columns (9 cols):
     // 0: Filesystem, 1: blocks(KiB, optional *), 2: quota(soft), 3: limit(hard), 4: grace,
     // 5: files(optional *), 6: quota(soft), 7: limit(hard), 8: grace
-    if (cols.length < 8) continue;
+    // Without `-p`, grace columns may be omitted (7 cols total).
+    if (cols.length < 7) continue;
 
     const cleanNum = (token: string | undefined): number => {
       if (!token) return 0;
@@ -182,16 +199,15 @@ export function parseLinuxQuotaOutput(stdout: string): ParsedLinuxQuota | null {
     const softBlocksKb = cleanNum(cols[2]);
     const hardBlocksKb = cleanNum(cols[3]);
 
-    // When blocks are over soft limit, grace column can be e.g. "6days" or numeric timestamp.
-    // Standard `-p` always emits 9 columns; standard without `-p` may omit grace if not over quota.
-    // Detect offset for files column safely.
     const looksLikeGrace = (tok: string | undefined) =>
-      !tok || tok === "-" || tok === "none" || /\d+(days?|hours?|mins?|secs?)$/i.test(tok) || Number(tok) > 1_000_000_000;
+      !tok ||
+      tok === "-" ||
+      tok === "none" ||
+      /\d+(days?|hours?|mins?|secs?)$/i.test(tok) ||
+      Number(tok) > 1_000_000_000;
 
     let filesIdx = 5;
     if (cols.length === 7 && !looksLikeGrace(cols[4])) {
-      filesIdx = 4;
-    } else if (cols.length >= 8 && !looksLikeGrace(cols[4]) && cols.length === 7) {
       filesIdx = 4;
     }
 
@@ -224,6 +240,116 @@ export function parseLinuxQuotaOutput(stdout: string): ParsedLinuxQuota | null {
   }
 
   return best;
+}
+
+export interface ParsedProcCgroup {
+  v2Path: string | null;
+  v1Paths: Record<string, string>;
+}
+
+/**
+ * Parses `/proc/self/cgroup` content to discover the exact cgroup v2 unified path
+ * (`0::/<path>`) and cgroup v1 subsystem paths (`<id>:<subsys1,subsys2>:<path>`).
+ */
+export function parseProcSelfCgroup(raw: string | null | undefined): ParsedProcCgroup {
+  const result: ParsedProcCgroup = { v2Path: null, v1Paths: {} };
+  if (!raw) return result;
+
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const firstColon = line.indexOf(":");
+    const secondColon = firstColon >= 0 ? line.indexOf(":", firstColon + 1) : -1;
+    if (firstColon < 0 || secondColon < 0) continue;
+
+    const hierarchyId = line.slice(0, firstColon);
+    const controllersRaw = line.slice(firstColon + 1, secondColon).trim();
+    const cgPath = line.slice(secondColon + 1).trim();
+    if (!cgPath) continue;
+
+    if (hierarchyId === "0" && controllersRaw === "") {
+      result.v2Path = cgPath;
+    } else if (controllersRaw) {
+      for (const ctrl of controllersRaw.split(",")) {
+        const cleanCtrl = ctrl.trim();
+        if (cleanCtrl) {
+          result.v1Paths[cleanCtrl] = cgPath;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Builds an ordered list of cgroup directories from the most specific (deepest)
+ * process cgroup path walking upward to the mount root (deduplicated).
+ * Prevents path traversal by rejecting `..` segments.
+ */
+export function buildCgroupCandidateDirs(
+  mountRoot: string,
+  cgroupRelPath: string | null | undefined
+): string[] {
+  const root = mountRoot.replace(/\/+$/, "") || "/sys/fs/cgroup";
+  if (!cgroupRelPath || cgroupRelPath === "/") {
+    return [root];
+  }
+
+  const segments = cgroupRelPath
+    .split("/")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && s !== "." && s !== "..");
+
+  const dirs: string[] = [];
+  for (let len = segments.length; len >= 1; len -= 1) {
+    dirs.push(`${root}/${segments.slice(0, len).join("/")}`);
+  }
+  dirs.push(root);
+  return dirs;
+}
+
+export interface ParsedProcLimits {
+  maxProcesses: number | null;
+  maxAddressSpaceBytes: number | null;
+}
+
+/**
+ * Parses Linux `/proc/self/limits` to read the process soft limits for
+ * `Max processes` (NPROC / Entry Processes) and `Max address space` (virtual RAM cap).
+ */
+export function parseProcSelfLimits(
+  raw: string | null | undefined,
+  hostTotalMemBytes: number
+): ParsedProcLimits {
+  const res: ParsedProcLimits = { maxProcesses: null, maxAddressSpaceBytes: null };
+  if (!raw) return res;
+
+  for (const line of raw.split(/\r?\n/)) {
+    const procMatch = /^Max processes\s+(\S+)\s+(\S+)/.exec(line);
+    if (procMatch) {
+      const soft = Number(procMatch[1]);
+      if (Number.isFinite(soft) && soft > 0 && soft < 100_000) {
+        res.maxProcesses = Math.floor(soft);
+      }
+      continue;
+    }
+
+    const asMatch = /^Max address space\s+(\S+)\s+(\S+)/.exec(line);
+    if (asMatch) {
+      const soft = Number(asMatch[1]);
+      if (
+        Number.isFinite(soft) &&
+        soft >= 64 * 1024 * 1024 &&
+        soft < 1e15 &&
+        (hostTotalMemBytes <= 0 || soft < hostTotalMemBytes * 0.99)
+      ) {
+        res.maxAddressSpaceBytes = Math.floor(soft);
+      }
+    }
+  }
+
+  return res;
 }
 
 /**
@@ -350,8 +476,10 @@ export function formatQuotaSourceLabel(source: QuotaSource, isFa: boolean): stri
       return isFa ? "خودکار (cgroup v2)" : "Auto (cgroup v2)";
     case "cgroup_v1":
       return isFa ? "خودکار (cgroup v1)" : "Auto (cgroup v1)";
+    case "rlimit":
+      return isFa ? "سهمیه سیستم (ulimit)" : "OS Limit (rlimit)";
     case "host_fallback":
     default:
-      return isFa ? "سقف هاست (قابل تنظیم)" : "Host Cap (Editable)";
+      return isFa ? "سقف پلن ثبت نشده" : "Plan Cap Not Set";
   }
 }

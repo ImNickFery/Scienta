@@ -107,11 +107,26 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         setCmdOpen((v) => !v);
       } else if (e.key === "Escape") {
         setCmdOpen(false);
+        setMobileOpen(false);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- close mobile drawer automatically when navigating to a new admin route
+    setMobileOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (cmdOpen) {
@@ -192,14 +207,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-dvh bg-(--color-bg-deep) text-(--color-text-primary)">
+    <div className="flex min-h-dvh w-full overflow-x-clip bg-(--color-bg-deep) text-(--color-text-primary)">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 start-0 z-40 flex w-64 flex-col border-e border-(--color-border-subtle) bg-(--color-bg-secondary) transition-transform duration-200 lg:translate-x-0 -translate-x-full rtl:translate-x-full rtl:lg:translate-x-0 ${
-          mobileOpen ? "translate-x-0 rtl:translate-x-0" : ""
+        aria-label={isFa ? "منوی پنل مدیریت" : "Admin sidebar navigation"}
+        className={`fixed inset-y-0 start-0 z-40 flex w-64 max-w-[85vw] flex-col border-e border-(--color-border-subtle) bg-(--color-bg-secondary) pb-[env(safe-area-inset-bottom)] shadow-2xl transition-transform duration-200 ease-out lg:shadow-none lg:translate-x-0 rtl:lg:translate-x-0 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"
         }`}
       >
-        <div className="flex h-15 shrink-0 items-center justify-between border-b border-(--color-border-subtle) px-5">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-(--color-border-subtle) px-4 sm:h-15 sm:px-5">
           <Link
             href="/admin/dashboard"
             className="flex items-center gap-2.5 whitespace-nowrap font-[family-name:var(--font-display)] text-sm font-bold tracking-tight text-(--color-text-primary)"
@@ -276,33 +292,43 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       {/* Main column */}
       <div className="flex min-h-dvh min-w-0 flex-1 flex-col lg:ps-64">
-        <header className="sticky top-0 z-20 flex h-15 items-center justify-between gap-4 border-b border-(--color-border-subtle) bg-(--color-bg-deep)/90 px-5 backdrop-blur-md sm:px-8">
+        <header className="sticky top-0 z-20 flex h-14 items-center justify-between gap-2 border-b border-(--color-border-subtle) bg-(--color-bg-deep)/95 px-3.5 backdrop-blur-md sm:h-15 sm:gap-4 sm:px-8">
           {/* Left: Mobile trigger + Contextual Breadcrumb */}
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-(--color-border-subtle) text-(--color-text-secondary) hover:text-(--color-text-primary) lg:hidden"
-              aria-label="Toggle menu"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) hover:text-(--color-text-primary) lg:hidden"
+              aria-label={isFa ? "باز و بسته کردن منو" : "Toggle menu"}
+              aria-expanded={mobileOpen}
             >
               {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
             <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-1.5 text-xs">
               <Link
                 href="/admin/dashboard"
-                className="whitespace-nowrap text-(--color-text-tertiary) transition-colors hover:text-(--color-text-primary)"
+                className="hidden whitespace-nowrap text-(--color-text-tertiary) transition-colors hover:text-(--color-text-primary) sm:inline"
               >
                 {isFa ? "ساینتا" : "Scienta"}
               </Link>
-              <BreadcrumbSep className="h-3.5 w-3.5 shrink-0 text-(--color-text-tertiary)/60" />
-              <span className="truncate font-medium text-(--color-text-primary)">
+              <BreadcrumbSep className="hidden h-3.5 w-3.5 shrink-0 text-(--color-text-tertiary)/60 sm:block" />
+              <span className="truncate text-[13px] font-semibold text-(--color-text-primary) sm:text-xs sm:font-medium">
                 {currentSectionLabel}
               </span>
             </nav>
           </div>
 
           {/* Right: Quick Jump, Locale Switch, Account */}
-          <div className="flex shrink-0 items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
+            <button
+              type="button"
+              onClick={() => setCmdOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) sm:hidden"
+              aria-label={isFa ? "جستجوی سریع" : "Quick jump search"}
+            >
+              <Search className="h-4 w-4" />
+            </button>
+
             <button
               type="button"
               onClick={() => setCmdOpen(true)}
@@ -319,7 +345,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={toggleLocale}
-              className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap shrink-0"
+              className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap shrink-0 sm:px-3"
               aria-label="Toggle admin language"
             >
               <Globe className="h-3.5 w-3.5 text-(--color-text-tertiary)" />
@@ -327,7 +353,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {!loading && user && (
-              <div className="flex items-center gap-2.5 border-s border-(--color-border-subtle) ps-2.5">
+              <div className="flex items-center gap-2 border-s border-(--color-border-subtle) ps-1.5 sm:gap-2.5 sm:ps-2.5">
                 <div className="hidden text-end sm:block">
                   <p className="text-xs font-medium leading-tight text-(--color-text-primary)">
                     {user.name}
@@ -350,7 +376,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1360px] flex-1 p-5 sm:p-8">{children}</main>
+        <main className="mx-auto w-full max-w-[1360px] flex-1 overflow-x-clip px-3.5 py-4 sm:p-8">{children}</main>
       </div>
 
       {/* Quick Jump Command Palette Modal */}

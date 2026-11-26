@@ -394,9 +394,9 @@ export default function AdminAnalyticsPage() {
   return (
     <div className="space-y-6">
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-end justify-between gap-4 xl:flex-nowrap">
+      <div className="flex flex-col gap-3.5 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-(--color-text-primary)">
+          <h1 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-(--color-text-primary) sm:text-2xl">
             {isFa ? "مرکز آمار و هوش مخاطبان" : "Audience Intelligence & Analytics"}
           </h1>
           <p className="mt-1 text-xs text-(--color-text-tertiary)">
@@ -406,7 +406,7 @@ export default function AdminAnalyticsPage() {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:shrink-0">
           {/* Timeframe Selector */}
           <div
             role="group"
@@ -424,7 +424,7 @@ export default function AdminAnalyticsPage() {
                     setRangeDays(days);
                   }
                 }}
-                className={`rounded-md px-2.5 py-1.5 font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums transition-colors whitespace-nowrap ${
+                className={`rounded-md px-2 py-1.5 font-[family-name:var(--font-mono)] text-xs font-medium tabular-nums transition-colors whitespace-nowrap sm:px-2.5 ${
                   rangeDays === days
                     ? "bg-white/[0.12] text-(--color-text-primary)"
                     : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"
@@ -458,7 +458,7 @@ export default function AdminAnalyticsPage() {
                     setLocaleFilter(opt.id);
                   }
                 }}
-                className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors whitespace-nowrap sm:px-2.5 ${
                   localeFilter === opt.id
                     ? "bg-white/[0.12] text-(--color-text-primary)"
                     : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"
@@ -472,17 +472,17 @@ export default function AdminAnalyticsPage() {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap sm:px-3"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>{isFa ? "CSV" : "CSV"}</span>
+            <span>CSV</span>
           </button>
 
           <button
             type="button"
             onClick={handleExportJson}
             aria-label={isFa ? "دانلود گزارش JSON" : "Export JSON report"}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap"
+            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap sm:px-3"
           >
             <FileJson className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">JSON</span>
@@ -493,7 +493,7 @@ export default function AdminAnalyticsPage() {
             onClick={handleRefresh}
             disabled={refreshing}
             aria-label={isFa ? "بروزرسانی داده‌ها" : "Refresh analytics"}
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+            className="flex h-9 items-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap sm:px-3.5"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
             <span>{isFa ? "بروزرسانی" : "Refresh"}</span>
@@ -502,11 +502,11 @@ export default function AdminAnalyticsPage() {
       </div>
 
       {/* Workspace Navigation Tabs + Active Cross-Filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-subtle) pb-3">
+      <div className="flex flex-col gap-2 border-b border-(--color-border-subtle) pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div
           role="tablist"
           aria-label={isFa ? "بخش‌های تحلیلی" : "Analytics workspaces"}
-          className="flex flex-wrap items-center gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1 text-xs"
+          className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1 text-xs"
         >
           {(
             [
@@ -524,7 +524,7 @@ export default function AdminAnalyticsPage() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setWorkspace(id)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${
                   active
                     ? "bg-(--color-accent-purple) text-white"
                     : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"

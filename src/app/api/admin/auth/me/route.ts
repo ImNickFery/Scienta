@@ -10,8 +10,11 @@ export async function GET() {
   const store = await cookies();
   const csrfToken = store.get(CSRF_COOKIE)?.value ?? null;
 
-  return NextResponse.json({
-    user: { id: session.sub, name: session.name, email: session.email, role: session.role },
-    csrfToken,
-  });
+  return NextResponse.json(
+    {
+      user: { id: session.sub, name: session.name, email: session.email, role: session.role },
+      csrfToken,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

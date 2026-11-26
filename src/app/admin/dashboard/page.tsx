@@ -281,9 +281,9 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header Bar */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-(--color-text-primary)">
+      <div className="flex flex-col gap-3.5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-(--color-text-primary) sm:text-2xl">
             {isFa ? "نمای کلی تحریریه و سامانه" : "Editorial Overview"}
           </h1>
           <p className="mt-1 text-xs text-(--color-text-tertiary)">
@@ -293,7 +293,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
           {/* Segmented Timeframe Selector */}
           <div
             role="group"
@@ -329,7 +329,7 @@ export default function DashboardPage() {
 
           <Link
             href="/admin/analytics"
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap"
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap sm:flex-none"
           >
             <BarChart3 className="h-3.5 w-3.5 text-(--color-accent-purple)" />
             <span>{isFa ? "آمار پیشرفته" : "Deep Analytics"}</span>
@@ -337,7 +337,7 @@ export default function DashboardPage() {
 
           <Link
             href="/admin/articles/new"
-            className="flex h-9 items-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90 whitespace-nowrap"
+            className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90 whitespace-nowrap sm:flex-none"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>{isFa ? "مقاله جدید" : "New Article"}</span>

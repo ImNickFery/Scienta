@@ -8,6 +8,7 @@ import { execute, queryOne } from "./db";
 import {
   DEFAULT_ACCOUNT_QUOTA_CONFIG,
   accountQuotaConfigInputSchema,
+  buildCgroupCandidateDirs,
   computeQuotaCpuPercent,
   computeQuotaMetric,
   parseCgroupMemoryLimit,
@@ -16,6 +17,8 @@ import {
   parseCgroupV2CpuMax,
   parseCgroupV2CpuUsageUsec,
   parseLinuxQuotaOutput,
+  parseProcSelfCgroup,
+  parseProcSelfLimits,
   type AccountQuotaConfig,
   type AccountQuotaConfigInput,
   type AccountQuotaSnapshot,
@@ -28,8 +31,8 @@ const execFileAsync = promisify(execFile);
 
 const ACCOUNT_QUOTA_SETTING_KEY = "host_account_quota";
 const CONFIG_CACHE_TTL_MS = 10_000;
-const DISK_SCAN_CACHE_TTL_MS = 30_000;
-const LINUX_QUOTA_CACHE_TTL_MS = 30_000;
+const DISK_SCAN_CACHE_TTL_MS = 120_000;
+const LINUX_QUOTA_CACHE_TTL_MS = 60_000;
 const MAX_SCAN_ENTRIES = 120_000;
 
 let cachedConfig: { value: AccountQuotaConfig; expiresAt: number } | null = null;
@@ -159,8 +162,10 @@ export function invalidateAccountQuotaCaches(): void {
 }
 
 /**
- * Probes Linux per-user filesystem quota via `quota -w -p` (safe `execFile`, no shell).
- * Cached for 30 seconds. Returns null on systems without `quota` or without user quotas.
+ * Probes Linux per-user filesystem quota via `quota -w -p` / `quota -w` (safe `execFile`, no shell)
+ * and falls back to cPanel's cached `~/.cpanel/datastore/` quota output when present.
+ * Note: Linux `quota` exits with code 1 when the user is over their soft quota while still
+ * printing valid quota output to stdout — we inspect `err.stdout` before giving up.
  */
 async function probeLinuxDiskQuota(): Promise<ParsedLinuxQuota | null> {
   if (process.platform !== "linux") return null;
@@ -172,14 +177,60 @@ async function probeLinuxDiskQuota(): Promise<ParsedLinuxQuota | null> {
 
   inFlightLinuxQuota = (async () => {
     try {
-      const { stdout } = await execFileAsync("quota", ["-w", "-p"], {
-        timeout: 2000,
-        maxBuffer: 256 * 1024,
-      });
-      const parsed = parseLinuxQuotaOutput(stdout);
-      cachedLinuxQuota = { value: parsed, expiresAt: Date.now() + LINUX_QUOTA_CACHE_TTL_MS };
-      return parsed;
-    } catch {
+      const candidates: Array<[string, string[]]> = [
+        ["/usr/bin/quota", ["-w", "-p"]],
+        ["/usr/sbin/quota", ["-w", "-p"]],
+        ["quota", ["-w", "-p"]],
+        ["/usr/bin/quota", ["-w"]],
+        ["quota", ["-w"]],
+      ];
+
+      for (const [bin, args] of candidates) {
+        try {
+          const { stdout } = await execFileAsync(bin, args, {
+            timeout: 2000,
+            maxBuffer: 256 * 1024,
+          });
+          const parsed = parseLinuxQuotaOutput(stdout);
+          if (parsed) {
+            cachedLinuxQuota = { value: parsed, expiresAt: Date.now() + LINUX_QUOTA_CACHE_TTL_MS };
+            return parsed;
+          }
+        } catch (err) {
+          // Linux `quota` exits with code 1 when over soft limit while stdout still holds valid data
+          const maybeStdout =
+            err && typeof err === "object" && "stdout" in err && typeof err.stdout === "string"
+              ? err.stdout
+              : "";
+          if (maybeStdout) {
+            const parsed = parseLinuxQuotaOutput(maybeStdout);
+            if (parsed) {
+              cachedLinuxQuota = { value: parsed, expiresAt: Date.now() + LINUX_QUOTA_CACHE_TTL_MS };
+              return parsed;
+            }
+          }
+        }
+      }
+
+      // Check cPanel cached quota datastore file if running on a cPanel shared host
+      const home = process.env.HOME?.trim();
+      if (home && home !== "/" && home !== "/root") {
+        const cpanelCacheCandidates = [
+          path.join(/*turbopackIgnore: true*/ home, ".cpanel", "datastore", "_usr_bin_quota_-v"),
+          path.join(/*turbopackIgnore: true*/ home, ".cpanel", "datastore", "_usr_bin_quota_-w"),
+        ];
+        for (const cacheFile of cpanelCacheCandidates) {
+          const raw = safeReadFileSync(cacheFile);
+          if (raw) {
+            const parsed = parseLinuxQuotaOutput(raw);
+            if (parsed) {
+              cachedLinuxQuota = { value: parsed, expiresAt: Date.now() + LINUX_QUOTA_CACHE_TTL_MS };
+              return parsed;
+            }
+          }
+        }
+      }
+
       cachedLinuxQuota = { value: null, expiresAt: Date.now() + LINUX_QUOTA_CACHE_TTL_MS };
       return null;
     } finally {
@@ -236,80 +287,195 @@ async function walkDirectoryUsage(
 }
 
 /**
- * Scans the current app/account workspace to compute exact disk bytes, file count,
- * and top folder consumption breakdown. Cached for 30s with single-flight coalescing.
+ * Fast native Linux disk & inode scanner using `du -sk` and `du --inodes -s` via safe
+ * `execFile` (no shell). Runs ~40x faster than walking 60k+ files via JS lstat IPC calls.
+ * Returns null if `du` is unavailable or unsupported (e.g. non-GNU / Windows), triggering
+ * the pure-Node fallback walker cleanly.
  */
-async function scanWorkspaceDiskUsage(): Promise<WorkspaceDiskScan> {
-  const now = Date.now();
-  if (cachedWorkspaceScan && cachedWorkspaceScan.expiresAt > now) {
-    return cachedWorkspaceScan.value;
-  }
-  if (inFlightWorkspaceScan) return inFlightWorkspaceScan;
+async function fastNativeDiskScan(
+  scopePath: string,
+  topEntryNames: string[]
+): Promise<{
+  totalBytes: number;
+  totalFiles: number;
+  folders: Array<{ name: string; bytes: number; files: number }>;
+} | null> {
+  if (process.platform !== "linux" || topEntryNames.length === 0) return null;
 
-  inFlightWorkspaceScan = (async () => {
-    const scopePath = path.resolve(/*turbopackIgnore: true*/ process.cwd());
-    const budget = { remaining: MAX_SCAN_ENTRIES };
+  try {
+    const [sizeRes, inodeRes] = await Promise.all([
+      execFileAsync("du", ["-sk", "--", ...topEntryNames], {
+        cwd: scopePath,
+        timeout: 4000,
+        maxBuffer: 512 * 1024,
+      }),
+      execFileAsync("du", ["--inodes", "-s", "--", ...topEntryNames], {
+        cwd: scopePath,
+        timeout: 4000,
+        maxBuffer: 512 * 1024,
+      }).catch(() => null),
+    ]);
+
+    const inodeMap = new Map<string, number>();
+    if (inodeRes?.stdout) {
+      for (const line of inodeRes.stdout.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const tabIdx = trimmed.indexOf("\t");
+        if (tabIdx <= 0) continue;
+        const count = Number(trimmed.slice(0, tabIdx).trim());
+        const name = trimmed.slice(tabIdx + 1).trim();
+        if (Number.isFinite(count) && count >= 0 && name) {
+          inodeMap.set(name, count);
+        }
+      }
+    }
+
     let totalBytes = 0;
     let totalFiles = 0;
     const folders: Array<{ name: string; bytes: number; files: number }> = [];
+
+    for (const line of sizeRes.stdout.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const tabIdx = trimmed.indexOf("\t");
+      if (tabIdx <= 0) continue;
+      const kb = Number(trimmed.slice(0, tabIdx).trim());
+      const name = trimmed.slice(tabIdx + 1).trim();
+      if (!Number.isFinite(kb) || kb < 0 || !name) continue;
+      const bytes = kb * 1024;
+      const files = inodeMap.get(name) ?? 0;
+      totalBytes += bytes;
+      totalFiles += files;
+      folders.push({ name, bytes, files });
+    }
+
+    if (folders.length === 0) return null;
+    // Require valid inode counts when using fast scan; otherwise fall back to Node walker
+    if (totalFiles <= 0) return null;
+
+    return { totalBytes, totalFiles, folders };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the user's true hosting account directory. On cPanel / DirectAdmin shared hosts
+ * where `process.cwd()` is inside a non-root `$HOME` (e.g. `/home/username/scienta-app/standalone`),
+ * scanning `$HOME` measures the full hosting account (app, nodevenv, public_html, mail, logs)
+ * instead of only the small `standalone/` subfolder.
+ */
+function resolveAccountScopePath(): string {
+  const cwd = path.resolve(/*turbopackIgnore: true*/ process.cwd());
+  const home = process.env.HOME?.trim();
+  if (home && home !== "/" && home !== "/root" && !home.startsWith("/tmp")) {
+    const resolvedHome = path.resolve(/*turbopackIgnore: true*/ home);
+    if (cwd === resolvedHome || cwd.startsWith(resolvedHome + path.sep)) {
+      return resolvedHome;
+    }
+  }
+  return cwd;
+}
+
+async function performWorkspaceDiskScan(): Promise<WorkspaceDiskScan> {
+  const scopePath = resolveAccountScopePath();
+  let totalBytes = 0;
+  let totalFiles = 0;
+  let folders: Array<{ name: string; bytes: number; files: number }> = [];
+
+  try {
+    const topEntries = await fsp.readdir(/*turbopackIgnore: true*/ scopePath, {
+      withFileTypes: true,
+    });
+
+    const filteredEntries = topEntries.filter(
+      (entry) => !entry.isSymbolicLink() && entry.name !== ".playwright-cli"
+    );
+    const dirNames = filteredEntries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    const rootFileEntries = filteredEntries.filter((entry) => entry.isFile());
+
+    // Measure root-level files directly (usually < 30 files)
     let rootFilesBytes = 0;
     let rootFilesCount = 0;
-
-    try {
-      const topEntries = await fsp.readdir(/*turbopackIgnore: true*/ scopePath, {
-        withFileTypes: true,
-      });
-
-      for (const entry of topEntries) {
-        if (budget.remaining <= 0) break;
-        const fullPath = path.join(/*turbopackIgnore: true*/ scopePath, entry.name);
-        if (entry.isSymbolicLink()) continue;
-
-        if (entry.isDirectory()) {
-          // Skip transient Playwright screenshot folder if present during testing
-          if (entry.name === ".playwright-cli") continue;
-          budget.remaining -= 1;
-          const sub = await walkDirectoryUsage(fullPath, budget);
-          const dirFiles = sub.files + 1;
-          totalBytes += sub.bytes;
-          totalFiles += dirFiles;
-          folders.push({ name: entry.name, bytes: sub.bytes, files: dirFiles });
-        } else if (entry.isFile()) {
-          budget.remaining -= 1;
-          try {
-            const st = await fsp.lstat(/*turbopackIgnore: true*/ fullPath);
-            totalBytes += st.size;
-            totalFiles += 1;
-            rootFilesBytes += st.size;
-            rootFilesCount += 1;
-          } catch {
-            // Skip unreadable file
-          }
-        }
+    for (const entry of rootFileEntries) {
+      try {
+        const st = await fsp.lstat(path.join(/*turbopackIgnore: true*/ scopePath, entry.name));
+        rootFilesBytes += st.size;
+        rootFilesCount += 1;
+      } catch {
+        // Skip unreadable root file
       }
-    } catch {
-      // Fallback empty scan
+    }
+
+    const fastScan = await fastNativeDiskScan(scopePath, dirNames);
+    if (fastScan) {
+      totalBytes = fastScan.totalBytes + rootFilesBytes;
+      totalFiles = fastScan.totalFiles + rootFilesCount;
+      folders = fastScan.folders;
+    } else {
+      // Cross-platform pure-Node fallback when native `du --inodes` is unavailable
+      const budget = { remaining: MAX_SCAN_ENTRIES };
+      totalBytes = rootFilesBytes;
+      totalFiles = rootFilesCount;
+      for (const dirName of dirNames) {
+        if (budget.remaining <= 0) break;
+        budget.remaining -= 1;
+        const fullPath = path.join(/*turbopackIgnore: true*/ scopePath, dirName);
+        const sub = await walkDirectoryUsage(fullPath, budget);
+        const dirFiles = sub.files + 1;
+        totalBytes += sub.bytes;
+        totalFiles += dirFiles;
+        folders.push({ name: dirName, bytes: sub.bytes, files: dirFiles });
+      }
     }
 
     if (rootFilesBytes > 0) {
       folders.push({ name: "(root files)", bytes: rootFilesBytes, files: rootFilesCount });
     }
+  } catch {
+    // Fallback empty scan
+  }
 
-    folders.sort((a, b) => b.bytes - a.bytes);
+  folders.sort((a, b) => b.bytes - a.bytes);
 
-    const value: WorkspaceDiskScan = {
-      scopePath,
-      totalBytes,
-      totalFiles,
-      topFolders: folders.slice(0, 6),
-      scannedAtMs: Date.now(),
-    };
-    cachedWorkspaceScan = { value, expiresAt: Date.now() + DISK_SCAN_CACHE_TTL_MS };
-    return value;
-  })().finally(() => {
+  const value: WorkspaceDiskScan = {
+    scopePath,
+    totalBytes,
+    totalFiles,
+    topFolders: folders.slice(0, 6),
+    scannedAtMs: Date.now(),
+  };
+  cachedWorkspaceScan = { value, expiresAt: Date.now() + DISK_SCAN_CACHE_TTL_MS };
+  return value;
+}
+
+/**
+ * Scans the current app/account workspace to compute exact disk bytes, file count,
+ * and top folder consumption breakdown. Uses stale-while-revalidate caching (120s TTL)
+ * and single-flight coalescing so live telemetry polling stays sub-2ms.
+ */
+async function scanWorkspaceDiskUsage(): Promise<WorkspaceDiskScan> {
+  const now = Date.now();
+  if (cachedWorkspaceScan) {
+    if (cachedWorkspaceScan.expiresAt > now) {
+      return cachedWorkspaceScan.value;
+    }
+    // Stale-while-revalidate: trigger background refresh without stalling live telemetry
+    if (!inFlightWorkspaceScan) {
+      inFlightWorkspaceScan = performWorkspaceDiskScan().finally(() => {
+        inFlightWorkspaceScan = null;
+      });
+    }
+    return cachedWorkspaceScan.value;
+  }
+
+  if (inFlightWorkspaceScan) return inFlightWorkspaceScan;
+  inFlightWorkspaceScan = performWorkspaceDiskScan().finally(() => {
     inFlightWorkspaceScan = null;
   });
-
   return inFlightWorkspaceScan;
 }
 
@@ -321,6 +487,17 @@ interface CgroupReadings {
   cpuUsageUsec: number | null;
   pidsCurrent: number | null;
   pidsMax: number | null;
+}
+
+function readFirstValidNumber(dirs: string[], filename: string): number | null {
+  for (const dir of dirs) {
+    const raw = safeReadFileSync(`${dir}/${filename}`);
+    if (raw !== null) {
+      const n = Number(raw.trim());
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+  }
+  return null;
 }
 
 function readCgroupMetrics(hostTotalMemBytes: number): CgroupReadings {
@@ -336,51 +513,120 @@ function readCgroupMetrics(hostTotalMemBytes: number): CgroupReadings {
     };
   }
 
-  // Try cgroup v2 unified hierarchy first
+  const procCgroup = parseProcSelfCgroup(safeReadFileSync("/proc/self/cgroup"));
+
+  // Try cgroup v2 unified hierarchy first (walking from process cgroup path up to /sys/fs/cgroup)
   const v2Controllers = safeReadFileSync("/sys/fs/cgroup/cgroup.controllers");
   if (v2Controllers !== null) {
-    const memMaxRaw = safeReadFileSync("/sys/fs/cgroup/memory.max");
-    const memCurrRaw = safeReadFileSync("/sys/fs/cgroup/memory.current");
-    const cpuMaxRaw = safeReadFileSync("/sys/fs/cgroup/cpu.max");
-    const cpuStatRaw = safeReadFileSync("/sys/fs/cgroup/cpu.stat");
-    const pidsCurrRaw = safeReadFileSync("/sys/fs/cgroup/pids.current");
-    const pidsMaxRaw = safeReadFileSync("/sys/fs/cgroup/pids.max");
+    const v2Dirs = buildCgroupCandidateDirs("/sys/fs/cgroup", procCgroup.v2Path);
 
-    const memCurr = memCurrRaw ? Number(memCurrRaw.trim()) : Number.NaN;
-    const pidsCurr = pidsCurrRaw ? Number(pidsCurrRaw.trim()) : Number.NaN;
+    let memoryLimitBytes: number | null = null;
+    let cpuLimitCores: number | null = null;
+    let pidsMax: number | null = null;
+
+    for (const dir of v2Dirs) {
+      const memLimit = parseCgroupMemoryLimit(
+        safeReadFileSync(`${dir}/memory.max`),
+        hostTotalMemBytes
+      );
+      if (memLimit !== null && (memoryLimitBytes === null || memLimit < memoryLimitBytes)) {
+        memoryLimitBytes = memLimit;
+      }
+
+      const cpuCores = parseCgroupV2CpuMax(safeReadFileSync(`${dir}/cpu.max`));
+      if (cpuCores !== null && (cpuLimitCores === null || cpuCores < cpuLimitCores)) {
+        cpuLimitCores = cpuCores;
+      }
+
+      const pMax = parseCgroupPidsMax(safeReadFileSync(`${dir}/pids.max`));
+      if (pMax !== null && (pidsMax === null || pMax < pidsMax)) {
+        pidsMax = pMax;
+      }
+    }
+
+    const memCurr = readFirstValidNumber(v2Dirs, "memory.current");
+    const pidsCurr = readFirstValidNumber(v2Dirs, "pids.current");
+
+    let cpuUsageUsec: number | null = null;
+    for (const dir of v2Dirs) {
+      const parsed = parseCgroupV2CpuUsageUsec(safeReadFileSync(`${dir}/cpu.stat`));
+      if (parsed !== null) {
+        cpuUsageUsec = parsed;
+        break;
+      }
+    }
 
     return {
       version: "v2",
-      memoryLimitBytes: parseCgroupMemoryLimit(memMaxRaw, hostTotalMemBytes),
-      memoryUsageBytes: Number.isFinite(memCurr) && memCurr > 0 ? memCurr : null,
-      cpuLimitCores: parseCgroupV2CpuMax(cpuMaxRaw),
-      cpuUsageUsec: parseCgroupV2CpuUsageUsec(cpuStatRaw),
-      pidsCurrent: Number.isFinite(pidsCurr) && pidsCurr > 0 ? Math.floor(pidsCurr) : null,
-      pidsMax: parseCgroupPidsMax(pidsMaxRaw),
+      memoryLimitBytes,
+      memoryUsageBytes: memCurr !== null && memCurr > 0 ? memCurr : null,
+      cpuLimitCores,
+      cpuUsageUsec,
+      pidsCurrent: pidsCurr !== null && pidsCurr > 0 ? Math.floor(pidsCurr) : null,
+      pidsMax,
     };
   }
 
-  // Fallback: cgroup v1 hierarchy
-  const v1MemLimitRaw = safeReadFileSync("/sys/fs/cgroup/memory/memory.limit_in_bytes");
-  const v1MemUsageRaw = safeReadFileSync("/sys/fs/cgroup/memory/memory.usage_in_bytes");
-  const v1CpuQuotaRaw = safeReadFileSync("/sys/fs/cgroup/cpu/cpu.cfs_quota_us");
-  const v1CpuPeriodRaw = safeReadFileSync("/sys/fs/cgroup/cpu/cpu.cfs_period_us");
-  const v1CpuAcctRaw = safeReadFileSync("/sys/fs/cgroup/cpuacct/cpuacct.usage");
-  const v1PidsCurrRaw = safeReadFileSync("/sys/fs/cgroup/pids/pids.current");
-  const v1PidsMaxRaw = safeReadFileSync("/sys/fs/cgroup/pids/pids.max");
+  // Fallback: cgroup v1 hierarchy — walk each subsystem's actual path from /proc/self/cgroup
+  const memDirs = buildCgroupCandidateDirs("/sys/fs/cgroup/memory", procCgroup.v1Paths.memory);
+  const cpuDirs = buildCgroupCandidateDirs("/sys/fs/cgroup/cpu", procCgroup.v1Paths.cpu);
+  const cpuAcctDirs = buildCgroupCandidateDirs(
+    "/sys/fs/cgroup/cpuacct",
+    procCgroup.v1Paths.cpuacct ?? procCgroup.v1Paths.cpu
+  );
+  const pidsDirs = buildCgroupCandidateDirs("/sys/fs/cgroup/pids", procCgroup.v1Paths.pids);
 
-  if (v1MemLimitRaw !== null || v1CpuQuotaRaw !== null) {
-    const memUsage = v1MemUsageRaw ? Number(v1MemUsageRaw.trim()) : Number.NaN;
-    const cpuNs = v1CpuAcctRaw ? Number(v1CpuAcctRaw.trim()) : Number.NaN;
-    const pidsCurr = v1PidsCurrRaw ? Number(v1PidsCurrRaw.trim()) : Number.NaN;
+  let hasAnyV1File = false;
+  let memoryLimitBytes: number | null = null;
+  for (const dir of memDirs) {
+    const raw = safeReadFileSync(`${dir}/memory.limit_in_bytes`);
+    if (raw !== null) {
+      hasAnyV1File = true;
+      const limit = parseCgroupMemoryLimit(raw, hostTotalMemBytes);
+      if (limit !== null && (memoryLimitBytes === null || limit < memoryLimitBytes)) {
+        memoryLimitBytes = limit;
+      }
+    }
+  }
+
+  let cpuLimitCores: number | null = null;
+  for (const dir of cpuDirs) {
+    const qRaw = safeReadFileSync(`${dir}/cpu.cfs_quota_us`);
+    const pRaw = safeReadFileSync(`${dir}/cpu.cfs_period_us`);
+    if (qRaw !== null) {
+      hasAnyV1File = true;
+      const cores = parseCgroupV1CpuQuota(qRaw, pRaw);
+      if (cores !== null && (cpuLimitCores === null || cores < cpuLimitCores)) {
+        cpuLimitCores = cores;
+      }
+    }
+  }
+
+  let pidsMax: number | null = null;
+  for (const dir of pidsDirs) {
+    const raw = safeReadFileSync(`${dir}/pids.max`);
+    if (raw !== null) {
+      hasAnyV1File = true;
+      const pMax = parseCgroupPidsMax(raw);
+      if (pMax !== null && (pidsMax === null || pMax < pidsMax)) {
+        pidsMax = pMax;
+      }
+    }
+  }
+
+  if (hasAnyV1File) {
+    const memUsage = readFirstValidNumber(memDirs, "memory.usage_in_bytes");
+    const cpuNs = readFirstValidNumber(cpuAcctDirs, "cpuacct.usage");
+    const pidsCurr = readFirstValidNumber(pidsDirs, "pids.current");
+
     return {
       version: "v1",
-      memoryLimitBytes: parseCgroupMemoryLimit(v1MemLimitRaw, hostTotalMemBytes),
-      memoryUsageBytes: Number.isFinite(memUsage) && memUsage > 0 ? memUsage : null,
-      cpuLimitCores: parseCgroupV1CpuQuota(v1CpuQuotaRaw, v1CpuPeriodRaw),
-      cpuUsageUsec: Number.isFinite(cpuNs) && cpuNs >= 0 ? Math.floor(cpuNs / 1000) : null,
-      pidsCurrent: Number.isFinite(pidsCurr) && pidsCurr > 0 ? Math.floor(pidsCurr) : null,
-      pidsMax: parseCgroupPidsMax(v1PidsMaxRaw),
+      memoryLimitBytes,
+      memoryUsageBytes: memUsage !== null && memUsage > 0 ? memUsage : null,
+      cpuLimitCores,
+      cpuUsageUsec: cpuNs !== null && cpuNs >= 0 ? Math.floor(cpuNs / 1000) : null,
+      pidsCurrent: pidsCurr !== null && pidsCurr > 0 ? Math.floor(pidsCurr) : null,
+      pidsMax,
     };
   }
 
@@ -426,6 +672,10 @@ export async function collectAccountQuotaSnapshot(context: {
   ]);
 
   const cgroup = readCgroupMetrics(context.hostTotalMemBytes);
+  const procLimits =
+    process.platform === "linux"
+      ? parseProcSelfLimits(safeReadFileSync("/proc/self/limits"), context.hostTotalMemBytes)
+      : { maxProcesses: null, maxAddressSpaceBytes: null };
   const envDiskMb = parseEnvPositiveNumber("HOST_QUOTA_DISK_MB");
   const envRamMb = parseEnvPositiveNumber("HOST_QUOTA_RAM_MB");
   const envCpuCores = parseEnvPositiveNumber("HOST_QUOTA_CPU_CORES");
@@ -472,7 +722,7 @@ export async function collectAccountQuotaSnapshot(context: {
   }));
 
   // 2. Account Memory / RAM Quota (Used / Limit / Remaining)
-  const detectedRamLimitBytes = cgroup.memoryLimitBytes;
+  const detectedRamLimitBytes = cgroup.memoryLimitBytes ?? procLimits.maxAddressSpaceBytes;
   const ramUsedBytes =
     cgroup.memoryLimitBytes !== null && cgroup.memoryUsageBytes !== null
       ? cgroup.memoryUsageBytes
@@ -486,9 +736,12 @@ export async function collectAccountQuotaSnapshot(context: {
   } else if (envRamMb !== null) {
     ramLimitBytes = Math.round(envRamMb * 1024 * 1024);
     ramSource = "env_override";
-  } else if (detectedRamLimitBytes !== null) {
-    ramLimitBytes = detectedRamLimitBytes;
+  } else if (cgroup.memoryLimitBytes !== null) {
+    ramLimitBytes = cgroup.memoryLimitBytes;
     ramSource = cgroup.version === "v2" ? "cgroup_v2" : "cgroup_v1";
+  } else if (procLimits.maxAddressSpaceBytes !== null) {
+    ramLimitBytes = procLimits.maxAddressSpaceBytes;
+    ramSource = "rlimit";
   } else {
     ramLimitBytes = context.hostTotalMemBytes;
     ramSource = "host_fallback";
@@ -583,7 +836,7 @@ export async function collectAccountQuotaSnapshot(context: {
   });
 
   // 5. Entry Processes / PIDs Quota
-  const detectedPidsMax = cgroup.pidsMax;
+  const detectedPidsMax = cgroup.pidsMax ?? procLimits.maxProcesses;
   const usedProcesses = cgroup.pidsCurrent ?? 1;
 
   let processLimit: number;
@@ -594,9 +847,12 @@ export async function collectAccountQuotaSnapshot(context: {
   } else if (envNproc !== null) {
     processLimit = Math.round(envNproc);
     processSource = "env_override";
-  } else if (detectedPidsMax !== null) {
-    processLimit = detectedPidsMax;
+  } else if (cgroup.pidsMax !== null) {
+    processLimit = cgroup.pidsMax;
     processSource = cgroup.version === "v2" ? "cgroup_v2" : "cgroup_v1";
+  } else if (procLimits.maxProcesses !== null) {
+    processLimit = procLimits.maxProcesses;
+    processSource = "rlimit";
   } else {
     processLimit = Math.max(20, usedProcesses);
     processSource = "host_fallback";

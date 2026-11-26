@@ -30,6 +30,7 @@ export interface BackupSettingsStored {
   telegramBotTokenEncrypted: string;
   telegramApiId: string;
   telegramApiHashEncrypted: string;
+  telegramApiBaseUrl: string;
   cronSecretEncrypted: string;
   includeEnvFile: boolean;
   includeNodeModules: boolean;
@@ -49,6 +50,7 @@ export interface BackupSettingsPublic {
   telegramChatId: string;
   telegramThreadId: string;
   telegramApiId: string;
+  telegramApiBaseUrl: string;
   hasBotToken: boolean;
   hasApiHash: boolean;
   hasCronSecret: boolean;
@@ -59,6 +61,7 @@ export interface BackupSettingsPublic {
     chatId: boolean;
     apiId: boolean;
     apiHash: boolean;
+    apiBaseUrl: boolean;
     cronSecret: boolean;
   };
   includeEnvFile: boolean;
@@ -82,6 +85,7 @@ export const DEFAULT_BACKUP_SETTINGS: BackupSettingsStored = {
   telegramBotTokenEncrypted: "",
   telegramApiId: "",
   telegramApiHashEncrypted: "",
+  telegramApiBaseUrl: "",
   cronSecretEncrypted: "",
   includeEnvFile: true,
   includeNodeModules: false,
@@ -125,6 +129,229 @@ export interface BackupDiskInspection {
 }
 
 // ============================================================================
+// Telegram Input Normalizers & Safe Bot API Base URL Validation
+// ============================================================================
+
+const ZERO_WIDTH_RE = /[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g;
+
+/** Converts Persian (۰-۹) and Arabic-Indic (٠-٩) digits and minus signs to ASCII. */
+export function normalizeDigitsToAscii(raw: string): string {
+  return raw
+    .replace(ZERO_WIDTH_RE, "")
+    .replace(/[\u06F0-\u06F9]/g, (ch) => String(ch.charCodeAt(0) - 0x06f0))
+    .replace(/[\u0660-\u0669]/g, (ch) => String(ch.charCodeAt(0) - 0x0660))
+    .replace(/[−–—]/g, "-");
+}
+
+/**
+ * Normalizes Telegram Bot Token pasted by admins:
+ * strips whitespace/invisible chars, converts Persian digits in the bot ID,
+ * and removes an accidental leading "bot" prefix (e.g. "bot123456:AAH...").
+ */
+export function normalizeTelegramBotToken(raw: string): string {
+  const cleaned = raw.replace(ZERO_WIDTH_RE, "").replace(/\s+/g, "").trim();
+  if (!cleaned) return "";
+  const withoutPrefix = cleaned.replace(/^bot(?=[\d\u06F0-\u06F9\u0660-\u0669]+:)/i, "");
+  const colonIdx = withoutPrefix.indexOf(":");
+  if (colonIdx === -1) return normalizeDigitsToAscii(withoutPrefix);
+  const botId = normalizeDigitsToAscii(withoutPrefix.slice(0, colonIdx));
+  const secretPart = withoutPrefix.slice(colonIdx + 1);
+  return `${botId}:${secretPart}`;
+}
+
+/**
+ * Normalizes Target Chat / Channel ID:
+ * converts Persian/Arabic digits and turns pasted t.me links into @username or -100<id>.
+ */
+export function normalizeTelegramChatId(raw: string): string {
+  const cleaned = normalizeDigitsToAscii(raw).trim();
+  if (!cleaned) return "";
+
+  // Handle private supergroup/channel message link: https://t.me/c/1234567890/12 -> -1001234567890
+  const privateLink = cleaned.match(
+    /^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\/c\/(\d+)(?:\/.*)?$/i
+  );
+  if (privateLink) {
+    return `-100${privateLink[1]}`;
+  }
+
+  // Handle public channel/username link: https://t.me/my_channel -> @my_channel
+  const publicLink = cleaned.match(
+    /^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\/([a-zA-Z][a-zA-Z0-9_]{3,63})(?:\/.*)?$/i
+  );
+  if (publicLink) {
+    return `@${publicLink[1]}`;
+  }
+
+  return cleaned.replace(/\s+/g, "");
+}
+
+/** Normalizes Telegram numeric api_id (converts Persian/Arabic digits, strips spaces). */
+export function normalizeTelegramApiId(raw: string): string {
+  return normalizeDigitsToAscii(raw).replace(/\s+/g, "").trim();
+}
+
+/** Normalizes optional forum topic / message_thread_id. */
+export function normalizeTelegramThreadId(raw: string): string {
+  return normalizeDigitsToAscii(raw).replace(/\s+/g, "").trim();
+}
+
+/** Returns true if an IPv4 or IPv6 address is loopback, private, link-local, or reserved. */
+export function isPrivateOrReservedIp(ip: string): boolean {
+  const lower = ip.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (!lower) return true;
+
+  // Handle IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1 or ::ffff:7f00:1)
+  if (lower.startsWith("::ffff:")) {
+    const mapped = lower.slice(7);
+    if (mapped.includes(".")) {
+      return isPrivateOrReservedIp(mapped);
+    }
+    const hexParts = mapped.split(":");
+    if (hexParts.length === 2) {
+      const hi = Number.parseInt(hexParts[0], 16);
+      const lo = Number.parseInt(hexParts[1], 16);
+      if (Number.isFinite(hi) && Number.isFinite(lo)) {
+        const ipv4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+        return isPrivateOrReservedIp(ipv4);
+      }
+    }
+    return true;
+  }
+
+  // IPv4 dotted quad
+  const v4 = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const a = Number(v4[1]);
+    const b = Number(v4[2]);
+    const c = Number(v4[3]);
+    const d = Number(v4[4]);
+    if (a > 255 || b > 255 || c > 255 || d > 255) return true;
+    if (a === 0) return true; // 0.0.0.0/8
+    if (a === 10) return true; // 10.0.0.0/8
+    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
+    if (a === 127) return true; // 127.0.0.0/8 loopback
+    if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local / cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 0 && c === 0) return true; // 192.0.0.0/24
+    if (a === 192 && b === 0 && c === 2) return true; // TEST-NET-1
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 198 && (b === 18 || b === 19)) return true; // Benchmarking
+    if (a === 198 && b === 51 && c === 100) return true; // TEST-NET-2
+    if (a === 203 && b === 0 && c === 113) return true; // TEST-NET-3
+    if (a >= 224) return true; // Multicast & reserved
+    return false;
+  }
+
+  // IPv6 addresses
+  if (lower.includes(":")) {
+    if (lower === "::" || lower === "::1") return true;
+    if (/^0*:0*:0*:0*:0*:0*:0*:0*[01]$/.test(lower)) return true;
+    if (lower.startsWith("fc") || lower.startsWith("fd")) return true; // ULA fc00::/7
+    if (/^fe[89ab]/.test(lower)) return true; // Link-local fe80::/10
+    if (lower.startsWith("ff")) return true; // Multicast
+    if (lower.startsWith("100::")) return true; // Discard prefix
+    return false;
+  }
+
+  return false;
+}
+
+/**
+ * Validates an optional custom Telegram Bot API HTTPS reverse-proxy URL
+ * (e.g., a Cloudflare Worker endpoint for hosts where api.telegram.org is blocked).
+ * Rejects non-HTTPS schemes, credentials, query strings, localhost, internal hostnames,
+ * and private/loopback/metadata IP addresses.
+ */
+export function validateTelegramApiBaseUrl(
+  raw: string
+): { ok: true; normalized: string } | { ok: false; error: string } {
+  const trimmed = raw.replace(ZERO_WIDTH_RE, "").trim();
+  if (!trimmed) {
+    return { ok: true, normalized: "" };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL must be a valid HTTPS URL (e.g. https://my-proxy.workers.dev).",
+    };
+  }
+
+  if (parsed.protocol !== "https:") {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL must use HTTPS.",
+    };
+  }
+
+  if (parsed.username || parsed.password) {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL cannot include embedded credentials.",
+    };
+  }
+
+  if (parsed.search || parsed.hash) {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL cannot include query parameters or hash fragments.",
+    };
+  }
+
+  if (parsed.port && parsed.port !== "443" && parsed.port !== "8443") {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL must use standard HTTPS port 443 (or 8443).",
+    };
+  }
+
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (!host || !host.includes(".")) {
+    return {
+      ok: false,
+      error: "Custom Telegram API URL must point to a public domain name.",
+    };
+  }
+
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".arpa") ||
+    host === "metadata.google.internal"
+  ) {
+    return {
+      ok: false,
+      error: "Local or internal hostnames are not permitted for Telegram API URL.",
+    };
+  }
+
+  // Reject raw IPv4/IPv6 literals that resolve to private/loopback/metadata ranges
+  const bareHost = host.replace(/^\[|\]$/g, "");
+  if (
+    /^\d+$/.test(bareHost) ||
+    /^0x[0-9a-f]+$/i.test(bareHost) ||
+    isPrivateOrReservedIp(bareHost)
+  ) {
+    return {
+      ok: false,
+      error: "Private, loopback, or reserved IP addresses are not permitted.",
+    };
+  }
+
+  const cleanPath = parsed.pathname.replace(/\/+$/, "");
+  return {
+    ok: true,
+    normalized: `${parsed.origin}${cleanPath}`,
+  };
+}
+
+// ============================================================================
 // Validation Schemas
 // ============================================================================
 
@@ -135,29 +362,54 @@ export const backupSettingsUpdateSchema = z.object({
   transportMode: z.enum(["auto", "mtproto", "bot_api"]).default("auto"),
   telegramChatId: z
     .string()
-    .trim()
-    .max(64)
+    .default("")
+    .transform((val) => normalizeTelegramChatId(val))
+    .refine((val) => val.length <= 64, "Chat ID is too long")
     .refine(
       (val) => val === "" || /^-?\d+$/.test(val) || /^@[a-zA-Z][a-zA-Z0-9_]{3,63}$/.test(val),
       "Chat ID must be numeric (e.g. -1001234567890) or @channel_username"
-    )
-    .default(""),
+    ),
   telegramThreadId: z
     .string()
-    .trim()
-    .max(32)
-    .refine((val) => val === "" || /^\d+$/.test(val), "Thread ID must be a positive integer")
-    .default(""),
-  telegramBotToken: z.string().trim().max(256).optional(),
+    .default("")
+    .transform((val) => normalizeTelegramThreadId(val))
+    .refine((val) => val.length <= 32, "Thread ID is too long")
+    .refine((val) => val === "" || /^\d+$/.test(val), "Thread ID must be a positive integer"),
+  telegramBotToken: z
+    .string()
+    .max(256)
+    .transform((val) => normalizeTelegramBotToken(val))
+    .optional(),
   clearBotToken: z.boolean().optional(),
   telegramApiId: z
     .string()
-    .trim()
-    .max(32)
-    .refine((val) => val === "" || /^\d{4,12}$/.test(val), "Telegram api_id must be a numeric ID")
-    .default(""),
-  telegramApiHash: z.string().trim().max(128).optional(),
+    .default("")
+    .transform((val) => normalizeTelegramApiId(val))
+    .refine((val) => val.length <= 32, "api_id is too long")
+    .refine((val) => val === "" || /^\d{4,12}$/.test(val), "Telegram api_id must be a numeric ID"),
+  telegramApiHash: z
+    .string()
+    .max(128)
+    .transform((val) => val.replace(ZERO_WIDTH_RE, "").trim())
+    .optional(),
   clearApiHash: z.boolean().optional(),
+  telegramApiBaseUrl: z
+    .string()
+    .max(256)
+    .default("")
+    .superRefine((val, ctx) => {
+      const checked = validateTelegramApiBaseUrl(val);
+      if (!checked.ok) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: checked.error,
+        });
+      }
+    })
+    .transform((val) => {
+      const checked = validateTelegramApiBaseUrl(val);
+      return checked.ok ? checked.normalized : "";
+    }),
   includeEnvFile: z.boolean().default(true),
   includeNodeModules: z.boolean().default(false),
   includeNextBuild: z.boolean().default(false),

@@ -25,6 +25,42 @@ interface BackupSettingsFormProps {
   onSaved: (next: BackupSettingsPublic) => void;
 }
 
+function localizeTelegramHint(hint: string, isFa: boolean): string {
+  if (!isFa) return hint;
+  const lower = hint.toLowerCase();
+  if (lower.includes("could not reach api.telegram.org directly")) {
+    return "سرور هاست شما نمی‌تواند به‌طور مستقیم به api.telegram.org متصل شود (در هاست‌های ایران و سرورهای دارای محدودیت شبکه رایج است). آدرس یک پروکسی HTTPS (مثلاً یک Cloudflare Worker رایگان) را در فیلد «آدرس پروکسی اختصاصی Bot API» وارد کرده و دوباره تست کنید.";
+  }
+  if (lower.includes("could not reach the custom telegram api proxy")) {
+    return "سرور هاست نتوانست به آدرس پروکسی اختصاصی متصل شود. مطمئن شوید آدرس Cloudflare Worker یا پروکسی آنلاین است، گواهی HTTPS معتبر دارد و از روی سرور قابل دسترس است.";
+  }
+  if (lower.includes("401 unauthorized") || lower.includes("rejected the bot token")) {
+    return "تلگرام توکن ربات را رد کرد (خطای 401). توکن دقیق را از @BotFather بدون فاصله اضافی و بدون پیشوند bot کپی و جای‌گذاری کنید.";
+  }
+  if (lower.includes("404 not found")) {
+    return "پاسخ 404 دریافت شد. فرمت توکن ربات (مانند 123456789:AAH...) و در صورت استفاده از پروکسی، صحت آدرس آن را بررسی کنید.";
+  }
+  if (lower.includes("could not find the target chat")) {
+    return "شناسه چت یا کانال مقصد در تلگرام پیدا نشد. برای کانال/سوپرگروه خصوصی شناسه عددی با پیشوند -100 وارد کنید و ربات را ادمین کنید؛ برای چت خصوصی ابتدا در ربات دستور /start را بزنید.";
+  }
+  if (lower.includes("does not have permission to post")) {
+    return "ربات مجوز ارسال پیام در این کانال/گروه را ندارد. ربات را با دسترسی ارسال پیام (Post Messages) ادمین کنید یا اگر بلاک شده آن را رفع بلاک کنید.";
+  }
+  if (lower.includes("mtproto connects directly over tcp")) {
+    return "حالت MTProto به‌طور مستقیم از طریق TCP به تلگرام متصل می‌شود و از پروکسی HTTP عبور نمی‌کند. اگر هاست شما پورت تلگرام را مسدود کرده، حالت ارسال را روی «خودکار» یا «فقط Bot API» بگذارید و آدرس پروکسی HTTPS را تنظیم کنید.";
+  }
+  if (lower.includes("paste the bot token")) {
+    return "ابتدا توکن ربات دریافتی از @BotFather را در فیلد «توکن ربات تلگرام» وارد کرده و سپس دوباره دکمه تست را بزنید.";
+  }
+  if (lower.includes("private, loopback, or reserved")) {
+    return "آدرس‌های داخلی، localhost و IPهای خصوصی برای پروکسی مجاز نیستند؛ فقط یک دامنه عمومی با HTTPS معتبر وارد کنید.";
+  }
+  if (lower.includes("must use https")) {
+    return "آدرس پروکسی اختصاصی باید حتماً با https:// شروع شود.";
+  }
+  return hint;
+}
+
 export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFormProps) {
   const [enabled, setEnabled] = useState(settings.enabled);
   const [scheduleUtcHour, setScheduleUtcHour] = useState(settings.scheduleUtcHour);
@@ -39,6 +75,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
   const [telegramApiId, setTelegramApiId] = useState(settings.telegramApiId);
   const [telegramApiHash, setTelegramApiHash] = useState("");
   const [clearApiHash, setClearApiHash] = useState(false);
+  const [telegramApiBaseUrl, setTelegramApiBaseUrl] = useState(settings.telegramApiBaseUrl || "");
 
   const [includeEnvFile, setIncludeEnvFile] = useState(settings.includeEnvFile);
   const [includeNodeModules, setIncludeNodeModules] = useState(settings.includeNodeModules);
@@ -85,6 +122,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
             telegramApiId,
             telegramApiHash: telegramApiHash.trim() || undefined,
             clearApiHash,
+            telegramApiBaseUrl: telegramApiBaseUrl.trim(),
             includeEnvFile,
             includeNodeModules,
             includeNextBuild,
@@ -99,6 +137,10 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
       setTelegramApiHash("");
       setClearBotToken(false);
       setClearApiHash(false);
+      setTelegramChatId(res.settings.telegramChatId);
+      setTelegramThreadId(res.settings.telegramThreadId);
+      setTelegramApiId(res.settings.telegramApiId);
+      setTelegramApiBaseUrl(res.settings.telegramApiBaseUrl || "");
       onSaved(res.settings);
       setSaveFeedback({
         ok: true,
@@ -124,7 +166,18 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
         "/api/admin/backups/test-telegram",
         {
           method: "POST",
-          body: JSON.stringify({ sendPingMessage }),
+          body: JSON.stringify({
+            sendPingMessage,
+            botToken: telegramBotToken.trim() || undefined,
+            chatId: telegramChatId,
+            threadId: telegramThreadId,
+            apiId: telegramApiId,
+            apiHash: telegramApiHash.trim() || undefined,
+            apiBaseUrl: telegramApiBaseUrl,
+            transportMode,
+            clearBotToken,
+            clearApiHash,
+          }),
         }
       );
       setTestResult(res);
@@ -198,25 +251,26 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
       )}
 
       {/* Section 1: Telegram Bot + MTProto Large-File Credentials */}
-      <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-(--color-border-subtle) pb-4">
-          <div>
+      <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
+        <div className="flex flex-col gap-3 border-b border-(--color-border-subtle) pb-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold text-(--color-text-primary)">
               {isFa
                 ? "اتصال ربات تلگرام و MTProto (ارسال فایل‌های حجیم تا ۲ گیگابایت)"
                 : "Telegram Bot & MTProto Credentials (Large Files up to 2 GB)"}
             </h2>
-            <p className="mt-1 text-xs text-(--color-text-tertiary)">
+            <p className="mt-1 text-xs leading-relaxed text-(--color-text-tertiary)">
               {isFa
-                ? "با وارد کردن api_id و api_hash (از my.telegram.org)، ربات از طریق MTProto فایل‌های تا ۲ گیگابایت را بدون محدودیت ۵۰ مگابایت ارسال می‌کند."
-                : "Configure api_id & api_hash from my.telegram.org to send backup archives up to 2 GB via MTProto instead of the 50 MB Bot API cap."}
+                ? "با وارد کردن اطلاعات زیر می‌توانید پیش از ذخیره نیز دکمه تست اتصال را بزنید. برای هاست‌های داخلی که به api.telegram.org دسترسی مستقیم ندارند، آدرس پروکسی HTTPS (مثل Cloudflare Worker) را وارد کنید."
+                : "You can test the values below before saving. If your host blocks api.telegram.org directly, enter a custom HTTPS reverse-proxy URL (e.g. a Cloudflare Worker)."}
             </p>
           </div>
           <button
             type="button"
             disabled={testing}
             onClick={() => handleTestTelegram(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3.5 text-xs font-medium text-(--color-text-primary) transition-colors hover:bg-white/[0.05] disabled:opacity-50 whitespace-nowrap"
+            data-testid="telegram-test-btn"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3.5 text-xs font-medium text-(--color-text-primary) transition-colors hover:bg-white/[0.05] disabled:opacity-50 sm:w-auto whitespace-nowrap"
           >
             <Send className="h-3.5 w-3.5 text-(--color-accent-purple)" />
             <span>
@@ -442,35 +496,86 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
               className="mt-1.5 w-full rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2 font-[family-name:var(--font-mono)] text-xs text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:border-(--color-accent-purple) focus:outline-none"
             />
           </div>
+
+          {/* Optional Custom Bot API Base URL / Cloudflare Worker Proxy */}
+          <div className="md:col-span-2">
+            <label
+              htmlFor="backup-api-base-url"
+              className="block text-xs font-medium text-(--color-text-secondary)"
+            >
+              {isFa
+                ? "آدرس پروکسی اختصاصی Bot API (اختیاری — ویژه هاست‌های ایران/فیلترشده)"
+                : "Custom Telegram Bot API Proxy URL (Optional — for restricted hosts)"}
+            </label>
+            <input
+              id="backup-api-base-url"
+              type="url"
+              dir="ltr"
+              value={telegramApiBaseUrl}
+              onChange={(e) => setTelegramApiBaseUrl(e.target.value)}
+              disabled={settings.envOverrides.apiBaseUrl}
+              placeholder="https://my-tg-proxy.workers.dev (خالی = اتصال مستقیم به api.telegram.org)"
+              className="mt-1.5 w-full rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 py-2 font-[family-name:var(--font-mono)] text-xs text-(--color-text-primary) placeholder:text-(--color-text-tertiary) focus:border-(--color-accent-purple) focus:outline-none disabled:opacity-60"
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-(--color-text-tertiary)">
+              {settings.envOverrides.apiBaseUrl
+                ? isFa
+                  ? "تنظیم‌شده از طریق متغیر محیطی TELEGRAM_API_BASE_URL"
+                  : "Configured via TELEGRAM_API_BASE_URL env var"
+                : isFa
+                  ? "اگر سرور هاست شما در ایران است یا اتصال مستقیم به api.telegram.org تایم‌اوت می‌دهد، آدرس یک Cloudflare Worker یا پروکسی HTTPS را وارد کنید (فقط HTTPS معتبر)."
+                  : "Leave blank to connect directly to https://api.telegram.org. If your hosting provider blocks Telegram, enter an HTTPS reverse proxy (e.g. Cloudflare Worker)."}
+            </p>
+          </div>
         </div>
 
         {/* Live Connection Test Output */}
         {testResult && (
           <div
-            className={`mt-5 rounded-lg border p-4 text-xs ${
+            data-testid="telegram-test-result"
+            className={`mt-5 rounded-lg border p-3.5 sm:p-4 text-xs ${
               testResult.ok
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
                 : "border-(--color-accent-red)/30 bg-(--color-accent-red)/10 text-(--color-accent-red)"
             }`}
           >
-            <div className="flex flex-wrap items-center justify-between gap-2 font-medium">
-              <span>
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between font-medium">
+              <span
+                dir={testResult.ok ? undefined : "ltr"}
+                className="break-words rtl:text-right"
+              >
                 {testResult.ok
                   ? isFa
                     ? `اتصال موفق — ربات @${testResult.botUsername ?? "bot"}`
                     : `Connected — @${testResult.botUsername ?? "bot"}`
                   : testResult.error || (isFa ? "خطا در اتصال به تلگرام" : "Telegram connection failed")}
               </span>
-              <span className="font-[family-name:var(--font-mono)] text-[11px] opacity-90">
+              <span
+                dir="ltr"
+                className="font-[family-name:var(--font-mono)] text-[11px] opacity-90 break-words rtl:text-right"
+              >
                 Bot API: {testResult.botApiOk ? "OK" : "FAIL"} · MTProto:{" "}
                 {testResult.mtprotoTested ? (testResult.mtprotoOk ? "OK (2GB)" : "FAIL") : "N/A"} ·
                 Ping: {testResult.messageSent ? `Msg #${testResult.messageId}` : "Not sent"}
               </span>
             </div>
+            {testResult.endpointUsed && (
+              <p
+                dir="ltr"
+                className="mt-1.5 font-[family-name:var(--font-mono)] text-[11px] text-(--color-text-tertiary) break-all rtl:text-right"
+              >
+                Endpoint: {testResult.endpointUsed}
+              </p>
+            )}
+            {testResult.networkHint && (
+              <p className="mt-2 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-[11px] leading-relaxed text-(--color-text-secondary)">
+                {localizeTelegramHint(testResult.networkHint, isFa)}
+              </p>
+            )}
             {testResult.warnings.length > 0 && (
               <ul className="mt-2 list-disc space-y-1 ps-5 text-[11px] text-amber-300">
                 {testResult.warnings.map((w, idx) => (
-                  <li key={idx}>{w}</li>
+                  <li key={idx} className="break-words">{w}</li>
                 ))}
               </ul>
             )}
@@ -479,10 +584,10 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
       </section>
 
       {/* Section 2: Nightly 00:00 UTC Schedule & Archive + Cleanup Policy */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-5 sm:gap-6 lg:grid-cols-2">
         {/* UTC Schedule */}
-        <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
-          <div className="flex items-center justify-between gap-3 border-b border-(--color-border-subtle) pb-3">
+        <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-subtle) pb-3">
             <div>
               <h2 className="text-sm font-semibold text-(--color-text-primary)">
                 {isFa ? "زمان‌بندی خودکار شبانه (ساعت UTC)" : "Automated Nightly UTC Schedule"}
@@ -504,7 +609,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
             </label>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="backup-utc-hour"
@@ -549,7 +654,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
                 {isFa ? "سیاست پاکسازی چندمرحله‌ای روی هاست" : "Multi-Pass Host Cleanup Verification"}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-4">
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label
                   htmlFor="backup-cleanup-passes"
@@ -606,7 +711,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
         </section>
 
         {/* Full Site Archive Contents Scope */}
-        <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
+        <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
           <div className="border-b border-(--color-border-subtle) pb-3">
             <h2 className="text-sm font-semibold text-(--color-text-primary)">
               {isFa ? "محتوای فایل دوم (آرشیو کامل سایت + دیتابیس)" : "Archive #2 Scope (Full Site + Database)"}
@@ -699,29 +804,29 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
       </div>
 
       {/* Section 3: External cPanel Cron Job Integration */}
-      <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
+      <section className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Terminal className="h-4 w-4 text-(--color-accent-purple)" />
+              <Terminal className="h-4 w-4 shrink-0 text-(--color-accent-purple)" />
               <h2 className="text-sm font-semibold text-(--color-text-primary)">
                 {isFa
                   ? "کران جاب تضمینی cPanel (برای اجرای دقیق 00:00 UTC)"
                   : "Guaranteed cPanel Cron Trigger (Exact 00:00 UTC)"}
               </h2>
             </div>
-            <p className="mt-1 text-xs text-(--color-text-tertiary)">
+            <p className="mt-1 text-xs leading-relaxed text-(--color-text-tertiary)">
               {isFa
                 ? "زمان‌بند داخلی نود به‌طور خودکار فعال است؛ اما در هاست‌های اشتراکی cPanel افزودن این خط در بخش Cron Jobs اجرای دقیق ساعت 00:00 UTC را تضمین می‌کند."
                 : "The built-in Node scheduler runs automatically; on shared cPanel hosts where idle processes sleep, add this line in cPanel Cron Jobs."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
             <button
               type="button"
               disabled={rotatingSecret || settings.envOverrides.cronSecret}
               onClick={handleRotateCronSecret}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 whitespace-nowrap"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 sm:flex-none whitespace-nowrap"
             >
               {rotatingSecret ? (
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -741,7 +846,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
             <button
               type="button"
               onClick={handleCopyCron}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap"
+              className="inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) sm:flex-none whitespace-nowrap"
             >
               <Copy className="h-3.5 w-3.5" />
               <span>{copiedCron ? (isFa ? "کپی شد" : "Copied") : isFa ? "کپی دستور" : "Copy Command"}</span>
@@ -751,7 +856,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
 
         <pre
           dir="ltr"
-          className="mt-3 overflow-x-auto rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-4 py-3 font-[family-name:var(--font-mono)] text-[11px] text-(--color-text-secondary)"
+          className="mt-3 overflow-x-auto rounded-lg border border-(--color-border-subtle) bg-(--color-bg-deep) px-3.5 py-3 font-[family-name:var(--font-mono)] text-[11px] text-(--color-text-secondary)"
         >
           {cronCommand}
         </pre>
@@ -770,7 +875,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex h-10 items-center gap-2 rounded-lg bg-(--color-accent-purple) px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-(--color-accent-purple) px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:w-auto"
         >
           <Save className="h-4 w-4" />
           <span>

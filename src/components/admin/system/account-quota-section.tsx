@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   Cpu,
   Files,
   FolderOpen,
@@ -40,7 +41,6 @@ const DISK_PRESETS_MB = [
   { label: "1 GB", mb: 1024 },
   { label: "2 GB", mb: 2048 },
   { label: "5 GB", mb: 5120 },
-  { label: "10 GB", mb: 10240 },
 ] as const;
 
 function getBarColorClass(percent: number, defaultClass: string): string {
@@ -152,6 +152,20 @@ export function AccountQuotaSection({
     });
   }
 
+  async function handleQuickApplyDiskCap(mb: number, label: string) {
+    await submitQuota({
+      planLabel: quota?.config.planLabel || (isFa ? `پلن هاست ${label}` : `${label} Hosting Plan`),
+      diskLimitMb: String(mb),
+      ramLimitMb: quota?.config.ramLimitMb !== null && quota?.config.ramLimitMb !== undefined ? String(quota.config.ramLimitMb) : null,
+      cpuCores: quota?.config.cpuCores !== null && quota?.config.cpuCores !== undefined ? String(quota.config.cpuCores) : null,
+      inodeLimit: quota?.config.inodeLimit !== null && quota?.config.inodeLimit !== undefined ? String(quota.config.inodeLimit) : null,
+      entryProcessLimit:
+        quota?.config.entryProcessLimit !== null && quota?.config.entryProcessLimit !== undefined
+          ? String(quota.config.entryProcessLimit)
+          : null,
+    });
+  }
+
   const loading = !quota;
   const hasAnyManualCap = Boolean(
     quota &&
@@ -250,6 +264,43 @@ export function AccountQuotaSection({
         </div>
       )}
 
+      {/* Honest Fallback Prompt when Shared Host Hides Disk Plan Cap */}
+      {quota && quota.disk.source === "host_fallback" && !editorOpen && (
+        <div
+          data-testid="quota-fallback-prompt"
+          className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-4"
+        >
+          <div className="flex items-start gap-2.5 text-amber-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <p className="leading-relaxed">
+              {isFa
+                ? `هاست اشتراکی شما سقف فضای پلن را به‌صورت خودکار اعلام نمی‌کند (مصرف فعلی اکانت شما ${formatBytesCompact(quota.disk.used)} است). حجم پلن هاست خود را انتخاب کنید تا باقی‌مانده دقیق محاسبه شود:`
+                : `Your shared host hides the billing disk cap from Node.js (current account usage: ${formatBytesCompact(quota.disk.used)}). Pick your plan size to calculate exact remaining space:`}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            {DISK_PRESETS_MB.map((preset) => (
+              <button
+                key={preset.mb}
+                type="button"
+                disabled={saving}
+                onClick={() => void handleQuickApplyDiskCap(preset.mb, preset.label)}
+                className="rounded-md border border-amber-400/35 bg-(--color-bg-deep)/80 px-2.5 py-1 font-[family-name:var(--font-mono)] text-[11px] font-medium tabular-nums text-amber-100 transition-colors hover:border-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+              >
+                {preset.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={openEditor}
+              className="rounded-md bg-amber-500/25 px-2.5 py-1 text-[11px] font-semibold text-amber-100 transition-colors hover:bg-amber-500/35"
+            >
+              {isFa ? "مقدار دلخواه" : "Custom"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Collapsible Hosting Plan Limit Editor */}
       <AnimatePresence initial={false}>
         {editorOpen && (
@@ -262,7 +313,7 @@ export function AccountQuotaSection({
             transition={{ duration: 0.2 }}
             className="overflow-hidden rounded-xl border border-(--color-border-strong) bg-(--color-bg-secondary)"
           >
-            <div className="space-y-4 p-5">
+            <div className="space-y-4 p-4 sm:p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-(--color-text-primary)">
@@ -574,7 +625,7 @@ export function AccountQuotaSection({
           <div className="space-y-2.5">
             {/* Disk Used vs Remaining */}
             <div>
-              <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
                 <span className="text-(--color-text-secondary)">
                   {isFa ? "دیسک اکانت" : "Account Disk"}
                 </span>
@@ -599,7 +650,7 @@ export function AccountQuotaSection({
 
             {/* RAM Used vs Remaining */}
             <div>
-              <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
                 <span className="text-(--color-text-secondary)">
                   {isFa ? "حافظه رم اکانت" : "Account RAM"}
                 </span>
@@ -624,7 +675,7 @@ export function AccountQuotaSection({
 
             {/* Entry Processes Used vs Remaining */}
             <div>
-              <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px]">
                 <span className="text-(--color-text-secondary)">
                   {isFa ? "پردازش‌های همزمان (Entry Processes)" : "Entry Processes (NPROC)"}
                 </span>
@@ -634,7 +685,7 @@ export function AccountQuotaSection({
                 >
                   {quota
                     ? isFa
-                      ? `${formatCountCompact(quota.processes.used)} فعال · ${formatCountCompact(quota.processes.remaining)} باقی‌مانده از ${formatCountCompact(quota.processes.limit)}`
+                      ? `${formatCountCompact(quota.processes.used)} فعال · ${formatCountCompact(quota.processes.remaining)} مانده از ${formatCountCompact(quota.processes.limit)}`
                       : `${formatCountCompact(quota.processes.used)} active · ${formatCountCompact(quota.processes.remaining)} left of ${formatCountCompact(quota.processes.limit)}`
                     : "—"}
                 </span>

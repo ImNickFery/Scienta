@@ -22,20 +22,23 @@ const AdminLocaleContext = createContext<AdminLocaleContextValue>({
 
 export function AdminLocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<AdminLocale>("en");
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const stored = window.localStorage.getItem("admin_dir");
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sync persisted admin direction preference on mount
     if (stored === "rtl") setLocaleState("fa");
     else if (stored === "ltr") setLocaleState("en");
+    setHydrated(true);
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     const dir = locale === "fa" ? "rtl" : "ltr";
     document.documentElement.dir = dir;
     document.documentElement.lang = locale;
     window.localStorage.setItem("admin_dir", dir);
-  }, [locale]);
+  }, [locale, hydrated]);
 
   const setLocale = useCallback((next: AdminLocale) => {
     setLocaleState(next);

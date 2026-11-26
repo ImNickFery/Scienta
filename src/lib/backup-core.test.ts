@@ -5,16 +5,23 @@ import os from "node:os";
 import path from "node:path";
 import {
   assertInsideBackupStaging,
+  backupSettingsUpdateSchema,
   BOT_API_MAX_BYTES,
   computeNextScheduledUtcRun,
   decryptBackupSecret,
   encryptBackupSecret,
   inspectBackupStagingDisk,
+  isPrivateOrReservedIp,
   isScheduledRunDue,
+  normalizeDigitsToAscii,
+  normalizeTelegramApiId,
+  normalizeTelegramBotToken,
+  normalizeTelegramChatId,
   redactBackupSecrets,
   selectTelegramTransport,
   shouldIncludeSitePath,
   timingSafeEqualSecret,
+  validateTelegramApiBaseUrl,
   verifyAndPurgeBackupArtifacts,
 } from "./backup-core";
 
@@ -204,4 +211,49 @@ test("timingSafeEqualSecret compares cron secrets safely", () => {
   assert.equal(timingSafeEqualSecret("super-secret-123456", "super-secret-123457"), false);
   assert.equal(timingSafeEqualSecret("super-secret-123456", "short"), false);
   assert.equal(timingSafeEqualSecret("", ""), false);
+});
+
+test("Telegram normalizers sanitize Persian digits, bot prefix, and t.me channel links", () => {
+  assert.equal(normalizeDigitsToAscii("−۱۰۰۱۲۳۴۵۶۷۸۹۰"), "-1001234567890");
+  assert.equal(normalizeTelegramBotToken("  bot123456789:AAH_abc123  \n"), "123456789:AAH_abc123");
+  assert.equal(normalizeTelegramBotToken("۱۲۳۴۵۶:AAH_secret"), "123456:AAH_secret");
+  assert.equal(normalizeTelegramChatId("https://t.me/scienta_backups/42"), "@scienta_backups");
+  assert.equal(normalizeTelegramChatId("t.me/c/1987654321/15"), "-1001987654321");
+  assert.equal(normalizeTelegramChatId("−۱۰۰۱۲۳۴۵۶"), "-100123456");
+  assert.equal(normalizeTelegramApiId("۲۴۸۱۹۲۰۴ "), "24819204");
+
+  const parsed = backupSettingsUpdateSchema.parse({
+    telegramBotToken: "bot777888:AAH_token_xyz",
+    telegramChatId: "https://t.me/scienta_chan",
+    telegramApiId: "۲۴۸۱۹۲۰۴",
+    telegramApiBaseUrl: "https://tg-proxy.example.workers.dev/",
+  });
+  assert.equal(parsed.telegramBotToken, "777888:AAH_token_xyz");
+  assert.equal(parsed.telegramChatId, "@scienta_chan");
+  assert.equal(parsed.telegramApiId, "24819204");
+  assert.equal(parsed.telegramApiBaseUrl, "https://tg-proxy.example.workers.dev");
+});
+
+test("validateTelegramApiBaseUrl allows public HTTPS proxies and blocks internal/private targets", () => {
+  assert.deepEqual(validateTelegramApiBaseUrl(""), { ok: true, normalized: "" });
+  assert.deepEqual(validateTelegramApiBaseUrl("https://my-tg.workers.dev///"), {
+    ok: true,
+    normalized: "https://my-tg.workers.dev",
+  });
+
+  // Non-HTTPS, localhost, private IPv4, link-local metadata, IPv6 loopback, embedded creds, query
+  assert.equal(validateTelegramApiBaseUrl("http://my-tg.workers.dev").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://localhost/bot").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://127.0.0.1").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://169.254.169.254/latest").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://10.0.0.5").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://192.168.1.10").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://[::1]").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://user:pass@my-tg.workers.dev").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://my-tg.workers.dev?foo=bar").ok, false);
+  assert.equal(validateTelegramApiBaseUrl("https://my-tg.workers.dev:8080").ok, false);
+
+  assert.equal(isPrivateOrReservedIp("::ffff:127.0.0.1"), true);
+  assert.equal(isPrivateOrReservedIp("169.254.169.254"), true);
+  assert.equal(isPrivateOrReservedIp("149.154.167.220"), false);
 });

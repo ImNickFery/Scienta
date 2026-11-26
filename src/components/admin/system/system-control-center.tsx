@@ -556,12 +556,12 @@ export function SystemControlCenter() {
   return (
     <div className="space-y-6">
       {/* Top Control Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-balance font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-(--color-text-primary)">
+      <div className="flex flex-col gap-3.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-balance font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-(--color-text-primary) sm:text-2xl">
             {isFa ? "مرکز کنترل سیستم و بروزرسانی سرور" : "System Telemetry & GitHub Deploy"}
           </h1>
-          <p className="mt-1 text-sm text-(--color-text-secondary)">
+          <p className="mt-1 text-xs text-(--color-text-secondary) sm:text-sm">
             {isFa
               ? "پایش لحظه‌ای منابع سخت‌افزاری سرور و ارتقای مستقیم نسخه وب‌سایت از مخزن عمومی یا خصوصی گیت‌هاب."
               : "Real-time hardware telemetry and one-click website upgrades from public or private GitHub repositories."}
@@ -569,9 +569,9 @@ export function SystemControlCenter() {
         </div>
 
         {/* Real-Time Stream Controls */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 py-1.5 text-xs text-(--color-text-secondary)">
-            <span className={`h-2 w-2 rounded-full ${streamDotColor}`} aria-hidden="true" />
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0">
+          <div className="flex h-8 items-center gap-2 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs text-(--color-text-secondary)">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${streamDotColor}`} aria-hidden="true" />
             <span className="whitespace-nowrap font-medium">{streamLabel}</span>
           </div>
 
@@ -585,7 +585,7 @@ export function SystemControlCenter() {
                 key={ms}
                 type="button"
                 onClick={() => setIntervalMs(ms)}
-                className={`rounded-md px-2.5 py-1 font-[family-name:var(--font-mono)] text-[11px] font-medium tabular-nums transition-colors whitespace-nowrap ${
+                className={`rounded-md px-2 py-1 font-[family-name:var(--font-mono)] text-[11px] font-medium tabular-nums transition-colors whitespace-nowrap sm:px-2.5 ${
                   intervalMs === ms
                     ? "bg-(--color-accent-purple) text-white"
                     : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"
@@ -601,16 +601,16 @@ export function SystemControlCenter() {
             onClick={() => void handleSampleNow()}
             disabled={samplingNow}
             aria-label={isFa ? "بروزرسانی فوری آمار سرور" : "Sample server metrics now"}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 whitespace-nowrap shrink-0"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 whitespace-nowrap shrink-0 sm:px-3"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${samplingNow ? "animate-spin" : ""}`} />
-            <span>{isFa ? "نمونه‌گیری" : "Refresh"}</span>
+            <span>{isFa ? "بروزرسانی" : "Refresh"}</span>
           </button>
 
           <button
             type="button"
             onClick={() => setPaused((p) => !p)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap shrink-0"
+            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-2.5 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) whitespace-nowrap shrink-0 sm:px-3"
           >
             {paused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
             <span>{paused ? (isFa ? "ادامه" : "Resume") : isFa ? "توقف" : "Pause"}</span>
@@ -620,16 +620,14 @@ export function SystemControlCenter() {
 
       {/* Top Row: 3x-ui-style Real-Time Hardware Gauges (Whole Host / Shared Server) */}
       <section aria-label={isFa ? "منابع لحظه‌ای کل سرور" : "Real-time host server resources"}>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="font-[family-name:var(--font-display)] text-sm font-semibold text-(--color-text-primary)">
-              {isFa ? "منابع کل سرور (هاست اشتراکی)" : "Host Server Resources (Shared Node)"}
-            </h2>
-            <span className="text-xs text-(--color-text-tertiary)">·</span>
-            <span className="text-xs text-(--color-text-tertiary)">
-              {isFa ? "ظرفیت کلی سخت‌افزار سرور میزبان" : "Physical host node hardware totals"}
-            </span>
-          </div>
+        <div className="mb-3 flex flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-2">
+          <h2 className="font-[family-name:var(--font-display)] text-sm font-semibold text-(--color-text-primary)">
+            {isFa ? "منابع کل سرور (هاست اشتراکی)" : "Host Server Resources (Shared Node)"}
+          </h2>
+          <span className="hidden text-xs text-(--color-text-tertiary) sm:inline">·</span>
+          <span className="text-xs text-(--color-text-tertiary)">
+            {isFa ? "ظرفیت کلی سخت‌افزار سرور میزبان" : "Physical host node hardware totals"}
+          </span>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <ResourceGauge
@@ -791,7 +789,7 @@ export function SystemControlCenter() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         {/* Left/Primary Column: GitHub Release Updater + Live Console */}
         <section className="space-y-6 xl:col-span-7">
-          <div className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
+          <div className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-(--color-border-subtle) pb-4">
               <div>
                 <h2 className="flex items-center gap-2 text-base font-semibold text-(--color-text-primary)">
@@ -1028,7 +1026,7 @@ export function SystemControlCenter() {
           </div>
 
           {/* Live Deployment Pipeline & Console */}
-          <div className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-6">
+          <div className="rounded-xl border border-(--color-border-subtle) bg-(--color-bg-secondary) p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-subtle) pb-4">
               <div className="flex items-center gap-2">
                 <Terminal className="h-4 w-4 text-(--color-accent-purple)" />

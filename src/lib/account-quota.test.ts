@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import {
   accountQuotaConfigInputSchema,
+  buildCgroupCandidateDirs,
   computeQuotaCpuPercent,
   computeQuotaMetric,
   formatCountCompact,
@@ -11,6 +12,8 @@ import {
   parseCgroupV2CpuMax,
   parseCgroupV2CpuUsageUsec,
   parseLinuxQuotaOutput,
+  parseProcSelfCgroup,
+  parseProcSelfLimits,
 } from "./account-quota-core";
 
 describe("account-quota-core", () => {
@@ -171,6 +174,66 @@ describe("account-quota-core", () => {
       entryProcessLimit: 10,
     });
     assert.equal(invalid.success, false);
+  });
+
+  it("parses 2-line wrapped Linux quota rows and 7-column output without grace", () => {
+    const wrapped = [
+      "Disk quotas for user hostuser (uid 2044):",
+      "     Filesystem  blocks   quota   limit   grace   files   quota   limit   grace",
+      "/dev/mapper/vg_host-lv_home",
+      "                 204800  512000  524288           12400  150000  200000",
+    ].join("\n");
+
+    const parsed = parseLinuxQuotaOutput(wrapped);
+    assert.ok(parsed);
+    assert.equal(parsed.filesystem, "/dev/mapper/vg_host-lv_home");
+    assert.equal(parsed.usedBytes, 204800 * 1024);
+    assert.equal(parsed.effectiveLimitBytes, 512000 * 1024);
+    assert.equal(parsed.usedInodes, 12400);
+    assert.equal(parsed.effectiveInodeLimit, 150000);
+  });
+
+  it("parses /proc/self/cgroup for v2 unified and v1 subsystem paths and builds ancestor dirs safely", () => {
+    const procContent = [
+      "12:memory:/user.slice/user-1042.slice/lve1042",
+      "8:cpu,cpuacct:/user.slice/user-1042.slice",
+      "0::/kubepods.slice/pod-abc/container-xyz",
+    ].join("\n");
+
+    const parsed = parseProcSelfCgroup(procContent);
+    assert.equal(parsed.v2Path, "/kubepods.slice/pod-abc/container-xyz");
+    assert.equal(parsed.v1Paths.memory, "/user.slice/user-1042.slice/lve1042");
+    assert.equal(parsed.v1Paths.cpu, "/user.slice/user-1042.slice");
+    assert.equal(parsed.v1Paths.cpuacct, "/user.slice/user-1042.slice");
+
+    const dirs = buildCgroupCandidateDirs("/sys/fs/cgroup", "/a/b/../c");
+    assert.deepEqual(dirs, [
+      "/sys/fs/cgroup/a/b/c",
+      "/sys/fs/cgroup/a/b",
+      "/sys/fs/cgroup/a",
+      "/sys/fs/cgroup",
+    ]);
+  });
+
+  it("parses /proc/self/limits for NPROC and virtual memory caps", () => {
+    const limitsSample = [
+      "Limit                     Soft Limit           Hard Limit           Units",
+      "Max processes             40                   60                   processes",
+      "Max address space         1073741824           2147483648           bytes",
+    ].join("\n");
+
+    const parsed = parseProcSelfLimits(limitsSample, 64 * 1024 * 1024 * 1024);
+    assert.equal(parsed.maxProcesses, 40);
+    assert.equal(parsed.maxAddressSpaceBytes, 1073741824);
+
+    const unlimitedSample = [
+      "Limit                     Soft Limit           Hard Limit           Units",
+      "Max processes             unlimited            unlimited            processes",
+      "Max address space         unlimited            unlimited            bytes",
+    ].join("\n");
+    const parsedUnlimited = parseProcSelfLimits(unlimitedSample, 64 * 1024 * 1024 * 1024);
+    assert.equal(parsedUnlimited.maxProcesses, null);
+    assert.equal(parsedUnlimited.maxAddressSpaceBytes, null);
   });
 
   it("formats compact integer counts cleanly", () => {

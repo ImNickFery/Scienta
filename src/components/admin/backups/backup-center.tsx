@@ -234,9 +234,9 @@ export function BackupCenter() {
   return (
     <div className="space-y-6">
       {/* Header Toolbar */}
-      <div className="flex flex-wrap items-end justify-between gap-4 xl:flex-nowrap">
+      <div className="flex flex-col gap-3.5 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0">
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold tracking-tight text-(--color-text-primary)">
+          <h1 className="font-[family-name:var(--font-display)] text-xl font-bold tracking-tight text-(--color-text-primary) sm:text-2xl">
             {isFa ? "مرکز پشتیبان‌گیری خودکار به تلگرام" : "Automated Telegram Backup Center"}
           </h1>
           <p className="mt-1 text-xs text-(--color-text-tertiary)">
@@ -246,21 +246,21 @@ export function BackupCenter() {
           </p>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 xl:w-auto xl:shrink-0">
           <button
             type="button"
             disabled={Boolean(executing) || data.running}
             onClick={() => handleTriggerBackup(true)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) px-3 text-xs font-medium text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50 whitespace-nowrap sm:flex-none"
           >
-            <ShieldCheck className="h-3.5 w-3.5 text-[#38bdf8]" />
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-[#38bdf8]" />
             <span>
               {executing === "dry_run"
                 ? isFa
-                  ? "در حال تست و پاکسازی..."
+                  ? "در حال تست..."
                   : "Running dry-run..."
                 : isFa
-                  ? "آزمایش ساخت و پاکسازی"
+                  ? "تست ساخت و پاکسازی"
                   : "Verification Dry-Run"}
             </span>
           </button>
@@ -269,20 +269,20 @@ export function BackupCenter() {
             type="button"
             disabled={Boolean(executing) || data.running}
             onClick={() => handleTriggerBackup(false)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-4 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap sm:flex-none sm:px-4"
           >
             {executing === "live" ? (
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              <RefreshCw className="h-3.5 w-3.5 shrink-0 animate-spin" />
             ) : (
-              <Play className="h-3.5 w-3.5" />
+              <Play className="h-3.5 w-3.5 shrink-0" />
             )}
             <span>
               {executing === "live"
                 ? isFa
-                  ? "در حال بکاپ و ارسال..."
-                  : "Backing up & sending..."
+                  ? "در حال ارسال..."
+                  : "Backing up..."
                 : isFa
-                  ? "اجرای بکاپ و ارسال الان"
+                  ? "اجرای بکاپ الان"
                   : "Run Full Backup Now"}
             </span>
           </button>
@@ -292,7 +292,7 @@ export function BackupCenter() {
             disabled={refreshing}
             onClick={handleRefresh}
             aria-label={isFa ? "بروزرسانی وضعیت" : "Refresh backup status"}
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) text-(--color-text-secondary) transition-colors hover:border-(--color-border-strong) hover:text-(--color-text-primary) disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
           </button>
@@ -300,16 +300,16 @@ export function BackupCenter() {
       </div>
 
       {/* Workspace Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-(--color-border-subtle) pb-3">
+      <div className="flex flex-col gap-2 border-b border-(--color-border-subtle) pb-3 sm:flex-row sm:items-center sm:justify-between">
         <div
           role="tablist"
           aria-label={isFa ? "بخش‌های پشتیبان‌گیری" : "Backup workspaces"}
-          className="flex flex-wrap items-center gap-1 rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1 text-xs"
+          className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-(--color-border-subtle) bg-(--color-bg-secondary) p-1 text-xs"
         >
           {(
             [
               { id: "overview", en: "Overview & Pipeline", fa: "نمای کلی و چرخه اجرا", Icon: HardDriveDownload },
-              { id: "settings", en: "Telegram, MTProto & Schedule", fa: "تنظیمات تلگرام، MTProto و زمان‌بندی", Icon: Settings2 },
+              { id: "settings", en: "Telegram, MTProto & Schedule", fa: "تنظیمات تلگرام و زمان‌بندی", Icon: Settings2 },
               { id: "history", en: "History & Cleanup Audit", fa: "تاریخچه و ممیزی پاکسازی", Icon: History },
             ] as const
           ).map(({ id, en, fa, Icon }) => {
@@ -321,7 +321,7 @@ export function BackupCenter() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setTab(id)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${
                   active
                     ? "bg-(--color-accent-purple) text-white"
                     : "text-(--color-text-tertiary) hover:text-(--color-text-primary)"
@@ -437,7 +437,10 @@ export function BackupCenter() {
               {latestRun ? formatDurationMs(latestRun.durationMs) : "—"}
             </span>
           </div>
-          <p className="mt-2 font-[family-name:var(--font-mono)] text-2xl font-bold tabular-nums text-(--color-text-primary)">
+          <p
+            dir="ltr"
+            className="mt-2 font-[family-name:var(--font-mono)] text-2xl font-bold tabular-nums text-(--color-text-primary) rtl:text-right"
+          >
             {latestRun ? formatBytes(latestRun.dbSizeBytes + latestRun.fullSizeBytes) : "—"}
           </p>
           <p className="mt-1.5 truncate font-[family-name:var(--font-mono)] text-xs tabular-nums text-(--color-text-tertiary)">
@@ -463,7 +466,10 @@ export function BackupCenter() {
               {disk.clean ? (isFa ? "کاملاً پاک" : "Verified Clean") : isFa ? "دارای فایل" : "Files Found"}
             </span>
           </div>
-          <p className="mt-2 font-[family-name:var(--font-mono)] text-2xl font-bold tabular-nums text-(--color-text-primary)">
+          <p
+            dir="ltr"
+            className="mt-2 font-[family-name:var(--font-mono)] text-2xl font-bold tabular-nums text-(--color-text-primary) rtl:text-right"
+          >
             {formatBytes(disk.totalBytes)}
           </p>
           <div className="mt-1.5 flex items-center justify-between gap-2 text-xs text-(--color-text-tertiary)">
