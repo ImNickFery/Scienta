@@ -82,6 +82,7 @@ export interface ResolvedBackupSettings extends BackupSettingsStored {
   effectiveApiHash: string;
   effectiveApiBaseUrl: string;
   effectiveCronSecret: string;
+  botTokenDecryptFailed: boolean;
   envOverrides: {
     botToken: boolean;
     chatId: boolean;
@@ -192,7 +193,7 @@ async function writeStoredSettings(next: BackupSettingsStored): Promise<void> {
     ]);
   } else {
     await execute(
-      "INSERT INTO settings (`key`, `value`, updated_at) VALUES (?, ?, NOW())",
+      "INSERT INTO settings (`key`, `value`) VALUES (?, ?)",
       [BACKUP_SETTINGS_KEY, serialized]
     );
   }
@@ -222,7 +223,12 @@ export async function getResolvedBackupSettings(): Promise<ResolvedBackupSetting
   const envApiBaseUrl = process.env.TELEGRAM_API_BASE_URL?.trim() || "";
   const envCronSecret = process.env.BACKUP_CRON_SECRET?.trim() || "";
 
-  const effectiveBotToken = envBotToken || decryptBackupSecret(stored.telegramBotTokenEncrypted);
+  const decryptedBotToken = decryptBackupSecret(stored.telegramBotTokenEncrypted);
+  const botTokenDecryptFailed = Boolean(
+    !envBotToken && stored.telegramBotTokenEncrypted && !decryptedBotToken
+  );
+
+  const effectiveBotToken = envBotToken || decryptedBotToken;
   const effectiveChatId = envChatId || stored.telegramChatId;
   const effectiveApiId = envApiId || stored.telegramApiId;
   const effectiveApiHash = envApiHash || decryptBackupSecret(stored.telegramApiHashEncrypted);
@@ -237,6 +243,7 @@ export async function getResolvedBackupSettings(): Promise<ResolvedBackupSetting
     effectiveApiHash,
     effectiveApiBaseUrl,
     effectiveCronSecret,
+    botTokenDecryptFailed,
     envOverrides: {
       botToken: Boolean(envBotToken),
       chatId: Boolean(envChatId),
@@ -796,10 +803,16 @@ export async function executeBackupPipeline(options: {
 
     if (!dryRun) {
       if (!telegramCreds.botToken) {
-        throw new Error("Telegram Bot Token is not configured.");
+        throw new Error(
+          settings.botTokenDecryptFailed
+            ? "Stored Telegram Bot Token could not be decrypted (server encryption key changed). Please re-enter and save your Bot Token in Backup Settings."
+            : "Telegram Bot Token is not configured. Open Backup Settings, enter your Bot Token, and click Save Backup Settings first."
+        );
       }
       if (!telegramCreds.chatId) {
-        throw new Error("Telegram Target Chat / Channel ID is not configured.");
+        throw new Error(
+          "Telegram Target Chat / Channel ID is not configured. Open Backup Settings, enter your Chat/Channel ID, and click Save Backup Settings first."
+        );
       }
     }
 

@@ -386,7 +386,7 @@ export const backupSettingsUpdateSchema = z.object({
     .default("")
     .transform((val) => normalizeTelegramApiId(val))
     .refine((val) => val.length <= 32, "api_id is too long")
-    .refine((val) => val === "" || /^\d{4,12}$/.test(val), "Telegram api_id must be a numeric ID"),
+    .refine((val) => val === "" || /^\d{1,16}$/.test(val), "Telegram api_id must be a numeric ID"),
   telegramApiHash: z
     .string()
     .max(128)

@@ -36,7 +36,14 @@ export async function PUT(req: Request) {
     return NextResponse.json({ settings });
   } catch (err) {
     if (err instanceof ZodError) {
-      return badRequest("Invalid backup settings.", err.flatten());
+      const firstIssues = err.issues
+        .map((issue) => {
+          const field = issue.path.join(".");
+          return field ? `${field}: ${issue.message}` : issue.message;
+        })
+        .slice(0, 3)
+        .join(" · ");
+      return badRequest(firstIssues || "Invalid backup settings.", err.flatten());
     }
     return badRequest(err instanceof Error ? err.message : "Failed to save backup settings.");
   }

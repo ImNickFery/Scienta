@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import {
   CheckCircle2,
   Copy,
@@ -19,10 +19,16 @@ import type {
   TelegramTransportPreference,
 } from "@/lib/backup-format";
 
+export interface BackupSettingsFormHandle {
+  hasUnsavedChanges: () => boolean;
+  saveNow: () => Promise<BackupSettingsPublic | null>;
+}
+
 interface BackupSettingsFormProps {
   settings: BackupSettingsPublic;
   isFa: boolean;
   onSaved: (next: BackupSettingsPublic) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 function localizeTelegramHint(hint: string, isFa: boolean): string {
@@ -61,7 +67,10 @@ function localizeTelegramHint(hint: string, isFa: boolean): string {
   return hint;
 }
 
-export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFormProps) {
+export const BackupSettingsForm = forwardRef<
+  BackupSettingsFormHandle,
+  BackupSettingsFormProps
+>(function BackupSettingsForm({ settings, isFa, onSaved, onDirtyChange }, ref) {
   const [enabled, setEnabled] = useState(settings.enabled);
   const [scheduleUtcHour, setScheduleUtcHour] = useState(settings.scheduleUtcHour);
   const [scheduleUtcMinute, setScheduleUtcMinute] = useState(settings.scheduleUtcMinute);
@@ -95,14 +104,38 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
   const [revealedCronSecret, setRevealedCronSecret] = useState<string | null>(null);
   const [copiedCron, setCopiedCron] = useState(false);
 
+  const isDirty =
+    telegramBotToken.trim().length > 0 ||
+    telegramApiHash.trim().length > 0 ||
+    clearBotToken ||
+    clearApiHash ||
+    telegramChatId !== settings.telegramChatId ||
+    telegramThreadId !== settings.telegramThreadId ||
+    telegramApiId !== settings.telegramApiId ||
+    telegramApiBaseUrl.trim() !== (settings.telegramApiBaseUrl || "") ||
+    transportMode !== settings.transportMode ||
+    enabled !== settings.enabled ||
+    scheduleUtcHour !== settings.scheduleUtcHour ||
+    scheduleUtcMinute !== settings.scheduleUtcMinute ||
+    includeEnvFile !== settings.includeEnvFile ||
+    includeNodeModules !== settings.includeNodeModules ||
+    includeNextBuild !== settings.includeNextBuild ||
+    includeGitDir !== settings.includeGitDir ||
+    compressionLevel !== settings.compressionLevel ||
+    cleanupVerifyPasses !== settings.cleanupVerifyPasses ||
+    notifyCleanupSummary !== settings.notifyCleanupSummary;
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
   const origin =
     typeof window !== "undefined" ? window.location.origin : "https://yourdomain.com";
   const cronCommand = `${scheduleUtcMinute} ${scheduleUtcHour} * * * curl -fsS -X POST -H "Authorization: Bearer ${
     revealedCronSecret || "<YOUR_BACKUP_CRON_SECRET>"
   }" "${origin}/api/cron/backup" >/dev/null 2>&1`;
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function persistSettings(): Promise<BackupSettingsPublic | null> {
     setSaving(true);
     setSaveFeedback(null);
     try {
@@ -148,14 +181,26 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
           ? "تنظیمات پشتیبان‌گیری و تلگرام با رمزنگاری AES-256-GCM ذخیره شد."
           : "Backup & Telegram settings saved with AES-256-GCM encryption.",
       });
+      return res.settings;
     } catch (err) {
       setSaveFeedback({
         ok: false,
         text: err instanceof Error ? err.message : "Failed to save settings.",
       });
+      return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  useImperativeHandle(ref, () => ({
+    hasUnsavedChanges: () => isDirty,
+    saveNow: () => persistSettings(),
+  }));
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    await persistSettings();
   }
 
   async function handleTestTelegram(sendPingMessage: boolean) {
@@ -233,8 +278,33 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
+      {isDirty && !saving && (
+        <div
+          data-testid="backup-unsaved-banner"
+          className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-amber-500/35 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200"
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+            <span>
+              {isFa
+                ? "تغییرات شما هنوز ذخیره نشده‌اند — پیش از اجرای بکاپ، ذخیره را بزنید (یا هنگام کلیک روی «اجرای بکاپ الان» خودکار ذخیره می‌شود)."
+                : "You have unsaved settings changes — click Save before running a backup (or Run Full Backup Now will auto-save first)."}
+            </span>
+          </span>
+          <button
+            type="submit"
+            disabled={saving}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-500 px-3 text-xs font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50 whitespace-nowrap"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>{isFa ? "ذخیره تغییرات" : "Save Changes"}</span>
+          </button>
+        </div>
+      )}
+
       {saveFeedback && (
         <div
+          data-testid="backup-save-feedback"
           className={`flex items-center gap-2.5 rounded-lg border px-4 py-3 text-xs ${
             saveFeedback.ok
               ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
@@ -246,7 +316,7 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
           ) : (
             <AlertTriangle className="h-4 w-4 shrink-0" />
           )}
-          <span>{saveFeedback.text}</span>
+          <span className="break-words">{saveFeedback.text}</span>
         </div>
       )}
 
@@ -265,24 +335,43 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
                 : "You can test the values below before saving. If your host blocks api.telegram.org directly, enter a custom HTTPS reverse-proxy URL (e.g. a Cloudflare Worker)."}
             </p>
           </div>
-          <button
-            type="button"
-            disabled={testing}
-            onClick={() => handleTestTelegram(true)}
-            data-testid="telegram-test-btn"
-            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3.5 text-xs font-medium text-(--color-text-primary) transition-colors hover:bg-white/[0.05] disabled:opacity-50 sm:w-auto whitespace-nowrap"
-          >
-            <Send className="h-3.5 w-3.5 text-(--color-accent-purple)" />
-            <span>
-              {testing
-                ? isFa
-                  ? "در حال بررسی..."
-                  : "Testing..."
-                : isFa
-                  ? "تست اتصال و ارسال پیام"
-                  : "Test Connection & Ping"}
-            </span>
-          </button>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <button
+              type="button"
+              disabled={testing}
+              onClick={() => handleTestTelegram(true)}
+              data-testid="telegram-test-btn"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-(--color-border-strong) bg-(--color-bg-deep) px-3.5 text-xs font-medium text-(--color-text-primary) transition-colors hover:bg-white/[0.05] disabled:opacity-50 sm:flex-none whitespace-nowrap"
+            >
+              <Send className="h-3.5 w-3.5 text-(--color-accent-purple)" />
+              <span>
+                {testing
+                  ? isFa
+                    ? "در حال بررسی..."
+                    : "Testing..."
+                  : isFa
+                    ? "تست اتصال و ارسال پیام"
+                    : "Test Connection & Ping"}
+              </span>
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              data-testid="backup-save-top-btn"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-(--color-accent-purple) px-3.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:flex-none whitespace-nowrap"
+            >
+              <Save className="h-3.5 w-3.5" />
+              <span>
+                {saving
+                  ? isFa
+                    ? "در حال ذخیره..."
+                    : "Saving..."
+                  : isFa
+                    ? "ذخیره تنظیمات"
+                    : "Save Settings"}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-5 md:grid-cols-2">
@@ -509,8 +598,11 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
             </label>
             <input
               id="backup-api-base-url"
-              type="url"
+              type="text"
               dir="ltr"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={telegramApiBaseUrl}
               onChange={(e) => setTelegramApiBaseUrl(e.target.value)}
               disabled={settings.envOverrides.apiBaseUrl}
@@ -578,6 +670,23 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
                   <li key={idx} className="break-words">{w}</li>
                 ))}
               </ul>
+            )}
+            {testResult.ok && isDirty && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-emerald-500/20 pt-2.5">
+                <span className="text-[11px] text-emerald-200/90">
+                  {isFa
+                    ? "برای استفاده از این اطلاعات در بکاپ‌ها، آن‌ها را ذخیره کنید:"
+                    : "Save these verified credentials so backups can use them:"}
+                </span>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-500 px-3 text-xs font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-50"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>{isFa ? "ذخیره همین اطلاعات" : "Save Credentials"}</span>
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -870,12 +979,30 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
         )}
       </section>
 
-      {/* Primary Save Footer */}
-      <div className="flex items-center justify-end gap-3">
+      {/* Primary Save Footer + Inline Feedback */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          {saveFeedback && (
+            <div
+              className={`flex items-center gap-2 rounded-lg border px-3.5 py-2.5 text-xs ${
+                saveFeedback.ok
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-(--color-accent-red)/30 bg-(--color-accent-red)/10 text-(--color-accent-red)"
+              }`}
+            >
+              {saveFeedback.ok ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+              )}
+              <span className="break-words">{saveFeedback.text}</span>
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           disabled={saving}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-(--color-accent-purple) px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:w-auto"
+          className="inline-flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-(--color-accent-purple) px-5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:w-auto"
         >
           <Save className="h-4 w-4" />
           <span>
@@ -891,4 +1018,4 @@ export function BackupSettingsForm({ settings, isFa, onSaved }: BackupSettingsFo
       </div>
     </form>
   );
-}
+});

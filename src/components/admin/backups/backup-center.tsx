@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -25,7 +25,10 @@ import {
   type BackupSettingsPublic,
   type CleanupVerificationReport,
 } from "@/lib/backup-format";
-import { BackupSettingsForm } from "./backup-settings-form";
+import {
+  BackupSettingsForm,
+  type BackupSettingsFormHandle,
+} from "./backup-settings-form";
 import { BackupHistoryTable } from "./backup-history-table";
 
 type BackupWorkspaceTab = "overview" | "settings" | "history";
@@ -60,6 +63,7 @@ export function BackupCenter() {
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+  const settingsFormRef = useRef<BackupSettingsFormHandle | null>(null);
 
   const loadOverview = useCallback(async () => {
     return adminFetch<BackupOverviewPayload>("/api/admin/backups/runs?limit=30");
@@ -113,6 +117,40 @@ export function BackupCenter() {
     setNotice(null);
     setError(null);
     try {
+      let activeSettings = data?.settings ?? null;
+
+      // If the admin typed Telegram settings without clicking Save yet, automatically
+      // save them first so "Run Full Backup Now" never fails with stale/empty DB config.
+      if (!dryRun && settingsFormRef.current?.hasUnsavedChanges()) {
+        const saved = await settingsFormRef.current.saveNow();
+        if (!saved) {
+          setTab("settings");
+          setNotice({
+            ok: false,
+            text: isFa
+              ? "ذخیره تنظیمات تلگرام ناموفق بود — خطای فیلدها را در تب تنظیمات بررسی و اصلاح کنید."
+              : "Could not save your pending Telegram settings — please fix the highlighted validation error first.",
+          });
+          return;
+        }
+        activeSettings = saved;
+      }
+
+      if (!dryRun && activeSettings && (!activeSettings.hasBotToken || !activeSettings.telegramChatId)) {
+        setTab("settings");
+        setNotice({
+          ok: false,
+          text: !activeSettings.hasBotToken
+            ? isFa
+              ? "توکن ربات تلگرام هنوز ثبت نشده است. توکن را وارد کرده و روی «ذخیره تنظیمات» کلیک کنید."
+              : "Telegram Bot Token is not saved yet. Enter your Bot Token and click Save Settings."
+            : isFa
+              ? "شناسه چت یا کانال مقصد (Chat ID) هنوز ثبت نشده است."
+              : "Target Telegram Chat / Channel ID is not saved yet.",
+        });
+        return;
+      }
+
       const res = await adminFetch<{ run: BackupRunRecord; disk: BackupDiskInspection }>(
         "/api/admin/backups/run",
         {
@@ -606,16 +644,17 @@ export function BackupCenter() {
         </div>
       )}
 
-      {/* WORKSPACE 2: SETTINGS */}
-      {tab === "settings" && (
+      {/* WORKSPACE 2: SETTINGS (kept mounted so tab switches never discard unsaved inputs) */}
+      <div className={tab === "settings" ? "" : "hidden"}>
         <BackupSettingsForm
+          ref={settingsFormRef}
           settings={settings}
           isFa={isFa}
           onSaved={(nextSettings) => {
             setData((prev) => (prev ? { ...prev, settings: nextSettings } : prev));
           }}
         />
-      )}
+      </div>
 
       {/* WORKSPACE 3: FULL HISTORY & AUDIT */}
       {tab === "history" && <BackupHistoryTable runs={runs} isFa={isFa} />}
